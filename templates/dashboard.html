@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Kirana Konnect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    
+    <script>tailwind.config = {
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#4CAF50",
+        "secondary": "#2196F3",
+        "accent": "#FF9800",
+        "danger": "#F44336",
+        "dark": "#333333",
+        "light": "#F5F5F5"
+      },
+      "fontFamily": {
+        "poppins": [
+          "Poppins",
+          "sans-serif"
+        ],
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap">
+<style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+    </style>
+<style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+</style>
+</head>
+<body class="font-poppins bg-gray-50">
+    <!-- Header Section -->
+    <header id="header" class="bg-white shadow-sm fixed top-0 left-0 right-0 z-10">
+        <div class="flex items-center justify-between p-4">
+            <div class="flex items-center space-x-3">
+                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Owner" class="w-10 h-10 rounded-full border-2 border-primary">
+                <div>
+                    <h1 class="text-lg font-bold text-dark">Kirana Konnect</h1>
+                    <p class="text-xs text-gray-600 font-medium">Sharma Kirana Store</p>
+                    <div class="flex flex-col space-y-1 mt-1">
+                        <span class="text-xs text-gray-500">GST: 24ABCDE1234F1Z5</span>
+                        <span class="text-xs text-gray-500">UDYAM: UP-12-0012345</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="notification-bell" class="relative bg-gray-100 p-2 rounded-full">
+                    <i class="fa-solid fa-bell text-gray-600"></i>
+                    <span id="notification-count" class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">5</span>
+                </button>
+                <button onclick="openSearch()" class="bg-gray-100 p-2 rounded-full">
+                    <i class="fa-solid fa-search text-gray-600"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Notification Dropdown -->
+    <div id="notification-dropdown" class="fixed top-20 right-4 bg-white rounded-xl shadow-lg border z-20 w-80 hidden">
+        <div class="p-4 border-b">
+            <h3 class="font-bold text-dark text-lg">Alerts & Notifications</h3>
+        </div>
+        <div class="max-h-80 overflow-y-auto">
+            <div class="p-4 border-b hover:bg-gray-50 cursor-pointer" onclick="window.location.href='/profile'">
+                <div class="flex items-start space-x-3">
+                    <div class="bg-purple-100 p-2 rounded-full">
+                        <i class="fa-solid fa-crown text-purple-600 text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-purple-600 text-sm">Premium expires in 7 days</p>
+                        <p class="text-xs text-gray-600 mt-1">Renew to continue advanced features</p>
+                        <p class="text-xs text-gray-400 mt-1">3 hours ago</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="backup-notification" class="p-4 border-b hover:bg-gray-50 cursor-pointer" onclick="window.location.href='/profile?highlight=backup'" style="display: none;">
+                <div class="flex items-start space-x-3">
+                    <div class="bg-orange-100 p-2 rounded-full">
+                        <i class="fa-solid fa-shield-exclamation text-orange-600 text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-orange-600 text-sm">Data Backup Disabled</p>
+                        <p class="text-xs text-gray-600 mt-1">Enable backup to protect your business data</p>
+                        <p class="text-xs text-gray-400 mt-1">Just now</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-b hover:bg-gray-50 cursor-pointer" onclick="window.location.href='/expiry-alert'">
+                <div class="flex items-start space-x-3">
+                    <div class="bg-danger/10 p-2 rounded-full">
+                        <i class="fa-solid fa-triangle-exclamation text-danger text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-danger text-sm">5 items expired</p>
+                        <p class="text-xs text-gray-600 mt-1">Remove from inventory immediately</p>
+                        <p class="text-xs text-gray-400 mt-1">2 hours ago</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-b hover:bg-gray-50 cursor-pointer" onclick="window.location.href='/low-stock'">
+                <div class="flex items-start space-x-3">
+                    <div class="bg-accent/10 p-2 rounded-full">
+                        <i class="fa-solid fa-clock text-accent text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-accent text-sm">10 items low stock</p>
+                        <p class="text-xs text-gray-600 mt-1">Reorder soon to avoid stockouts</p>
+                        <p class="text-xs text-gray-400 mt-1">4 hours ago</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 hover:bg-gray-50 cursor-pointer" onclick="window.location.href='/pending-credits'">
+                <div class="flex items-start space-x-3">
+                    <div class="bg-secondary/10 p-2 rounded-full">
+                        <i class="fa-solid fa-credit-card text-secondary text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-secondary text-sm">₹1,500 pending credits</p>
+                        <p class="text-xs text-gray-600 mt-1">From 3 customers - follow up required</p>
+                        <p class="text-xs text-gray-400 mt-1">6 hours ago</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="p-3 border-t">
+            <button onclick="window.location.href='/notifications'" class="text-secondary text-sm font-semibold w-full text-center hover:text-secondary/80">View All Notifications</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="pt-32 pb-20">
+        <!-- Welcome Section -->
+        <div id="welcome-section" class="mx-4 mb-6 bg-gradient-to-r from-primary to-green-600 rounded-xl p-4 shadow-md">
+            <div class="text-white">
+                <h2 class="text-xl font-bold mb-1">Welcome back, Rajesh!</h2>
+                <p class="text-sm opacity-90 mb-3">Here's your store overview for today</p>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fa-solid fa-calendar-day mr-2"></i>
+                        <span class="text-sm" id="current-date">June 11, 2025</span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs opacity-80">Current Time</p>
+                        <p class="text-sm font-semibold" id="current-time">11:55 AM</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats Cards -->
+        <div id="stats-section" class="px-4 mb-6">
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Today's Profit -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-primary cursor-pointer hover:shadow-md transition-shadow" onclick="showTodaysProfit()">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Today's Profit</p>
+                            <p class="text-2xl font-bold text-primary mt-1" id="today-profit">₹0</p>
+                            <p class="text-xs mt-1" id="profit-growth">Loading...</p>
+                        </div>
+                        <div class="bg-primary/10 p-3 rounded-full">
+                            <i class="fa-solid fa-chart-line text-primary text-lg"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Sales -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-secondary cursor-pointer hover:shadow-lg transition-shadow" onclick="window.location.href='/sales-report'">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total Sales</p>
+                            <p class="text-2xl font-bold text-secondary mt-1" id="total-sales">₹0</p>
+                            <p class="text-xs text-gray-500 mt-1" id="transaction-count">0 transactions</p>
+                        </div>
+                        <div class="bg-secondary/10 p-3 rounded-full">
+                            <i class="fa-solid fa-rupee-sign text-secondary text-lg"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Udhar Ledger -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-accent cursor-pointer hover:shadow-lg transition-shadow" onclick="window.location.href='/customer-ledger'">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Udhar Ledger</p>
+                            <p class="text-sm font-semibold text-accent mt-1" id="customers-with-credit">0 Customers</p>
+                            <p class="text-xl font-bold text-accent" id="outstanding-amount">₹0</p>
+                        </div>
+                        <div class="bg-accent/10 p-3 rounded-full">
+                            <i class="fa-solid fa-credit-card text-accent text-lg"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Health -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-danger cursor-pointer hover:shadow-lg transition-shadow" onclick="goToInventory()">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Inventory</p>
+                            <p class="text-sm text-gray-600 mt-1" id="total-products">0 Items</p>
+                            <p class="text-xs text-danger font-medium" id="inventory-alerts">Loading...</p>
+                        </div>
+                        <div class="bg-danger/10 p-3 rounded-full">
+                            <i class="fa-solid fa-boxes-stacked text-danger text-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div id="quick-actions" class="px-4 mb-6">
+            <h3 class="text-lg font-bold mb-4 text-dark">Quick Actions</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="window.location.href='/bill-generate'" class="bg-purple-500 text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-purple-600 transition-colors">
+                    <i class="fa-solid fa-credit-card text-xl"></i>
+                    <span class="font-semibold">Payment</span>
+                </button>
+                <button onclick="window.location.href='/add-item'" class="bg-secondary text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-secondary/90 transition-colors">
+                    <i class="fa-solid fa-box text-xl"></i>
+                    <span class="font-semibold">Add Item</span>
+                </button>
+                <button onclick="window.location.href='/customer-ledger'" class="bg-accent text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-accent/90 transition-colors">
+                    <i class="fa-solid fa-users text-xl"></i>
+                    <span class="font-semibold">Customers</span>
+                </button>
+                <button onclick="window.location.href='/staff'" class="bg-green-600 text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-green-700 transition-colors">
+                    <i class="fa-solid fa-user-tie text-xl"></i>
+                    <span class="font-semibold">Staff</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Reports & Ledger Section -->
+        <div id="reports-ledger" class="px-4 mb-6">
+            <h3 class="text-lg font-bold mb-4 text-dark">Reports & Ledger</h3>
+            <div class="space-y-3">
+                <button class="w-full bg-white p-4 rounded-xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-primary/10 p-3 rounded-full">
+                            <i class="fa-solid fa-chart-bar text-primary text-lg"></i>
+                        </div>
+                        <div class="text-left">
+                            <p class="font-semibold text-dark">Daily Reports</p>
+                            <p class="text-sm text-gray-500">Sales, profit & loss analytics</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+                
+                <button onclick="window.location.href='/customer-ledger'" class="w-full bg-white p-4 rounded-xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-accent/10 p-3 rounded-full">
+                            <i class="fa-solid fa-book text-accent text-lg"></i>
+                        </div>
+                        <div class="text-left">
+                            <p class="font-semibold text-dark">Udhar Ledger</p>
+                            <p class="text-sm text-gray-500">Customer credit management</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div id="quick-links" class="px-4 mb-6">
+            <h3 class="text-lg font-bold mb-4 text-dark">Quick Links</h3>
+            <div class="space-y-3">
+                <button onclick="window.location.href='/low-stock'" class="w-full bg-white p-4 rounded-xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-danger/10 p-3 rounded-full">
+                            <i class="fa-solid fa-triangle-exclamation text-danger text-lg"></i>
+                        </div>
+                        <div class="text-left">
+                            <p class="font-semibold text-dark">Low Stock</p>
+                            <p class="text-sm text-gray-500">10 items need restocking</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+                
+                <button onclick="window.location.href='/expiry-alert'" class="w-full bg-white p-4 rounded-xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-accent/10 p-3 rounded-full">
+                            <i class="fa-solid fa-clock text-accent text-lg"></i>
+                        </div>
+                        <div class="text-left">
+                            <p class="font-semibold text-dark">Expiring Soon</p>
+                            <p class="text-sm text-gray-500">5 items expire this week</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+
+                <button onclick="window.location.href='/pending-credits'" class="w-full bg-white p-4 rounded-xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-secondary/10 p-3 rounded-full">
+                            <i class="fa-solid fa-credit-card text-secondary text-lg"></i>
+                        </div>
+                        <div class="text-left">
+                            <p class="font-semibold text-dark">Pending Credits</p>
+                            <p class="text-sm text-gray-500">₹8,750 from 12 customers</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Selling Item -->
+        <div id="top-selling" class="px-4 mb-6">
+            <h3 class="text-lg font-bold mb-4 text-dark">Top Selling Today</h3>
+            <div class="bg-white p-4 rounded-xl shadow-sm">
+                <div class="flex items-center space-x-4">
+                    <div class="w-16 h-16 rounded-xl overflow-hidden">
+                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/5e2d506a94-d83c5da4ca6ad8fcd0ad.png" alt="Aashirvaad wheat flour bag product packaging">
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-dark text-lg">Aashirvaad Atta</h4>
+                        <p class="text-sm text-gray-600">₹2,000 in sales today</p>
+                        <p class="text-xs text-gray-500">15 units sold</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-bold text-primary">₹45/Kg</p>
+                        <p class="text-sm text-gray-500">25 Kg left</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div id="recent-transactions" class="px-4 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-dark">Recent Transactions</h3>
+                <button class="text-secondary text-sm font-semibold">View All</button>
+            </div>
+            <div class="space-y-3">
+                <div class="bg-white p-4 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Customer" class="w-10 h-10 rounded-full">
+                            <div>
+                                <p class="font-semibold text-dark">Rajesh Kumar</p>
+                                <p class="text-xs text-gray-500">2 items • 10:30 AM</p>
+                            </div>
+                        </div>
+                        <p class="font-bold text-primary text-lg">₹280</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-4 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                <i class="fa-solid fa-user text-gray-500"></i>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-dark">Guest Customer</p>
+                                <p class="text-xs text-gray-500">5 items • 09:45 AM</p>
+                            </div>
+                        </div>
+                        <p class="font-bold text-primary text-lg">₹650</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-4 rounded-xl shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Customer" class="w-10 h-10 rounded-full">
+                            <div>
+                                <p class="font-semibold text-dark">Priya Sharma</p>
+                                <p class="text-xs text-gray-500">3 items • 09:15 AM</p>
+                            </div>
+                        </div>
+                        <p class="font-bold text-primary text-lg">₹420</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Search Modal -->
+    <div id="search-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex flex-col">
+            <div class="bg-white p-4">
+                <div class="flex items-center space-x-3">
+                    <button onclick="closeSearch()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-arrow-left text-gray-600"></i>
+                    </button>
+                    <div class="flex-1 relative">
+                        <input type="text" id="search-input" placeholder="Search products..." class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm" oninput="performSearch()">
+                        <button onclick="clearSearch()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <button onclick="openScanner()" class="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark">
+                        <i class="fa-solid fa-barcode"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 bg-white px-4 pb-4 overflow-y-auto">
+                <div id="search-results" class="space-y-3">
+                    <!-- Search results will appear here -->
+                </div>
+                <div id="search-empty" class="text-center py-12 hidden">
+                    <i class="fa-solid fa-search text-gray-300 text-4xl mb-4"></i>
+                    <p class="text-gray-500">No products found</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Universal Scanner Modal -->
+    <div id="scanner-modal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden">
+        <div class="fixed inset-0 flex flex-col">
+            <div class="bg-black text-white p-4">
+                <div class="flex items-center justify-between">
+                    <button onclick="closeScanner()" class="p-2 hover:bg-gray-800 rounded-lg">
+                        <i class="fa-solid fa-times text-white"></i>
+                    </button>
+                    <h2 id="scanner-title" class="text-lg font-semibold">Scan Barcode</h2>
+                    <button onclick="toggleFlashlight()" class="p-2 hover:bg-gray-800 rounded-lg">
+                        <i class="fa-solid fa-flashlight text-white"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 relative bg-black">
+                <video id="scanner-video" class="w-full h-full object-cover" autoplay playsinline muted></video>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="relative">
+                        <div class="w-64 h-64 border-2 border-white border-dashed rounded-lg bg-transparent">
+                            <div class="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-white"></div>
+                            <div class="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-white"></div>
+                            <div class="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-white"></div>
+                            <div class="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-white"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="scanner-status" class="absolute top-4 left-4 right-4 text-center">
+                    <span class="bg-primary text-white px-3 py-1 rounded-full text-sm">Position barcode in frame</span>
+                </div>
+                <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3">
+                    <button onclick="manualBarcodeEntry()" class="bg-white text-black px-4 py-2 rounded-lg font-medium">
+                        Enter Manually
+                    </button>
+                    <button onclick="toggleFlashlight()" class="bg-gray-800 text-white px-4 py-2 rounded-lg font-medium">
+                        <i class="fa-solid fa-flashlight"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Barcode Entry Modal -->
+    <div id="manual-barcode-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <h3 class="text-lg font-semibold mb-4">Enter Barcode</h3>
+                <input type="text" id="manual-barcode-input" placeholder="Enter barcode number" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4">
+                <div class="flex space-x-3">
+                    <button onclick="closeManualBarcode()" class="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600">
+                        Cancel
+                    </button>
+                    <button onclick="searchByBarcode()" class="flex-1 bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary-dark">
+                        Search
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav id="footer" class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
+        <div class="flex justify-around items-end py-2">
+            <button class="flex flex-col items-center py-1 px-3">
+                <i class="fa-solid fa-home text-primary text-xl"></i>
+                <span class="text-xs mt-1 text-primary font-semibold">Home</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="goToInventory()">
+                <i class="fa-solid fa-box text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Inventory</span>
+            </button>
+            <button onclick="openScanner()" class="relative -top-4 bg-primary rounded-full p-4 shadow-lg">
+                <i class="fa-solid fa-barcode text-white text-xl"></i>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3 relative" onclick="goToCart()">
+                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Cart</span>
+                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="goToProfile()">
+                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Profile</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Quick Action Radial Menu -->
+    <div id="radial-menu" class="fixed bottom-20 right-4 z-40">
+        <!-- Main Floating Action Button -->
+        <button id="fab-main" onclick="toggleRadialMenu()" class="w-14 h-14 bg-primary rounded-full shadow-lg flex items-center justify-center text-white transition-transform duration-300 hover:scale-110">
+            <i id="fab-icon" class="fa-solid fa-plus text-xl transition-transform duration-300"></i>
+        </button>
+        
+        <!-- Radial Menu Items -->
+        <div id="radial-items" class="absolute bottom-0 right-0 transition-all duration-300 opacity-0 pointer-events-none">
+            <!-- Add Item -->
+            <button onclick="goToAddItem()" class="absolute w-12 h-12 bg-blue-500 rounded-full shadow-lg flex items-center justify-center text-white transition-all duration-300" 
+                    style="transform: translate(-70px, -10px) scale(0);" data-action="add-item">
+                <i class="fa-solid fa-plus text-sm"></i>
+            </button>
+            
+            <!-- Scan Barcode -->
+            <button onclick="openScanner('Quick Scan')" class="absolute w-12 h-12 bg-orange-500 rounded-full shadow-lg flex items-center justify-center text-white transition-all duration-300" 
+                    style="transform: translate(-50px, -50px) scale(0);" data-action="scan">
+                <i class="fa-solid fa-barcode text-sm"></i>
+            </button>
+            
+            <!-- Quick Bill -->
+            <button onclick="goToCart()" class="absolute w-12 h-12 bg-green-500 rounded-full shadow-lg flex items-center justify-center text-white transition-all duration-300" 
+                    style="transform: translate(-10px, -70px) scale(0);" data-action="bill">
+                <i class="fa-solid fa-receipt text-sm"></i>
+            </button>
+            
+            <!-- Customer Search -->
+            <button onclick="openCustomerSearch()" class="absolute w-12 h-12 bg-purple-500 rounded-full shadow-lg flex items-center justify-center text-white transition-all duration-300" 
+                    style="transform: translate(30px, -50px) scale(0);" data-action="customer">
+                <i class="fa-solid fa-users text-sm"></i>
+            </button>
+            
+            <!-- Inventory -->
+            <button onclick="goToInventory()" class="absolute w-12 h-12 bg-indigo-500 rounded-full shadow-lg flex items-center justify-center text-white transition-all duration-300" 
+                    style="transform: translate(50px, -10px) scale(0);" data-action="inventory">
+                <i class="fa-solid fa-boxes text-sm"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Scanner Modal -->
+    <div id="quick-scanner-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Quick Scan</h3>
+                    <button onclick="closeQuickScanner()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa-solid fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="relative">
+                    <video id="quick-scanner-video" class="w-full h-64 bg-gray-200 rounded-lg object-cover" autoplay playsinline muted></video>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-48 h-32 border-2 border-red-500 bg-transparent"></div>
+                    </div>
+                </div>
+                <div class="mt-4 text-center">
+                    <p class="text-sm text-gray-600 mb-4">Scan to find product details</p>
+                    <button onclick="closeQuickScanner()" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="search-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex flex-col">
+            <div class="bg-white p-4">
+                <div class="flex items-center space-x-3">
+                    <button onclick="closeSearch()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-arrow-left text-gray-600"></i>
+                    </button>
+                    <div class="flex-1 relative">
+                        <input type="text" id="search-input" placeholder="Search customers by name or phone..." class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm">
+                        <button onclick="clearSearch()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    <button onclick="openScanner('Search Products')" class="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark">
+                        <i class="fa-solid fa-barcode"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 bg-white px-4 pb-4 overflow-y-auto">
+                <div id="search-results" class="space-y-3">
+                    <!-- Search results will appear here -->
+                </div>
+                <div id="search-empty" class="text-center py-12 hidden">
+                    <i class="fa-solid fa-search text-gray-300 text-4xl mb-4"></i>
+                    <p class="text-gray-500">No customers found</p>
+                    <button onclick="createNewCustomer()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg text-sm">
+                        Add New Customer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update current time and date
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            const timeOptions = {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            };
+            
+            document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', timeOptions);
+        }
+
+        // Load real-time notification count and data respecting user settings
+        function updateNotificationCount() {
+            fetch('/api/notifications')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    const notificationBadge = document.getElementById('notification-count');
+                    const backupEnabled = localStorage.getItem('emailBackupEnabled') === 'true';
+                    const backupNotification = document.getElementById('backup-notification');
+                    
+                    var count = data.count || 0;
+                    
+                    // Show backup notification only if backup is disabled
+                    if (!backupEnabled) {
+                        backupNotification.style.display = 'block';
+                        count += 1;
+                    } else {
+                        backupNotification.style.display = 'none';
+                    }
+                    
+                    // Update notification badge
+                    notificationBadge.textContent = count;
+                    notificationBadge.style.display = count > 0 ? 'flex' : 'none';
+                    
+                    // Update dropdown with real notifications
+                    updateNotificationDropdown(data.notifications || []);
+                })
+                .catch(function(error) {
+                    console.error('Error loading notifications:', error);
+                    // Show fallback count if API fails
+                    const notificationBadge = document.getElementById('notification-count');
+                    const backupEnabled = localStorage.getItem('emailBackupEnabled') === 'true';
+                    notificationBadge.textContent = backupEnabled ? '0' : '1';
+                    notificationBadge.style.display = backupEnabled ? 'none' : 'flex';
+                });
+        }
+
+        // Update notification dropdown with summary notifications only
+        function updateNotificationDropdown(notifications) {
+            // Don't add individual notifications to dropdown
+            // The dropdown already has static summary notifications that are clickable
+            // Individual notifications should only appear on the notifications page
+            
+            // Update counts in existing summary notifications based on real data
+            updateSummaryNotifications(notifications);
+        }
+        
+        function updateSummaryNotifications(notifications) {
+            // Count different types of notifications
+            var expiredCount = 0;
+            var lowStockCount = 0;
+            var paymentCount = 0;
+            
+            for (var i = 0; i < notifications.length; i++) {
+                var notif = notifications[i];
+                if (notif.type === 'expiry') {
+                    expiredCount++;
+                } else if (notif.type === 'inventory') {
+                    lowStockCount++;
+                } else if (notif.type === 'payment') {
+                    paymentCount++;
+                }
+            }
+            
+            // Update the static summary notifications with real counts
+            // This keeps the original design but shows real data
+            var container = document.querySelector('#notification-dropdown .max-h-80');
+            var notifications = container.children;
+            
+            // Update expired items notification (assuming it's the 2nd notification after backup)
+            for (var j = 0; j < notifications.length; j++) {
+                var notification = notifications[j];
+                if (notification.onclick && notification.onclick.toString().includes('expiry-alert')) {
+                    var titleElement = notification.querySelector('.font-semibold');
+                    if (titleElement && expiredCount > 0) {
+                        titleElement.textContent = expiredCount + ' items expired';
+                    }
+                }
+                
+                if (notification.onclick && notification.onclick.toString().includes('low-stock')) {
+                    var titleElement = notification.querySelector('.font-semibold');
+                    if (titleElement && lowStockCount > 0) {
+                        titleElement.textContent = lowStockCount + ' items low stock';
+                    }
+                }
+            }
+        }
+
+
+
+        // Notification dropdown toggle
+        document.getElementById('notification-bell').addEventListener('click', function() {
+            const dropdown = document.getElementById('notification-dropdown');
+            dropdown.classList.toggle('hidden');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const bell = document.getElementById('notification-bell');
+            const dropdown = document.getElementById('notification-dropdown');
+            
+            if (!bell.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // Listen for backup status changes from profile page
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'emailBackupEnabled') {
+                // Update notification count when backup status changes
+                updateNotificationCount();
+            }
+        });
+
+        // Initialize
+        updateDateTime();
+        updateNotificationCount(); // Initial load
+        setInterval(updateDateTime, 60000); // Update every minute
+
+        // Quick action handlers
+        document.querySelectorAll('#quick-actions button').forEach(button => {
+            button.addEventListener('click', function() {
+                const action = this.textContent.trim();
+                console.log(`${action} feature clicked`);
+            });
+        });
+
+        // Navigation handlers removed - static styling maintained for consistency
+
+        // Navigation functions
+        function goToCart() {
+            window.location.href = '/cart';
+        }
+
+        function goToInventory() {
+            window.location.href = '/inventory';
+        }
+
+        function goToProfile() {
+            window.location.href = '/profile';
+        }
+
+        // Global variables for search
+        let products = [];
+
+        // Search and Scanner functionality
+        function openSearch() {
+            document.getElementById('search-modal').classList.remove('hidden');
+            document.getElementById('search-input').focus();
+            document.body.style.overflow = 'hidden';
+            // Load products when opening search
+            if (products.length === 0) {
+                loadProductsForSearch();
+            }
+        }
+
+        function closeSearch() {
+            document.getElementById('search-modal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            clearSearch();
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').innerHTML = '';
+            document.getElementById('search-empty').classList.add('hidden');
+        }
+
+        // Initialize page-specific barcode handler
+        window.onBarcodeScanned = function(barcode) {
+            performBarcodeSearch(barcode);
+        };
+
+        // Ensure performBarcodeSearch function exists
+        function performBarcodeSearch(barcode) {
+            console.log('Searching for barcode:', barcode);
+            showStyledNotification(`Searching for barcode: ${barcode}`, 'info');
+            
+            // Search in actual products from database
+            fetch('/api/products')
+                .then(response => response.json())
+                .then(data => {
+                    const product = data.products.find(p => p.barcode === barcode);
+                    if (product) {
+                        showStyledNotification(`Found: ${product.name}`, 'success');
+                        setTimeout(() => {
+                            viewProductDetails(product);
+                        }, 1000);
+                    } else {
+                        showStyledNotification('Product not found', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    showStyledNotification('Search failed', 'error');
+                });
+        }
+
+        function viewProductDetails(product) {
+            if (product.is_weight_based) {
+                const params = new URLSearchParams({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price_per_kg,
+                    stock: product.stock_quantity,
+                    barcode: product.barcode || ''
+                });
+                window.location.href = `/product-details-weight?${params.toString()}`;
+            } else {
+                const params = new URLSearchParams({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    stock: product.stock_quantity,
+                    barcode: product.barcode || ''
+                });
+                window.location.href = `/product-details?${params.toString()}`;
+            }
+        }
+
+        function manualBarcodeEntry() {
+            document.getElementById('manual-barcode-modal').classList.remove('hidden');
+            document.getElementById('manual-barcode-input').focus();
+        }
+
+        function closeManualBarcode() {
+            document.getElementById('manual-barcode-modal').classList.add('hidden');
+            document.getElementById('manual-barcode-input').value = '';
+        }
+
+        function searchByBarcode() {
+            const barcode = document.getElementById('manual-barcode-input').value.trim();
+            if (barcode) {
+                performBarcodeSearch(barcode);
+                closeManualBarcode();
+                closeScanner();
+            }
+        }
+
+        function toggleFlashlight() {
+            const button = event.target.closest('button');
+            button.classList.toggle('text-yellow-400');
+        }
+
+        function simulateScanning() {
+            // Add scanning animation
+            const scanArea = document.querySelector('#scanner-modal .w-64');
+            if (scanArea) {
+                scanArea.classList.add('animate-pulse');
+            }
+            
+            // Show scanning feedback
+            showStyledNotification('Scanning for barcode...', 'info');
+            
+            // Simulate barcode detection after 3 seconds
+            setTimeout(() => {
+                if (scanArea) {
+                    scanArea.classList.remove('animate-pulse');
+                }
+                
+                // Use actual barcodes from database
+                const realBarcodes = ['8901030789012', '8901030567890', '8901030345678', '8901030234567', '8901030456789', '8901030845371', '8901786101234', '8901030825456', '8901030123456', '8901030678901'];
+                const randomBarcode = realBarcodes[Math.floor(Math.random() * realBarcodes.length)];
+                
+                showStyledNotification('Barcode detected!', 'success');
+                performBarcodeSearch(randomBarcode);
+                closeScanner();
+            }, 3000);
+        }
+
+        // Search functionality
+        function performSearch() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('search-results');
+            const emptyState = document.getElementById('search-empty');
+            
+            if (query.length < 2) {
+                resultsContainer.innerHTML = '';
+                emptyState.classList.add('hidden');
+                return;
+            }
+
+            const results = products.filter(product => 
+                product.name.toLowerCase().includes(query) ||
+                product.category.toLowerCase().includes(query)
+            );
+
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            resultsContainer.innerHTML = results.map(product => `
+                <div class="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                     onclick="selectSearchResult('${product.id}')">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
+                            <i class="fa-solid fa-box text-gray-400 text-xs"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-medium text-dark text-sm">${product.name}</h4>
+                            <p class="text-xs text-gray-500">${product.category}</p>
+                        </div>
+                        <p class="text-sm font-medium text-primary">
+                            ${product.is_weight_based ? `₹${product.price_per_kg}/${product.unit}` : `₹${product.price}/Piece`}
+                        </p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectSearchResult(productId) {
+            closeSearch();
+            viewProductDetails(productId);
+        }
+
+        function performBarcodeSearch(barcode) {
+            // Ensure products are loaded before searching
+            if (products.length === 0) {
+                showStyledNotification('Loading products...', 'info');
+                loadProductsForSearch().then(() => {
+                    performBarcodeSearchInternal(barcode);
+                });
+                return;
+            }
+            performBarcodeSearchInternal(barcode);
+        }
+
+        function performBarcodeSearchInternal(barcode) {
+            const product = products.find(p => p.barcode === barcode);
+            if (product) {
+                showStyledNotification(`Found: ${product.name}`, 'success');
+                setTimeout(() => {
+                    viewProductDetails(product.id);
+                }, 1000);
+            } else {
+                showStyledNotification('Product not found', 'error');
+            }
+        }
+
+        function viewProductDetails(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) {
+                showStyledNotification('Product not found', 'error');
+                return;
+            }
+
+            if (product.is_weight_based) {
+                const params = new URLSearchParams({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price_per_kg,
+                    stock: product.stock_quantity,
+                    unit: product.unit,
+                    expDate: product.expiry_date || ''
+                });
+                window.location.href = `/product-details-weight?${params.toString()}`;
+            } else {
+                const params = new URLSearchParams({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    unit: 'Piece',
+                    stock: product.stock_quantity,
+                    expDate: product.expiry_date || ''
+                });
+                window.location.href = `/product-details?${params.toString()}`;
+            }
+        }
+
+        // Load products for search functionality
+        async function loadProductsForSearch() {
+            try {
+                const response = await fetch('/api/products');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                products = data.products || [];
+            } catch (error) {
+                console.error('Error loading products:', error);
+                products = [];
+            }
+        }
+
+
+
+        function showStyledNotification(message, type = 'info') {
+            // Remove any existing notifications to prevent stacking
+            const existingNotifications = document.querySelectorAll('.notification-toast');
+            existingNotifications.forEach(notif => {
+                if (notif.parentNode) {
+                    notif.parentNode.removeChild(notif);
+                }
+            });
+
+            const notification = document.createElement('div');
+            notification.className = `notification-toast fixed top-4 right-4 z-50 p-4 rounded-lg text-white font-medium shadow-lg transform transition-all duration-300 ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
+            }`;
+            notification.style.transform = 'translateX(100%)';
+            notification.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Report and ledger button handlers
+        document.querySelectorAll('#reports-ledger button, #quick-links button').forEach(button => {
+            button.addEventListener('click', function() {
+                const title = this.querySelector('p').textContent;
+                alert(`${title} feature coming soon!`);
+            });
+        });
+
+        // Radial Menu Functions
+        let isRadialMenuOpen = false;
+
+        function toggleRadialMenu() {
+            const radialItems = document.getElementById('radial-items');
+            const fabIcon = document.getElementById('fab-icon');
+            const menuButtons = radialItems.querySelectorAll('button');
+            
+            if (!isRadialMenuOpen) {
+                // Open menu
+                radialItems.classList.remove('opacity-0', 'pointer-events-none');
+                radialItems.classList.add('opacity-100', 'pointer-events-auto');
+                fabIcon.style.transform = 'rotate(45deg)';
+                
+                // Animate buttons with delay
+                menuButtons.forEach((button, index) => {
+                    setTimeout(() => {
+                        button.style.transform = button.style.transform.replace('scale(0)', 'scale(1)');
+                    }, index * 50);
+                });
+                
+                isRadialMenuOpen = true;
+            } else {
+                // Close menu
+                fabIcon.style.transform = 'rotate(0deg)';
+                
+                // Animate buttons out
+                menuButtons.forEach((button, index) => {
+                    setTimeout(() => {
+                        button.style.transform = button.style.transform.replace('scale(1)', 'scale(0)');
+                    }, index * 30);
+                });
+                
+                // Hide menu after animation
+                setTimeout(() => {
+                    radialItems.classList.add('opacity-0', 'pointer-events-none');
+                    radialItems.classList.remove('opacity-100', 'pointer-events-auto');
+                }, 200);
+                
+                isRadialMenuOpen = false;
+            }
+        }
+
+        // Quick Scanner Functions
+        let quickCodeReader = null;
+        let quickCurrentStream = null;
+
+        function openQuickScanner() {
+            if (isRadialMenuOpen) toggleRadialMenu(); // Close radial menu first
+            const modal = document.getElementById('quick-scanner-modal');
+            const video = document.getElementById('quick-scanner-video');
+            
+            modal.classList.remove('hidden');
+            
+            // Request camera permission first
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                })
+                .then(function(stream) {
+                    // Set video source
+                    video.srcObject = stream;
+                    video.play();
+                    quickCurrentStream = stream;
+                    
+                    // Initialize ZXing scanner
+                    if (typeof ZXing !== 'undefined') {
+                        quickCodeReader = new ZXing.BrowserMultiFormatReader();
+                        
+                        quickCodeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
+                            if (result) {
+                                const barcodeValue = result.text;
+                                closeQuickScanner();
+                                searchProductByBarcode(barcodeValue);
+                            }
+                        });
+                    } else {
+                        console.warn('ZXing library not loaded, using basic scanning');
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Camera access error:', err);
+                    alert('Camera access denied. Please allow camera permission and try again.');
+                    closeQuickScanner();
+                });
+            } else {
+                alert('Camera not supported on this device');
+                closeQuickScanner();
+            }
+        }
+
+        function closeQuickScanner() {
+            const modal = document.getElementById('quick-scanner-modal');
+            modal.classList.add('hidden');
+            
+            if (quickCurrentStream) {
+                quickCurrentStream.getTracks().forEach(track => track.stop());
+                quickCurrentStream = null;
+            }
+            
+            if (quickCodeReader) {
+                quickCodeReader.reset();
+                quickCodeReader = null;
+            }
+        }
+
+        function searchProductByBarcode(barcode) {
+            window.location.href = `/inventory?search=${barcode}`;
+        }
+
+        // Search Functions (exactly like inventory)
+        function openSearch() {
+            if (isRadialMenuOpen) toggleRadialMenu(); // Close radial menu first
+            const modal = document.getElementById('search-modal');
+            const input = document.getElementById('search-input');
+            
+            modal.classList.remove('hidden');
+            input.focus();
+            document.body.style.overflow = 'hidden';
+            
+            input.addEventListener('input', performSearch);
+        }
+
+        function closeSearch() {
+            const modal = document.getElementById('search-modal');
+            const input = document.getElementById('search-input');
+            
+            modal.classList.add('hidden');
+            input.value = '';
+            document.getElementById('search-results').innerHTML = '';
+            document.getElementById('search-empty').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            
+            input.removeEventListener('input', performSearch);
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').innerHTML = '';
+            document.getElementById('search-empty').classList.add('hidden');
+        }
+
+        function performSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            const resultsContainer = document.getElementById('search-results');
+            const emptyState = document.getElementById('search-empty');
+            
+            if (query.length < 2) {
+                resultsContainer.innerHTML = '';
+                emptyState.classList.add('hidden');
+                return;
+            }
+            
+            fetch(`/api/search-customers?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.customers && data.customers.length > 0) {
+                        emptyState.classList.add('hidden');
+                        resultsContainer.innerHTML = data.customers.map(customer => `
+                            <div class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" onclick="selectCustomer(${customer.id})">
+                                <div class="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center mr-3">
+                                    <i class="fa-solid fa-user text-gray-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold text-dark text-sm">${customer.name}</h3>
+                                    <p class="text-xs text-gray-600">${customer.phone}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold text-primary text-sm">₹${Math.abs(customer.outstanding_balance)}</p>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        resultsContainer.innerHTML = '';
+                        emptyState.classList.remove('hidden');
+                    }
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    resultsContainer.innerHTML = '<p class="text-red-500 text-center py-4">Search failed</p>';
+                });
+        }
+
+        function selectCustomer(customerId) {
+            closeSearch();
+            window.location.href = `/customer-ledger?id=${customerId}`;
+        }
+
+        function createNewCustomer() {
+            closeSearch();
+            // Open create customer modal or redirect to customer creation page
+            window.location.href = '/customer-ledger?action=create';
+        }
+
+        function openCustomerSearch() {
+            // This function opens the customer search modal (already implemented above)
+            console.log('Customer search already open');
+        }
+
+        function goToAddItem() {
+            window.location.href = '/add-item';
+        }
+
+        function goToCustomerLedger() {
+            window.location.href = '/customer-ledger';
+        }
+
+        // Real-time search functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    performSearch();
+                });
+            }
+        });
+
+        // Close radial menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const radialMenu = document.getElementById('radial-menu');
+            if (isRadialMenuOpen && !radialMenu.contains(e.target)) {
+                toggleRadialMenu();
+            }
+        });
+
+        // Load dashboard statistics from database
+        async function loadDashboardStats() {
+            try {
+                const response = await fetch('/api/dashboard/stats');
+                const stats = await response.json();
+                
+                // Update Today's Profit
+                document.getElementById('today-profit').textContent = `₹${stats.today_profit}`;
+                const profitGrowthElement = document.getElementById('profit-growth');
+                const growth = parseFloat(stats.profit_growth);
+                
+                if (growth > 0) {
+                    profitGrowthElement.textContent = `+${growth.toFixed(1)}% from yesterday`;
+                    profitGrowthElement.className = 'text-xs text-green-600 mt-1 flex items-center';
+                    profitGrowthElement.innerHTML = `<i class="fa-solid fa-arrow-up mr-1"></i>+${growth.toFixed(1)}% from yesterday`;
+                } else if (growth < 0) {
+                    profitGrowthElement.textContent = `${growth.toFixed(1)}% from yesterday`;
+                    profitGrowthElement.className = 'text-xs text-red-600 mt-1 flex items-center';
+                    profitGrowthElement.innerHTML = `<i class="fa-solid fa-arrow-down mr-1"></i>${growth.toFixed(1)}% from yesterday`;
+                } else {
+                    profitGrowthElement.textContent = 'No change from yesterday';
+                    profitGrowthElement.className = 'text-xs text-gray-600 mt-1 flex items-center';
+                    profitGrowthElement.innerHTML = `<i class="fa-solid fa-minus mr-1"></i>No change from yesterday`;
+                }
+                
+                // Update Total Sales
+                document.getElementById('total-sales').textContent = `₹${stats.total_sales}`;
+                document.getElementById('transaction-count').textContent = `${stats.transaction_count} transactions`;
+                
+                // Update Udhar Ledger
+                document.getElementById('customers-with-credit').textContent = `${stats.customers_with_credit} Customers`;
+                document.getElementById('outstanding-amount').textContent = `₹${stats.outstanding_amount}`;
+                
+                // Update Inventory
+                document.getElementById('total-products').textContent = `${stats.total_products} Items`;
+                document.getElementById('inventory-alerts').textContent = `${stats.expired_products} Expired • ${stats.low_stock_products} Low`;
+                
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+            }
+        }
+
+        // Today's Profit click handler
+        function showTodaysProfit() {
+            const modal = document.createElement('div');
+            modal.id = 'profit-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl p-6 w-full max-w-md">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-dark">Today's Profit Breakdown</h3>
+                        <button onclick="closeProfitModal()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fa-solid fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="font-semibold text-dark mb-3">Profit Summary</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Total Revenue:</span>
+                                    <span class="font-medium" id="modal-sales">₹0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Cost of Goods Sold:</span>
+                                    <span class="font-medium" id="modal-cost">₹0</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-500">Profit Margin:</span>
+                                    <span class="text-gray-500" id="modal-margin">0%</span>
+                                </div>
+                                <div class="border-t pt-2 flex justify-between">
+                                    <span class="font-semibold text-dark">Net Profit:</span>
+                                    <span class="font-bold text-primary" id="modal-profit">₹0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center pt-2">
+                            <button onclick="closeProfitModal()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-medium">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            loadProfitModalData();
+        }
+
+        async function loadProfitModalData() {
+            try {
+                const response = await fetch('/api/dashboard/stats');
+                const stats = await response.json();
+                
+                // Use actual cost and revenue data from the backend
+                const revenue = stats.total_revenue || stats.total_sales;
+                const actualCost = stats.actual_cost || 0;
+                const profit = stats.today_profit || 0;
+                const profitMargin = revenue > 0 ? ((profit / revenue) * 100) : 0;
+                
+                document.getElementById('modal-sales').textContent = `₹${revenue.toFixed(2)}`;
+                document.getElementById('modal-cost').textContent = `₹${actualCost.toFixed(2)}`;
+                document.getElementById('modal-profit').textContent = `₹${profit.toFixed(2)}`;
+                document.getElementById('modal-margin').textContent = `${profitMargin.toFixed(1)}%`;
+                
+            } catch (error) {
+                console.error('Error loading profit modal data:', error);
+            }
+        }
+
+        function closeProfitModal() {
+            const modal = document.getElementById('profit-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function goToInventory() {
+            window.location.href = '/inventory';
+        }
+
+        // Check backup status and show/hide notification accordingly
+        function checkBackupStatus() {
+            const backupEnabled = localStorage.getItem('emailBackupEnabled') === 'true';
+            const backupNotification = document.getElementById('backup-notification');
+            const notificationBadge = document.querySelector('#notification-bell .absolute');
+            
+            if (backupEnabled) {
+                // Hide backup notification when backup is enabled
+                backupNotification.style.display = 'none';
+                // Update notification count
+                let currentCount = parseInt(notificationBadge.textContent);
+                notificationBadge.textContent = Math.max(0, currentCount - 1);
+            } else {
+                // Show backup notification when backup is disabled
+                backupNotification.style.display = 'block';
+                // Update notification count
+                let currentCount = parseInt(notificationBadge.textContent);
+                notificationBadge.textContent = currentCount + 1;
+            }
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardStats();
+            updateDateTime();
+            updateNotificationCount();
+            
+            // Update notification count every 2 minutes for real-time updates
+            setInterval(updateNotificationCount, 120000);
+            
+            // Refresh stats every 30 seconds
+            setInterval(loadDashboardStats, 30000);
+            
+            // Check backup status on page load and when storage changes
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'emailBackupEnabled') {
+                    checkBackupStatus();
+                }
+                
+                // Listen for notification updates from notifications page
+                if (e.key === 'notificationUpdate') {
+                    console.log('Notification update detected, refreshing count...');
+                    updateNotificationCount();
+                }
+            });
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/universal-scanner.js') }}"></script>
+</body>
+</html>

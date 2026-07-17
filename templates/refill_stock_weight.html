@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refill Stock - Weight Based - Kirana Konnect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#64748b',
+                        accent: '#f59e0b',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        dark: '#1e293b',
+                        light: '#f8fafc'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif !important;
+        }
+        
+        .fa, .fas, .far, .fal, .fab {
+            font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        html, body {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-100">
+    <!-- Header Section -->
+    <header class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-10">
+        <div class="flex items-center justify-between px-4 py-3">
+            <button onclick="goBack()" class="p-2 hover:bg-gray-100 rounded-lg">
+                <i class="fa-solid fa-arrow-left text-gray-600 text-lg"></i>
+            </button>
+            <div class="text-center">
+                <h1 class="text-lg font-semibold text-dark">Refill Stock</h1>
+                <p class="text-xs text-gray-500">Kirana Konnect</p>
+            </div>
+            <div class="w-10"></div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-16 pb-40 bg-gray-100">
+        <!-- Product Summary Section -->
+        <div class="bg-white mx-4 mt-4 p-4 rounded-lg shadow-sm">
+            <div class="flex items-center space-x-3 mb-4">
+                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" src="https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400" alt="Product image">
+                <div class="flex-1">
+                    <h2 id="product-name" class="text-lg font-bold text-dark">Rice Basmati</h2>
+                    <p id="product-size" class="text-sm text-gray-600">Per kg</p>
+                    <div class="flex items-center space-x-2 mt-1">
+                        <span id="product-category" class="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-medium">Grains</span>
+                        <span class="bg-orange-100 text-orange-600 px-2 py-1 rounded-full text-xs font-medium">Weight-Based</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Current Stock Info -->
+            <div class="bg-orange-50 p-3 rounded-lg mb-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-orange-600 font-medium">Current Stock</p>
+                        <p id="current-stock" class="text-2xl font-bold text-orange-700">45.5 kg</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-500">Low Stock Threshold</p>
+                        <p id="reorder-level" class="text-lg font-semibold text-gray-700">10 kg</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Refill Form Section -->
+        <div class="bg-white mx-4 mt-4 p-4 rounded-lg shadow-sm">
+            <h3 class="text-lg font-semibold text-dark mb-4">Add New Stock</h3>
+            
+            <!-- Quantity Input -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Additional Quantity</label>
+                <div class="flex space-x-2">
+                    <div class="flex-1 relative">
+                        <input type="number" id="quantity-input" class="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg font-semibold text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0" step="0.001">
+                    </div>
+                    <select id="unit-select" class="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm font-medium min-w-20">
+                        <option value="kg">Kg</option>
+                        <option value="gm">Gram</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Purchase Price -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Total Purchase Price</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-3 text-gray-500 text-lg">₹</span>
+                    <input type="number" id="purchase-price" class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0">
+                </div>
+            </div>
+
+            <!-- Auto Calculated Fields -->
+            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Price per kg</p>
+                        <p class="text-lg font-bold text-dark" id="price-per-kg">₹0</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">New Total Stock</p>
+                        <p class="text-lg font-bold text-green-600" id="new-total">45.5 kg</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selling Price Update -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Update Selling Price (Optional)</label>
+                <div class="flex space-x-2">
+                    <div class="flex-1 relative">
+                        <span class="absolute left-3 top-3 text-gray-500 text-lg">₹</span>
+                        <input type="number" id="selling-price" class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="90">
+                    </div>
+                    <select id="price-mode-select" class="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm font-medium min-w-20">
+                        <option value="per-kg">/Kg</option>
+                        <option value="per-gram">/Gram</option>
+                        <option value="total">/Total</option>
+                    </select>
+                </div>
+                <p class="text-sm text-green-600 mt-1" id="current-price">Current: ₹120/Kg</p>
+            </div>
+
+            <!-- Optional Dates -->
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">MFG Date (Optional)</label>
+                    <input type="date" id="mfg-date" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">EXP Date (Optional)</label>
+                    <input type="date" id="exp-date" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <!-- Barcode -->
+            <div class="mb-8">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Barcode (Optional)</label>
+                <div class="relative">
+                    <input type="text" id="barcode-input" class="w-full pl-4 pr-16 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter or scan barcode">
+                    <button onclick="scanBarcode()" class="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <i class="fa-solid fa-barcode"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Fixed Bottom Actions -->
+    <div class="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4">
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="cancelRefill()" class="flex items-center justify-center space-x-2 bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
+                <i class="fa-solid fa-times text-sm"></i>
+                <span class="font-medium">Cancel</span>
+            </button>
+            <button onclick="addStock()" class="flex items-center justify-center space-x-2 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fa-solid fa-check text-sm"></i>
+                <span class="font-medium">Add Stock</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
+        <div class="flex justify-around items-end py-2">
+            <button onclick="goToDashboard()" class="flex flex-col items-center py-1 px-3">
+                <i class="fa-solid fa-home text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Home</span>
+            </button>
+            <button onclick="goToInventory()" class="flex flex-col items-center py-1 px-3">
+                <i class="fa-solid fa-box text-primary text-xl"></i>
+                <span class="text-xs mt-1 text-primary font-semibold">Inventory</span>
+            </button>
+            <button onclick="openScanner()" class="relative -top-4 bg-primary rounded-full p-4 shadow-lg">
+                <i class="fa-solid fa-barcode text-white text-xl"></i>
+            </button>
+            <button onclick="goToCart()" class="flex flex-col items-center py-1 px-3 relative">
+                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Cart</span>
+                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
+            </button>
+            <button onclick="goToProfile()" class="flex flex-col items-center py-1 px-3">
+                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Profile</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Barcode Overwrite Confirmation Popup -->
+    <div id="barcode-confirm-popup" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-sm mx-4">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Replace Barcode?</h3>
+            <p class="text-gray-600 mb-6">This will replace the existing barcode. Continue?</p>
+            <div class="flex space-x-3">
+                <button onclick="cancelBarcodeOverwrite()" class="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="confirmBarcodeOverwrite()" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                    Replace
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Barcode Input Popup -->
+    <div id="manual-barcode-popup" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 max-w-sm mx-4">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Enter Barcode Manually</h3>
+            <input type="text" id="manual-barcode-input" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4" placeholder="Enter barcode">
+            <div class="flex space-x-3">
+                <button onclick="cancelManualBarcode()" class="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="confirmManualBarcode()" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Universal Scanner Modal -->
+    <div id="scanner-modal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden">
+        <div class="fixed inset-0 flex flex-col">
+            <div class="bg-black text-white p-4">
+                <div class="flex items-center justify-between">
+                    <button onclick="closeScanner()" class="p-2 hover:bg-gray-800 rounded-lg">
+                        <i class="fa-solid fa-times text-white"></i>
+                    </button>
+                    <h2 id="scanner-title" class="text-lg font-semibold">Scan Barcode</h2>
+                    <button onclick="toggleFlashlight()" class="p-2 hover:bg-gray-800 rounded-lg">
+                        <i class="fa-solid fa-flashlight text-white"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 relative bg-black">
+                <video id="scanner-video" class="w-full h-full object-cover" autoplay playsinline muted></video>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="relative">
+                        <div class="w-64 h-64 border-2 border-white border-dashed rounded-lg bg-transparent">
+                            <div class="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-white"></div>
+                            <div class="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-white"></div>
+                            <div class="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-white"></div>
+                            <div class="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-white"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="scanner-status" class="absolute top-4 left-4 right-4 text-center">
+                    <span class="bg-primary text-white px-3 py-1 rounded-full text-sm">Position barcode in frame</span>
+                </div>
+                <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3">
+                    <button onclick="manualBarcodeEntry()" class="bg-white text-black px-4 py-2 rounded-lg font-medium">
+                        Enter Manually
+                    </button>
+                    <button onclick="toggleFlashlight()" class="bg-gray-800 text-white px-4 py-2 rounded-lg font-medium">
+                        <i class="fa-solid fa-flashlight"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Manual Barcode Entry Modal -->
+    <div id="manual-barcode-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Enter Barcode</h3>
+                    <button onclick="closeManualBarcode()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa-solid fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <input type="text" id="manual-barcode-input" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter barcode manually">
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="closeManualBarcode()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                        Cancel
+                    </button>
+                    <button onclick="processManualBarcode()" class="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90">
+                        Set Barcode
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <div class="mb-4">
+                    <h3 id="confirmation-title" class="text-lg font-semibold text-gray-800 mb-2">Confirm Action</h3>
+                    <p id="confirmation-message" class="text-gray-600 text-sm">Are you sure you want to proceed?</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="closeConfirmationModal()" class="flex-1 bg-gray-500 text-white py-3 px-4 rounded-lg hover:bg-gray-600 transition-colors font-medium">
+                        Cancel
+                    </button>
+                    <button id="confirmation-confirm-btn" class="flex-1 bg-primary text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Popup Modal -->
+    <div id="success-popup" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg p-8 w-full max-w-sm text-center">
+                <div class="mb-4">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-check text-green-500 text-2xl"></i>
+                    </div>
+                    <h3 id="success-title" class="text-xl font-semibold text-gray-800 mb-2">Stock Added Successfully!</h3>
+                    <p class="text-gray-600 text-sm" id="success-message">Your inventory has been updated with the new stock.</p>
+                </div>
+                <button onclick="closeSuccessPopup(); closeErrorPopup();" class="w-full bg-primary text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                    Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample weight-based product data
+        const sampleProducts = {
+            1: {
+                id: 1,
+                name: 'Basmati Rice',
+                size: 'Premium Quality',
+                category: 'Grains',
+                isWeightBased: true,
+                unit: 'Kg',
+                currentStock: 15.5,
+                reorderLevel: 5,
+                sellingPrice: 90,
+                barcode: '8901030875422',
+                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/9307613d34-298d7bee124789ba3905.png'
+            },
+            2: {
+                id: 2,
+                name: 'Onions',
+                size: 'Per kg',
+                category: 'Vegetables',
+                isWeightBased: true,
+                unit: 'Kg',
+                currentStock: 25.0,
+                reorderLevel: 5,
+                sellingPrice: 40,
+                barcode: null,
+                image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400'
+            }
+        };
+        
+        // Get product from localStorage or URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('id') || '1';
+        
+        // Load product data from localStorage if available
+        const storedProductData = localStorage.getItem('refillProductData');
+        let productData;
+        
+        if (storedProductData) {
+            const stored = JSON.parse(storedProductData);
+            productData = {
+                id: stored.id || productId,
+                name: stored.name || 'Weight-Based Product',
+                size: stored.size || 'Premium Quality',
+                category: stored.category || 'Grocery',
+                isWeightBased: true,
+                unit: stored.unit || 'Kg',
+                currentStock: stored.stock || 15.5,
+                reorderLevel: Math.round((stored.stock || 15.5) * 0.2),
+                sellingPrice: stored.price || 90,
+                barcode: stored.barcode || null,
+                image: stored.image || 'https://storage.googleapis.com/uxpilot-auth.appspot.com/9307613d34-298d7bee124789ba3905.png'
+            };
+        } else {
+            // Fallback to sample data
+            productData = sampleProducts[productId] || sampleProducts[1];
+        }
+
+        // Price mode: 'per-kg' or 'total'
+        let priceMode = 'per-kg';
+
+        // Scanner variables
+        let codeReader = null;
+        let currentStream = null;
+
+        // Initialize page with product data
+        function initializePage() {
+            updateProductDisplay();
+            updateCalculations();
+            initializePriceMode();
+        }
+
+        function initializePriceMode() {
+            const priceModeSelect = document.getElementById('price-mode-select');
+            const sellingPriceInput = document.getElementById('selling-price');
+            
+            // Add event listeners
+            priceModeSelect.addEventListener('change', (e) => setPriceMode(e.target.value));
+            sellingPriceInput.addEventListener('input', updateSellingPriceCalculations);
+            
+            // Set initial mode
+            setPriceMode('per-kg');
+        }
+
+        function setPriceMode(mode) {
+            priceMode = mode;
+            const priceModeSelect = document.getElementById('price-mode-select');
+            
+            // Update dropdown value
+            priceModeSelect.value = mode;
+            
+            // Recalculate with existing values
+            updateSellingPriceCalculations();
+        }
+
+        function updateProductDisplay() {
+            // Safely update elements with null checks for real-time data consistency
+            const elements = {
+                'product-name': productData.name || 'Weight-Based Product',
+                'product-size': productData.size || 'Premium Quality',
+                'product-category': productData.category || 'Grocery',
+                'current-stock': `${productData.currentStock || productData.stock || 15.5} ${productData.unit || 'Kg'}`,
+                'reorder-level': `${productData.reorderLevel || productData.threshold || 5} ${productData.unit || 'Kg'}`
+            };
+            
+            // Update text content safely
+            Object.keys(elements).forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = elements[id];
+            });
+            
+            // Update product image
+            const productImage = document.getElementById('product-image');
+            if (productImage && productData.image) {
+                productImage.src = productData.image;
+                productImage.alt = productData.name || 'Weight-Based Product';
+            }
+            
+            // Pre-populate barcode if product has one
+            const barcodeInput = document.getElementById('barcode-input');
+            if (barcodeInput && productData.barcode) {
+                barcodeInput.value = productData.barcode;
+            }
+            
+            // Update selling price field
+            const sellingPriceInput = document.getElementById('selling-price');
+            if (sellingPriceInput) {
+                sellingPriceInput.placeholder = productData.sellingPrice || productData.price || '90';
+                sellingPriceInput.value = productData.sellingPrice || productData.price || '';
+            }
+            
+            // Update page title for better UX
+            document.title = `Refill ${productData.name || 'Weight-Based Product'} - Kirana Konnect`;
+        }
+
+        function updateCalculations() {
+            const quantity = parseFloat(document.getElementById('quantity-input').value) || 0;
+            const purchasePrice = parseFloat(document.getElementById('purchase-price').value) || 0;
+            const unit = document.getElementById('unit-select').value;
+            const currentStock = productData.currentStock;
+            
+            let quantityInKg = quantity;
+            if (unit === 'gm') {
+                quantityInKg = quantity / 1000;
+            }
+            
+            const pricePerKg = quantityInKg > 0 ? (purchasePrice / quantityInKg).toFixed(0) : 0;
+            const newTotal = currentStock + quantityInKg;
+            
+            document.getElementById('price-per-kg').textContent = `₹${pricePerKg}`;
+            document.getElementById('new-total').textContent = `${newTotal.toFixed(1)} Kg`;
+        }
+
+        function updateSellingPriceCalculations() {
+            const sellingPrice = parseFloat(document.getElementById('selling-price').value) || 0;
+            const quantity = parseFloat(document.getElementById('quantity-input').value) || 0;
+            const unit = document.getElementById('unit-select').value;
+            const currentPriceElement = document.getElementById('current-price');
+            
+            let quantityInKg = quantity;
+            if (unit === 'gm') {
+                quantityInKg = quantity / 1000;
+            }
+            
+            if (sellingPrice > 0 && quantity > 0) {
+                const priceModeSelect = document.getElementById('price-mode-select');
+                const selectedMode = priceModeSelect.value;
+                const totalWeight = productData.currentStock + quantityInKg;
+                
+                if (selectedMode === 'total') {
+                    // User entered total price for new stock - show calculated per kg price
+                    const pricePerKg = (sellingPrice / quantityInKg).toFixed(2);
+                    currentPriceElement.textContent = `Current: ₹${pricePerKg}/Kg`;
+                } else if (selectedMode === 'per-kg') {
+                    // User entered price per kg - show total value of entire stock (existing + new)
+                    const totalValueAllStock = sellingPrice * totalWeight;
+                    currentPriceElement.textContent = `Current: ₹${totalValueAllStock.toFixed(2)}`;
+                } else if (selectedMode === 'per-gram') {
+                    // User entered price per gram - convert to per kg then show total value of entire stock
+                    const pricePerKg = sellingPrice * 1000;
+                    const totalValueAllStock = pricePerKg * totalWeight;
+                    currentPriceElement.textContent = `Current: ₹${totalValueAllStock.toFixed(2)}`;
+                }
+            } else {
+                currentPriceElement.textContent = '';
+            }
+        }
+
+        // Navigation functions
+        function goBack() {
+            window.history.back();
+        }
+
+        function goToDashboard() {
+            window.location.href = '/dashboard';
+        }
+
+        function goToInventory() {
+            window.location.href = '/inventory';
+        }
+
+        function goToCart() {
+            window.location.href = '/cart';
+        }
+
+        function goToProfile() {
+            window.location.href = '/profile';
+        }
+
+        function openScanner() {
+            console.log('Opening scanner...');
+        }
+
+        // Barcode scanning functions
+        function scanBarcode() {
+            console.log('scanBarcode() called');
+            const barcodeInput = document.getElementById('barcode-input');
+            const currentBarcode = barcodeInput.value.trim();
+            
+            console.log('Current barcode:', currentBarcode);
+            console.log('Product has barcode:', productData.barcode);
+            
+            // If product already has a barcode, show confirmation modal
+            if (currentBarcode && productData.barcode) {
+                console.log('Showing confirmation modal for barcode replacement');
+                showConfirmationModal(
+                    'Replace Barcode?',
+                    'This will replace the existing barcode. Continue?',
+                    () => {
+                        console.log('User confirmed barcode replacement');
+                        // User confirmed, proceed with scanning
+                        proceedWithScanning();
+                    }
+                );
+                return;
+            }
+            
+            console.log('No existing barcode, proceeding directly with scanning');
+            proceedWithScanning();
+        }
+
+        function proceedWithScanning() {
+            console.log('Proceeding with scanning...');
+            console.log('Navigator.mediaDevices available:', !!navigator.mediaDevices);
+            console.log('getUserMedia available:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+            
+            // Try camera scanner first, fallback to manual entry
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                console.log('Opening camera scanner...');
+                openCameraScanner();
+            } else {
+                console.log('Camera not available, showing manual entry...');
+                // Show manual entry modal instead of prompt
+                showManualBarcodeModal();
+            }
+        }
+
+        function openCameraScanner() {
+            const modal = document.getElementById('scanner-modal');
+            const video = document.getElementById('scanner-video');
+            const manualInput = document.getElementById('scanner-manual-input');
+            
+            modal.classList.remove('hidden');
+            manualInput.value = '';
+            updateScannerStatus('Starting camera...', 'blue');
+            
+            // Set fallback timeout for slow camera access
+            const fallbackTimeout = setTimeout(() => {
+                updateScannerStatus('Camera taking too long - Enter manually below', 'orange');
+            }, 3000);
+            
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then((stream) => {
+                    clearTimeout(fallbackTimeout);
+                    video.srcObject = stream;
+                    currentStream = stream;
+                    video.play();
+                    updateScannerStatus('Camera ready - Position barcode in frame', 'green');
+                    
+                    // Initialize barcode scanning if ZXing is available
+                    if (typeof ZXing !== 'undefined') {
+                        try {
+                            codeReader = new ZXing.BrowserMultiFormatReader();
+                            codeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
+                                if (result) {
+                                    document.getElementById('barcode-input').value = result.text;
+                                    closeCameraScanner();
+                                    showSuccessPopup('Barcode added successfully');
+                                }
+                            });
+                            updateScannerStatus('Scanner active - Point at barcode', 'green');
+                        } catch (error) {
+                            updateScannerStatus('Camera ready - Enter manually below', 'orange');
+                        }
+                    } else {
+                        updateScannerStatus('Camera ready - Enter manually below', 'orange');
+                    }
+                })
+                .catch(() => {
+                    clearTimeout(fallbackTimeout);
+                    updateScannerStatus('Camera access denied - Enter manually below', 'red');
+                });
+        }
+
+        function updateScannerStatus(message, color) {
+            const statusElement = document.getElementById('scanner-status');
+            const colorClasses = {
+                'blue': 'bg-blue-500',
+                'green': 'bg-green-500', 
+                'orange': 'bg-orange-500',
+                'red': 'bg-red-500'
+            };
+            
+            statusElement.innerHTML = `<span class="${colorClasses[color]} text-white px-3 py-1 rounded-full text-sm">${message}</span>`;
+        }
+
+        function closeCameraScanner() {
+            const modal = document.getElementById('scanner-modal');
+            modal.classList.add('hidden');
+            
+            // Stop camera stream
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            
+            // Reset code reader
+            if (codeReader) {
+                codeReader.reset();
+                codeReader = null;
+            }
+        }
+
+        function useScannerManualInput() {
+            const manualInput = document.getElementById('scanner-manual-input');
+            const barcodeValue = manualInput.value.trim();
+            
+            if (barcodeValue) {
+                document.getElementById('barcode-input').value = barcodeValue;
+                closeCameraScanner();
+                showSuccessPopup('Barcode added successfully');
+            } else {
+                updateScannerStatus('Please enter a barcode number', 'red');
+            }
+        }
+
+        // Modal functions for barcode scanner
+        let confirmationCallback = null;
+
+        function showConfirmationModal(title, message, callback) {
+            console.log('showConfirmationModal called with:', title, message);
+            const modal = document.getElementById('confirmation-modal');
+            const titleElement = document.getElementById('confirmation-title');
+            const messageElement = document.getElementById('confirmation-message');
+            const confirmBtn = document.getElementById('confirmation-confirm-btn');
+            
+            titleElement.textContent = title;
+            messageElement.textContent = message;
+            confirmationCallback = callback;
+            
+            console.log('Callback set:', typeof callback);
+            
+            // Set up confirm button click handler
+            confirmBtn.onclick = () => {
+                console.log('Confirm button clicked');
+                if (confirmationCallback) {
+                    console.log('Executing callback');
+                    const callbackToExecute = confirmationCallback;
+                    closeConfirmationModal();
+                    callbackToExecute();
+                } else {
+                    console.log('No callback to execute');
+                    closeConfirmationModal();
+                }
+            };
+            
+            modal.classList.remove('hidden');
+            console.log('Confirmation modal shown');
+        }
+
+        function closeConfirmationModal() {
+            const modal = document.getElementById('confirmation-modal');
+            modal.classList.add('hidden');
+            confirmationCallback = null;
+        }
+
+        function setScannerManualBarcode() {
+            const manualInput = document.getElementById('scanner-manual-input');
+            const barcodeInput = document.getElementById('barcode-input');
+            const newBarcode = manualInput.value.trim();
+            
+            if (newBarcode) {
+                barcodeInput.value = newBarcode;
+                closeCameraScanner();
+                showSuccessPopup('Barcode added successfully');
+            } else {
+                updateScannerStatus('Please enter a barcode number', 'red');
+            }
+        }
+
+        // Manual barcode input function
+        function showManualBarcodeInput(currentBarcode) {
+            const popup = document.getElementById('manual-barcode-popup');
+            const input = document.getElementById('manual-barcode-input');
+            input.value = currentBarcode;
+            popup.classList.remove('hidden');
+            input.focus();
+        }
+
+        function confirmManualBarcode() {
+            const popup = document.getElementById('manual-barcode-popup');
+            const input = document.getElementById('manual-barcode-input');
+            const newBarcode = input.value.trim();
+            
+            if (newBarcode) {
+                document.getElementById('barcode-input').value = newBarcode;
+                showSuccessPopup('Barcode added successfully!');
+            }
+            
+            popup.classList.add('hidden');
+        }
+
+        function cancelManualBarcode() {
+            const popup = document.getElementById('manual-barcode-popup');
+            popup.classList.add('hidden');
+        }
+
+        // Barcode confirmation functions
+        function showBarcodeConfirmPopup() {
+            const popup = document.getElementById('barcode-confirm-popup');
+            popup.classList.remove('hidden');
+        }
+
+        function confirmBarcodeOverwrite() {
+            const popup = document.getElementById('barcode-confirm-popup');
+            popup.classList.add('hidden');
+            
+            // Proceed with scanner after confirmation
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                openCameraScanner();
+            } else {
+                showManualBarcodeInput(document.getElementById('barcode-input').value);
+            }
+        }
+
+        function cancelBarcodeOverwrite() {
+            const popup = document.getElementById('barcode-confirm-popup');
+            popup.classList.add('hidden');
+        }
+
+        // Success/Error popup functions
+        function showSuccessPopup(message, shouldRedirect = false) {
+            // Hide scanner modal completely when showing success popup
+            const scannerModal = document.getElementById('scanner-modal');
+            if (scannerModal) {
+                scannerModal.classList.add('hidden');
+            }
+            
+            // Hide any other notification elements that might be interfering
+            const allNotifications = document.querySelectorAll('.notification, .toast, .alert');
+            allNotifications.forEach(notif => {
+                notif.style.display = 'none';
+            });
+            
+            const popup = document.getElementById('success-popup');
+            const titleElement = document.getElementById('success-title');
+            const messageElement = document.getElementById('success-message');
+            
+            // Set appropriate title based on message content
+            if (message.toLowerCase().includes('barcode')) {
+                titleElement.textContent = 'Barcode Added Successfully';
+                messageElement.textContent = '';
+                messageElement.style.display = 'none';
+            } else if (message.toLowerCase().includes('stock')) {
+                titleElement.textContent = 'Stock Added Successfully';
+                messageElement.textContent = message;
+                messageElement.style.display = 'block';
+            } else {
+                titleElement.textContent = 'Success';
+                messageElement.textContent = message;
+                messageElement.style.display = 'block';
+            }
+            popup.classList.remove('hidden');
+            
+            // Store redirect preference for when popup closes
+            popup.setAttribute('data-should-redirect', shouldRedirect);
+        }
+
+        function closeSuccessPopup() {
+            const popup = document.getElementById('success-popup');
+            const shouldRedirect = popup.getAttribute('data-should-redirect') === 'true';
+            popup.classList.add('hidden');
+            
+            // Only redirect if explicitly requested (for stock added, not barcode added)
+            if (shouldRedirect) {
+                setTimeout(() => {
+                    goToInventory();
+                }, 300);
+            }
+        }
+
+        function showErrorPopup(message) {
+            // Reuse success popup but change styling for error
+            const popup = document.getElementById('success-popup');
+            const messageElement = document.getElementById('success-message');
+            const icon = popup.querySelector('i');
+            const iconContainer = popup.querySelector('.bg-green-100');
+            const title = popup.querySelector('h3');
+            
+            // Change to error styling
+            iconContainer.className = 'w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4';
+            icon.className = 'fa-solid fa-exclamation-triangle text-red-500 text-2xl';
+            title.textContent = 'Input Required';
+            messageElement.textContent = message;
+            
+            popup.classList.remove('hidden');
+        }
+
+        function closeErrorPopup() {
+            const popup = document.getElementById('success-popup');
+            popup.classList.add('hidden');
+            
+            // Reset to success styling for next use
+            const icon = popup.querySelector('i');
+            const iconContainer = popup.querySelector('.bg-red-100, .bg-green-100');
+            const title = popup.querySelector('h3');
+            
+            iconContainer.className = 'w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4';
+            icon.className = 'fa-solid fa-check text-green-500 text-2xl';
+            title.textContent = 'Stock Added Successfully!';
+        }
+
+        function cancelRefill() {
+            showConfirmPopup('Are you sure you want to cancel? All changes will be lost.', goBack);
+        }
+
+        function showConfirmPopup(message, onConfirm) {
+            const popup = document.getElementById('confirm-popup');
+            const messageElement = document.getElementById('confirm-message');
+            messageElement.textContent = message;
+            popup.classList.remove('hidden');
+            
+            // Store the callback for later use
+            window.confirmCallback = onConfirm;
+        }
+
+        function confirmAction() {
+            const popup = document.getElementById('confirm-popup');
+            popup.classList.add('hidden');
+            if (window.confirmCallback) {
+                window.confirmCallback();
+                window.confirmCallback = null;
+            }
+        }
+
+        function cancelAction() {
+            const popup = document.getElementById('confirm-popup');
+            popup.classList.add('hidden');
+            window.confirmCallback = null;
+        }
+
+        function addStock() {
+            const quantity = parseFloat(document.getElementById('quantity-input').value);
+            const unit = document.getElementById('unit-select').value;
+            const purchasePrice = parseFloat(document.getElementById('purchase-price').value);
+            const sellingPriceInput = parseFloat(document.getElementById('selling-price').value);
+            const mfgDate = document.getElementById('mfg-date').value;
+            const expDate = document.getElementById('exp-date').value;
+            const barcode = document.getElementById('barcode-input').value;
+
+            if (!quantity || quantity <= 0) {
+                showErrorPopup('Please enter a valid quantity');
+                return;
+            }
+
+            if (!purchasePrice || purchasePrice <= 0) {
+                showErrorPopup('Please enter a valid purchase price');
+                return;
+            }
+
+            if (!sellingPriceInput || sellingPriceInput <= 0) {
+                showErrorPopup('Please enter a valid selling price');
+                return;
+            }
+
+            // Convert quantity to kg for storage
+            let quantityInKg = quantity;
+            if (unit === 'gm') {
+                quantityInKg = quantity / 1000;
+            }
+
+            // Get price mode
+            const priceModeSelect = document.getElementById('price-mode-select');
+            const selectedPriceMode = priceModeSelect.value;
+            
+            let finalSellingPricePerKg;
+            if (selectedPriceMode === 'per-kg') {
+                finalSellingPricePerKg = sellingPriceInput;
+            } else if (selectedPriceMode === 'per-gram') {
+                // Per gram - convert to per kg
+                finalSellingPricePerKg = sellingPriceInput * 1000;
+            } else if (selectedPriceMode === 'total') {
+                // Total price for the quantity - convert to per kg
+                finalSellingPricePerKg = sellingPriceInput / quantityInKg;
+            }
+
+            // Prepare data for submission
+            const stockData = {
+                productId: productData.id,
+                quantity: quantity,
+                unit: unit,
+                quantityInKg: quantityInKg,
+                purchasePrice: purchasePrice,
+                sellingPricePerKg: finalSellingPricePerKg,
+                priceMode: selectedPriceMode,
+                mfgDate: mfgDate,
+                expDate: expDate,
+                barcode: barcode
+            };
+
+            console.log('Adding weight-based stock:', stockData);
+            
+            // Show custom success popup
+            const unitDisplay = unit === 'kg' ? 'kg' : 'grams';
+            let priceInfo;
+            if (selectedPriceMode === 'per-kg') {
+                priceInfo = ` at ₹${sellingPriceInput}/kg`;
+            } else if (selectedPriceMode === 'per-gram') {
+                priceInfo = ` at ₹${sellingPriceInput}/gram`;
+            } else {
+                priceInfo = ` with total value ₹${sellingPriceInput}`;
+            }
+            
+            showSuccessPopup(`Successfully added ${quantity} ${unitDisplay} to stock${priceInfo}!`, true);
+        }
+
+        // Event listeners
+        document.getElementById('quantity-input').addEventListener('input', () => {
+            updateCalculations();
+            updateSellingPriceCalculations();
+        });
+        document.getElementById('purchase-price').addEventListener('input', updateCalculations);
+        document.getElementById('unit-select').addEventListener('change', updateCalculations);
+        document.getElementById('selling-price').addEventListener('input', updateSellingPriceCalculations);
+        document.getElementById('price-mode-select').addEventListener('change', updateSellingPriceCalculations);
+
+        // Initialize page when loaded
+        window.addEventListener('load', initializePage);
+    </script>
+    <script src="{{ url_for('static', filename='js/universal-scanner.js') }}"></script>
+</body>
+</html>

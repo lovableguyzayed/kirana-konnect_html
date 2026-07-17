@@ -1,0 +1,2772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Kirana Konnect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    
+    <script>tailwind.config = {
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#2563eb",
+        "secondary": "#64748b",
+        "accent": "#f59e0b",
+        "success": "#10b981",
+        "danger": "#ef4444",
+        "dark": "#1e293b",
+        "light": "#f8fafc"
+      },
+      "fontFamily": {
+        "inter": [
+          "Inter",
+          "sans-serif"
+        ],
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
+<style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+      
+      /* Notification Toggle Styles */
+      .notification-toggle {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+      }
+
+      .toggle-track {
+        width: 48px;
+        height: 24px;
+        background-color: #d1d5db;
+        border-radius: 12px;
+        position: relative;
+        transition: background-color 0.3s ease;
+      }
+
+      .toggle-thumb {
+        width: 20px;
+        height: 20px;
+        background-color: white;
+        border-radius: 50%;
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        transition: transform 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .notification-toggle.active .toggle-track {
+        background-color: #10B981;
+      }
+
+      .notification-toggle.active .toggle-thumb {
+        transform: translateX(24px);
+      }
+
+      .notification-toggle:hover .toggle-track {
+        opacity: 0.8;
+      }
+
+      /* Backup Toggle Button Styles */
+      .backup-toggle-btn {
+        width: 100px;
+        background-color: #e5e7eb;
+      }
+
+      .backup-toggle-btn .toggle-option {
+        transition: all 0.3s ease;
+        z-index: 1;
+      }
+
+      .backup-toggle-btn .toggle-option.off {
+        background-color: white;
+        color: #6b7280;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .backup-toggle-btn .toggle-option.on {
+        background-color: transparent;
+        color: #6b7280;
+      }
+
+      /* When backup is enabled (checked) */
+      #emailBackup:checked + .backup-toggle-btn {
+        background-color: #10b981;
+      }
+
+      #emailBackup:checked + .backup-toggle-btn .toggle-option.off {
+        background-color: transparent;
+        color: white;
+        box-shadow: none;
+      }
+
+      #emailBackup:checked + .backup-toggle-btn .toggle-option.on {
+        background-color: white;
+        color: #10b981;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Dynamic popup animations */
+      .animate-scale-in {
+        animation: scaleIn 0.3s ease-out;
+      }
+
+      @keyframes scaleIn {
+        from {
+          transform: scale(0.9);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+    </style>
+<style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .toggle-switch {
+    transition: transform 0.3s ease;
+  }
+
+  .toggle-switch.active {
+    transform: translateX(24px);
+    background-color: #2563eb;
+  }
+
+  .checkbox-custom {
+    transition: all 0.2s ease;
+  }
+
+  .checkbox-custom.checked {
+    background-color: #2563eb;
+    border-color: #2563eb;
+  }
+
+  .checkbox-custom.checked .fa-check {
+    opacity: 1;
+  }
+</style>
+</head>
+<body class="font-inter bg-gray-100">
+    <!-- Header Section -->
+    <header id="header" class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-10">
+        <div class="flex items-center justify-between px-4 py-3">
+            <button class="p-2 hover:bg-gray-100 rounded-lg" onclick="goBack()">
+                <i class="fa-solid fa-arrow-left text-gray-600 text-lg"></i>
+            </button>
+            <div class="text-center">
+                <h1 class="text-lg font-semibold text-dark">Profile</h1>
+                <p class="text-xs text-gray-500">Kirana Konnect</p>
+            </div>
+            <div class="w-10"></div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="pt-16 pb-20 bg-gray-100">
+        <!-- Profile Header -->
+        <div id="profile-header" class="bg-white px-4 py-6">
+            <div class="flex items-center space-x-4">
+                <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
+                    <span class="text-white font-bold text-xl">RS</span>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-xl font-semibold text-dark">Rajesh Sharma</h2>
+                    <p class="text-sm text-gray-500">Shop Owner</p>
+                    <p class="text-sm text-gray-500">+91 98765 43210</p>
+                </div>
+                <button class="p-2 text-primary hover:bg-blue-50 rounded-lg transition-colors" onclick="editProfile()">
+                    <i class="fa-solid fa-edit text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Shop Details -->
+        <div id="shop-details" class="bg-white mt-2 px-4 py-4">
+            <h3 class="text-lg font-semibold text-dark mb-3">Shop Information</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Shop Name</span>
+                    <span class="font-medium text-dark">Sharma Kirana Store</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">GST Number</span>
+                    <span class="font-medium text-dark">27ABCDE1234F1Z5</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Udyam Certificate</span>
+                    <span class="font-medium text-dark">UDYAM-MH-06-0012345</span>
+                </div>
+                <div class="flex justify-between items-start">
+                    <span class="text-gray-600">Address</span>
+                    <span class="font-medium text-dark text-right">Shop No. 15, Market Road<br>Mumbai, Maharashtra</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscription Plan -->
+        <div id="subscription-plan" class="bg-white mt-2 px-4 py-4">
+            <h3 class="text-lg font-semibold text-dark mb-3">My Plan</h3>
+            <div class="bg-white rounded-2xl shadow-lg border-2 border-accent overflow-hidden relative">
+                <div class="absolute top-0 right-0 bg-accent text-white px-4 py-1 text-xs font-bold rounded-bl-lg">
+                    ACTIVE
+                </div>
+                <div class="p-6">
+                    <div class="text-center mb-4">
+                        <h4 class="text-xl font-bold text-dark mb-2">Yearly Plan</h4>
+                        <p class="text-gray-600 text-sm mb-4">Save big with annual payment</p>
+                        <div class="mb-4">
+                            <span class="text-2xl font-bold text-dark">₹799</span>
+                            <span class="text-gray-600 text-sm">/year</span>
+                            <div class="mt-1">
+                                <span class="text-sm text-gray-500 line-through">₹948</span>
+                                <span class="text-sm text-accent font-semibold ml-2">Save ₹149</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 mb-4">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-check text-primary text-xs"></i>
+                            <span class="text-gray-700 text-xs">Everything in Monthly Plan</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-check text-primary text-xs"></i>
+                            <span class="text-gray-700 text-xs">Priority customer support</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-check text-primary text-xs"></i>
+                            <span class="text-gray-700 text-xs">Advanced analytics</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-check text-primary text-xs"></i>
+                            <span class="text-gray-700 text-xs">Data backup & restore</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-600">Next billing</span>
+                            <span class="font-medium text-dark">15 Dec 2024</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm mt-1">
+                            <span class="text-gray-600">Status</span>
+                            <span class="text-primary font-medium">Active</span>
+                        </div>
+                    </div>
+                    
+                    <button class="w-full bg-accent text-white py-2 px-4 rounded-xl font-semibold hover:bg-orange-600 transition-colors" onclick="managePlan()">
+                        Manage Plan
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Quick Actions -->
+        <div id="quick-actions" class="bg-white mt-2 px-4 py-4">
+            <h3 class="text-lg font-semibold text-dark mb-3">Quick Actions</h3>
+            <div class="space-y-3">
+                <button class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" onclick="exportBusinessData()">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-download text-primary text-lg"></i>
+                        <span class="font-medium text-dark">Export Data</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+                <div class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-envelope text-primary text-lg"></i>
+                        <div class="flex flex-col">
+                            <span class="font-medium text-dark">Email Backup</span>
+                            <span class="text-sm text-gray-500">admin@mystore.com</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="emailBackup" class="sr-only" checked onchange="toggleEmailBackup()">
+                            <div class="backup-toggle-btn flex items-center bg-gray-200 rounded-full p-1 transition-all duration-300">
+                                <span class="toggle-option off bg-white text-gray-600 px-3 py-1 rounded-full text-xs font-medium transition-all duration-300">OFF</span>
+                                <span class="toggle-option on text-white px-3 py-1 rounded-full text-xs font-medium transition-all duration-300">ON</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <button class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" onclick="manageStaff()">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-users text-primary text-lg"></i>
+                        <span class="font-medium text-dark">Manage Staff</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+                <button class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" onclick="toggleNotificationSettings()">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-bell text-primary text-lg"></i>
+                        <span class="font-medium text-dark">Notification Settings</span>
+                    </div>
+                    <i id="notification-arrow" class="fa-solid fa-chevron-down text-gray-400 transition-transform"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Notification Settings (Expandable) -->
+        <div id="notification-settings-panel" class="bg-white mt-2 px-4 py-4 hidden">
+            <h3 class="text-lg font-semibold text-dark mb-4">Notification Preferences</h3>
+            
+            <!-- Notification Tabs -->
+            <div class="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-4">
+                <button id="tab-subscription" class="notification-tab flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors bg-primary text-white" onclick="switchNotificationTab('subscription')">
+                    Subscription
+                </button>
+                <button id="tab-backup" class="notification-tab flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors text-gray-600 hover:text-gray-800" onclick="switchNotificationTab('backup')">
+                    Backup
+                </button>
+                <button id="tab-app" class="notification-tab flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors text-gray-600 hover:text-gray-800" onclick="switchNotificationTab('app')">
+                    App Alerts
+                </button>
+            </div>
+
+            <!-- Subscription Notifications -->
+            <div id="subscription-notifications" class="notification-content">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Subscription Alerts</h4>
+                            <p class="text-sm text-gray-500">Get notified about plan renewals and payments</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="subscription-alerts" class="sr-only" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Payment Reminders</h4>
+                            <p class="text-sm text-gray-500">Reminders before subscription expires</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="payment-reminders" class="sr-only" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Plan Updates</h4>
+                            <p class="text-sm text-gray-500">New features and plan changes</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="plan-updates" class="sr-only">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backup Notifications -->
+            <div id="backup-notifications" class="notification-content hidden">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Daily Backup Status</h4>
+                            <p class="text-sm text-gray-500">Daily confirmation of data backup</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="daily-backup" class="sr-only" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Backup Failures</h4>
+                            <p class="text-sm text-gray-500">Alert when backup fails</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="backup-failures" class="sr-only" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Weekly Reports</h4>
+                            <p class="text-sm text-gray-500">Weekly backup summary report</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="weekly-reports" class="sr-only">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- App Notifications -->
+            <div id="app-notifications" class="notification-content hidden">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Low Stock Alerts</h4>
+                            <p class="text-sm text-gray-500">When products are running low</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="low-stock-alerts" class="sr-only" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Expiry Alerts</h4>
+                            <p class="text-sm text-gray-500">Products expiring soon</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="expiry-alerts" class="sr-only" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Payment Notifications</h4>
+                            <p class="text-sm text-gray-500">Customer payment reminders</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="payment-notifications" class="sr-only">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-medium text-dark">Daily Summary</h4>
+                            <p class="text-sm text-gray-500">End of day business summary</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="daily-summary" class="sr-only" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- App Settings -->
+        <div id="app-settings" class="bg-white mt-2 px-4 py-4">
+            <h3 class="text-lg font-semibold text-dark mb-3">App Settings</h3>
+            <div class="space-y-3">
+                <button class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" onclick="changePassword()">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-lock text-primary text-lg"></i>
+                        <span class="font-medium text-dark">Change Password</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+
+                <button class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" onclick="changeLanguage()">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-language text-primary text-lg"></i>
+                        <span class="font-medium text-dark">Language</span>
+                    </div>
+                    <span class="text-gray-600">English</span>
+                </button>
+
+                <button class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" onclick="helpSupport()">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-question-circle text-primary text-lg"></i>
+                        <span class="font-medium text-dark">Help & Support</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+                <button class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors" onclick="aboutApp()">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-info-circle text-primary text-lg"></i>
+                        <span class="font-medium text-dark">About App</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Logout Button -->
+        <div id="logout-section" class="px-4 py-4">
+            <button class="w-full bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors" onclick="logout()">
+                <i class="fa-solid fa-sign-out-alt mr-2"></i>
+                Logout
+            </button>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
+        <div class="flex justify-around items-end py-2">
+            <button class="flex flex-col items-center py-1 px-3" onclick="goToDashboard()">
+                <i class="fa-solid fa-home text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Home</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="goToInventory()">
+                <i class="fa-solid fa-box text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Inventory</span>
+            </button>
+            <button onclick="window.location.href='/add-item'" class="relative -top-4 bg-primary rounded-full p-4 shadow-lg">
+                <i class="fa-solid fa-barcode text-white text-xl"></i>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3 relative" onclick="goToCart()">
+                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Cart</span>
+                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3">
+                <i class="fa-solid fa-user text-primary text-xl"></i>
+                <span class="text-xs mt-1 text-primary font-semibold">Profile</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Edit Profile Modal -->
+    <div id="editProfileModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg w-full max-w-md h-[70vh] sm:h-[80vh] shadow-xl flex flex-col">
+                <!-- Fixed Header -->
+                <div class="flex items-center justify-between p-4 border-b flex-shrink-0">
+                    <h3 class="text-lg font-semibold text-dark">Edit Profile</h3>
+                    <button onclick="closeEditProfile()" class="p-1 hover:bg-gray-100 rounded">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                <!-- Scrollable Content -->
+                <div class="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+                    <!-- Personal Information -->
+                    <div>
+                        <h4 class="font-medium text-dark mb-3">Personal Information</h4>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                <input type="text" id="editName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="Rajesh Sharma">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                <input type="tel" id="editPhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="+91 98765 43210">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" id="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="rajesh@gmail.com">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shop Information -->
+                    <div>
+                        <h4 class="font-medium text-dark mb-3">Shop Information</h4>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Shop Name</label>
+                                <input type="text" id="editShopName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="Sharma Kirana Store">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">GST Number</label>
+                                <input type="text" id="editGST" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="27ABCDE1234F1Z5">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Udyam Certificate</label>
+                                <input type="text" id="editUdyam" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="UDYAM-MH-06-0012345">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Shop Address</label>
+                                <textarea id="editAddress" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">Shop No. 15, Market Road, Mumbai, Maharashtra</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Photo Upload -->
+                    <div>
+                        <h4 class="font-medium text-dark mb-3">Profile Photo</h4>
+                        <div class="flex items-center space-x-4">
+                            <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
+                                <span class="text-white font-bold text-xl">RS</span>
+                            </div>
+                            <div>
+                                <button onclick="selectPhoto()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">
+                                    <i class="fa-solid fa-camera mr-2"></i>
+                                    Change Photo
+                                </button>
+                                <p class="text-xs text-gray-500 mt-1">JPG, PNG up to 5MB</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Fixed Footer with Buttons -->
+                <div class="flex space-x-3 p-4 border-t flex-shrink-0 bg-white rounded-b-lg">
+                    <button onclick="closeEditProfile()" class="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button onclick="saveProfile()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Language Selection Modal -->
+    <div id="languageModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Select Language</h2>
+                    <button onclick="closeLanguageModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="space-y-3">
+                        <button onclick="selectLanguage('English')" class="w-full flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl">🇺🇸</span>
+                                <span class="font-medium text-dark">English</span>
+                            </div>
+                            <i class="fa-solid fa-check text-blue-600"></i>
+                        </button>
+                        
+                        <button onclick="selectLanguage('Hindi')" class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl">🇮🇳</span>
+                                <span class="font-medium text-dark">हिंदी (Hindi)</span>
+                            </div>
+                        </button>
+                        
+                        <button onclick="selectLanguage('Gujarati')" class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl">🇮🇳</span>
+                                <span class="font-medium text-dark">ગુજરાતી (Gujarati)</span>
+                            </div>
+                        </button>
+                        
+                        <button onclick="selectLanguage('Tamil')" class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl">🇮🇳</span>
+                                <span class="font-medium text-dark">தமிழ் (Tamil)</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help & Support Modal -->
+    <div id="helpSupportModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Help & Support</h2>
+                    <button onclick="closeHelpModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="font-semibold text-dark mb-2">Contact Support</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-phone text-blue-600"></i>
+                                    <span>+91 9876543210</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-envelope text-blue-600"></i>
+                                    <span>support@kiranakonnect.com</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-brands fa-whatsapp text-green-600"></i>
+                                    <span>WhatsApp Support</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <button onclick="openFAQ()" class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-question-circle text-primary"></i>
+                                    <span class="font-medium text-dark">FAQ</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                            </button>
+                            
+
+                            
+                            <button onclick="reportBug()" class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-bug text-primary"></i>
+                                    <span class="font-medium text-dark">Report Bug</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                            </button>
+                            
+                            <button onclick="featureRequest()" class="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-lightbulb text-primary"></i>
+                                    <span class="font-medium text-dark">Feature Request</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About App Modal -->
+    <div id="aboutAppModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">About Kirana Konnect</h2>
+                    <button onclick="closeAboutModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6 text-center">
+                    <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-store text-white text-2xl"></i>
+                    </div>
+                    
+                    <h3 class="text-xl font-bold text-dark mb-2">Kirana Konnect</h3>
+                    <p class="text-gray-600 text-sm mb-4">Complete business management solution for small retailers</p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Version</span>
+                                <span class="font-medium">2.1.0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Build</span>
+                                <span class="font-medium">2024.12.01</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Developer</span>
+                                <span class="font-medium">Kirana Konnect Team</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2 text-xs text-gray-500">
+                        <p>© 2024 Kirana Konnect. All rights reserved.</p>
+                        <div class="flex justify-center space-x-4">
+                            <a href="#" class="hover:text-primary">Privacy Policy</a>
+                            <a href="#" class="hover:text-primary">Terms of Service</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Change Password</h2>
+                    <button onclick="closePasswordModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <form id="changePasswordForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                            <div class="relative">
+                                <input type="password" id="currentPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter current password" required>
+                                <button type="button" onclick="togglePasswordVisibility('currentPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                            <div class="relative">
+                                <input type="password" id="newPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Enter new password" required>
+                                <button type="button" onclick="togglePasswordVisibility('newPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Password must be at least 8 characters long</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                            <div class="relative">
+                                <input type="password" id="confirmPassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Confirm new password" required>
+                                <button type="button" onclick="togglePasswordVisibility('confirmPassword')" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-3 pt-4">
+                            <button type="button" onclick="closePasswordModal()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button type="submit" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                Update Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ Modal -->
+    <div id="faqModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Frequently Asked Questions</h2>
+                    <button onclick="closeFAQModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div class="border-b pb-4">
+                            <h3 class="font-semibold text-dark mb-2">How do I add new products to inventory?</h3>
+                            <p class="text-sm text-gray-600">Go to Inventory → Add New Item. Fill in product details including name, price, and stock quantity.</p>
+                        </div>
+                        
+                        <div class="border-b pb-4">
+                            <h3 class="font-semibold text-dark mb-2">How to generate bills for customers?</h3>
+                            <p class="text-sm text-gray-600">Use the Cart section to add items, select customer, and generate bill. You can print or share digitally.</p>
+                        </div>
+                        
+                        <div class="border-b pb-4">
+                            <h3 class="font-semibold text-dark mb-2">How to track customer credit payments?</h3>
+                            <p class="text-sm text-gray-600">Customer ledger shows all credit transactions. You can add payments and track outstanding balances.</p>
+                        </div>
+                        
+                        <div class="border-b pb-4">
+                            <h3 class="font-semibold text-dark mb-2">Can I export business data?</h3>
+                            <p class="text-sm text-gray-600">Yes, go to Profile → Export Data to download comprehensive business reports as PDF.</p>
+                        </div>
+                        
+                        <div class="pb-4">
+                            <h3 class="font-semibold text-dark mb-2">How to manage staff accounts?</h3>
+                            <p class="text-sm text-gray-600">Use the Staff section to add team members, set permissions, and track their activities.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Bug Modal -->
+    <div id="reportBugModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Report Bug</h2>
+                    <button onclick="closeBugModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark mb-2">Bug Title</label>
+                            <input type="text" id="bugTitle" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Brief description of the issue">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-dark mb-2">Detailed Description</label>
+                            <textarea id="bugDescription" rows="4" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Please describe the bug in detail, including steps to reproduce"></textarea>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button onclick="closeBugModal()" class="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button onclick="submitBugReport()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">
+                                Submit Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Request Modal -->
+    <div id="featureRequestModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Feature Request</h2>
+                    <button onclick="closeFeatureModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-dark mb-2">Feature Title</label>
+                            <input type="text" id="featureTitle" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Name of the feature you'd like">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-dark mb-2">Feature Description</label>
+                            <textarea id="featureDescription" rows="4" class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Describe how this feature would help your business"></textarea>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button onclick="closeFeatureModal()" class="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button onclick="submitFeatureRequest()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">
+                                Submit Request
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Staff Modal -->
+    <div id="manageStaffModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Manage Staff Positions</h2>
+                    <button onclick="closeManageStaffModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <p class="text-sm text-gray-600 mb-4">Change employee positions by clicking on their current role</p>
+                    
+                    <div class="space-y-3">
+                        <!-- Staff Member 1 -->
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-staff-id="1">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-medium text-sm">RA</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-dark">Rahul Sharma</p>
+                                    <p class="text-xs text-gray-500">rahul@store.com</p>
+                                </div>
+                            </div>
+                            <button onclick="changePosition('1', 'Cashier')" class="staff-position text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors">
+                                Cashier
+                            </button>
+                        </div>
+                        
+                        <!-- Staff Member 2 -->
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-staff-id="2">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-medium text-sm">PK</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-dark">Priya Kumar</p>
+                                    <p class="text-xs text-gray-500">priya@store.com</p>
+                                </div>
+                            </div>
+                            <button onclick="changePosition('2', 'Worker')" class="staff-position text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-600 hover:bg-green-200 transition-colors">
+                                Worker
+                            </button>
+                        </div>
+                        
+                        <!-- Staff Member 3 -->
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-staff-id="3">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-medium text-sm">AS</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-dark">Amit Singh</p>
+                                    <p class="text-xs text-gray-500">amit@store.com</p>
+                                </div>
+                            </div>
+                            <button onclick="changePosition('3', 'Supervisor')" class="staff-position text-xs px-2 py-1 rounded-full font-medium bg-purple-100 text-purple-600 hover:bg-purple-200 transition-colors">
+                                Supervisor
+                            </button>
+                        </div>
+                        
+                        <!-- Staff Member 4 -->
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-staff-id="4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-medium text-sm">SK</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-dark">Sunita Kumari</p>
+                                    <p class="text-xs text-gray-500">sunita@store.com</p>
+                                </div>
+                            </div>
+                            <button onclick="changePosition('4', 'Worker')" class="staff-position text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-600 hover:bg-green-200 transition-colors">
+                                Worker
+                            </button>
+                        </div>
+                        
+                        <!-- Staff Member 5 -->
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-staff-id="5">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-medium text-sm">VT</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-dark">Vikash Tiwari</p>
+                                    <p class="text-xs text-gray-500">vikash@store.com</p>
+                                </div>
+                            </div>
+                            <button onclick="changePosition('5', 'Assistant Manager')" class="staff-position text-xs px-2 py-1 rounded-full font-medium bg-purple-100 text-purple-600 hover:bg-purple-200 transition-colors">
+                                Assistant Manager
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-3 bg-blue-50 rounded-lg">
+                        <div class="flex items-start space-x-2">
+                            <i class="fa-solid fa-info-circle text-blue-600 text-sm mt-0.5"></i>
+                            <div class="text-xs text-blue-700">
+                                <p class="font-medium mb-1">Available Positions:</p>
+                                <p>• Worker - Basic store operations</p>
+                                <p>• Cashier - Billing and customer service</p>
+                                <p>• Supervisor - Team management</p>
+                                <p>• Assistant Manager - Store operations</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Position Selector Modal -->
+    <div id="positionSelectorModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-sm w-full">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-lg font-bold text-dark">Change Position</h2>
+                    <button onclick="closePositionSelector()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="text-center mb-6">
+                        <p class="text-sm text-gray-600">Staff Member</p>
+                        <p class="text-lg font-semibold text-dark" id="staffNameDisplay">Rahul Sharma</p>
+                        <p class="text-sm text-gray-500">Current: <span id="currentPositionDisplay">Cashier</span></p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <button onclick="selectNewPosition('Worker')" class="w-full flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                    <i class="fa-solid fa-user text-white text-sm"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="font-medium text-dark">Worker</p>
+                                    <p class="text-xs text-gray-500">Basic store operations</p>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                        </button>
+                        
+                        <button onclick="selectNewPosition('Cashier')" class="w-full flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <i class="fa-solid fa-cash-register text-white text-sm"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="font-medium text-dark">Cashier</p>
+                                    <p class="text-xs text-gray-500">Billing & customer service</p>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                        </button>
+                        
+                        <button onclick="selectNewPosition('Supervisor')" class="w-full flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                                    <i class="fa-solid fa-user-tie text-white text-sm"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="font-medium text-dark">Supervisor</p>
+                                    <p class="text-xs text-gray-500">Team management</p>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                        </button>
+                        
+                        <button onclick="selectNewPosition('Assistant Manager')" class="w-full flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                                    <i class="fa-solid fa-crown text-white text-sm"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="font-medium text-dark">Assistant Manager</p>
+                                    <p class="text-xs text-gray-500">Store operations</p>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-gray-400"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Settings Modal -->
+    <div id="notificationSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Notification Settings</h2>
+                    <button onclick="closeNotificationModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+
+                <div class="p-6">
+                    <!-- Notification Tabs -->
+                    <div class="flex space-x-1 mb-4 bg-gray-100 rounded-lg p-1">
+                        <button onclick="switchNotificationTab('business')" id="business-tab" class="flex-1 py-2 px-3 text-sm font-medium rounded-md bg-white text-primary shadow-sm">
+                            Business
+                        </button>
+                        <button onclick="switchNotificationTab('customer')" id="customer-tab" class="flex-1 py-2 px-3 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900">
+                            SMS
+                        </button>
+                        <button onclick="switchNotificationTab('system')" id="system-tab" class="flex-1 py-2 px-3 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900">
+                            System
+                        </button>
+                    </div>
+
+                    <!-- Business Alerts Tab -->
+                    <div id="business-content" class="notification-tab-content">
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">Low Stock Alerts</div>
+                                    <div class="text-sm text-gray-600">Get notified when products are running low</div>
+                                </div>
+                                <div class="notification-toggle" data-setting="low-stock">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">Expiry Alerts</div>
+                                    <div class="text-sm text-gray-600">Notifications for products nearing expiry</div>
+                                </div>
+                                <div class="notification-toggle" data-setting="expiry-alerts">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3">
+                                <div>
+                                    <div class="font-medium text-dark">Daily Sales Summary</div>
+                                    <div class="text-sm text-gray-600">End of day sales and profit summary</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="daily-summary">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Customer SMS Tab -->
+                    <div id="customer-content" class="notification-tab-content hidden">
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">Credit Purchase SMS</div>
+                                    <div class="text-sm text-gray-600">Send SMS when customer buys on credit</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="credit-purchase-sms">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">Bill Payment SMS</div>
+                                    <div class="text-sm text-gray-600">Send SMS when customer pays bill</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="bill-payment-sms">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">Credit Payment SMS</div>
+                                    <div class="text-sm text-gray-600">Send SMS for any credit payment</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="credit-payment-sms">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">Credit Balance SMS</div>
+                                    <div class="text-sm text-gray-600">Send SMS with updated balance</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="credit-balance-sms">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3">
+                                <div>
+                                    <div class="font-medium text-dark">Payment Reminder SMS</div>
+                                    <div class="text-sm text-gray-600">Send SMS reminders for pending payments</div>
+                                </div>
+                                <div class="notification-toggle" data-setting="payment-reminder-sms">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Notifications Tab -->
+                    <div id="system-content" class="notification-tab-content hidden">
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">App Updates</div>
+                                    <div class="text-sm text-gray-600">New features and improvements</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="app-updates">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3 border-b border-gray-100">
+                                <div>
+                                    <div class="font-medium text-dark">Subscription Reminders</div>
+                                    <div class="text-sm text-gray-600">Billing and subscription alerts</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="subscription">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between py-3">
+                                <div>
+                                    <div class="font-medium text-dark">Security Alerts</div>
+                                    <div class="text-sm text-gray-600">Important security updates</div>
+                                </div>
+                                <div class="notification-toggle active" data-setting="security">
+                                    <div class="toggle-track">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Reset Settings Button -->
+                    <div class="pt-4 mt-4 border-t">
+                        <button onclick="resetNotificationSettings()" class="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            <span>Reset to Defaults</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan Management Modal -->
+    <div id="planManagementModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Manage Your Plan</h2>
+                    <button onclick="closePlanModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+
+                <!-- Current Plan Summary -->
+                <div class="p-6 border-b bg-gray-50">
+                    <div class="text-center">
+                        <h3 class="font-semibold text-dark mb-2">Current Plan: Yearly</h3>
+                        <div class="text-2xl font-bold text-dark">₹799/year</div>
+                        <div class="text-sm text-gray-600 mt-1">Next billing: 15 Dec 2024</div>
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">
+                            <i class="fa-solid fa-circle text-green-500 text-xs mr-1"></i>
+                            Active
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plan Options -->
+                <div class="p-6">
+                    <h4 class="font-semibold text-dark mb-4">Switch Plans</h4>
+                    
+                    <!-- Monthly Plan Option -->
+                    <div class="border border-gray-200 rounded-xl p-4 mb-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h5 class="font-semibold text-dark">Monthly Plan</h5>
+                                <p class="text-sm text-gray-600">Perfect for trying out</p>
+                                <div class="text-lg font-bold text-dark mt-1">₹79/month</div>
+                            </div>
+                            <button onclick="switchToMonthly()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                                Switch
+                            </button>
+                        </div>
+                        <div class="mt-3 text-xs text-gray-600">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-check text-primary"></i>
+                                <span>All basic features included</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Yearly Plan Option (Current) -->
+                    <div class="border-2 border-accent rounded-xl p-4 mb-6 bg-orange-50">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h5 class="font-semibold text-dark">Yearly Plan</h5>
+                                <p class="text-sm text-gray-600">Save big with annual payment</p>
+                                <div class="text-lg font-bold text-dark mt-1">₹799/year</div>
+                                <div class="text-sm text-accent font-semibold">Save ₹149</div>
+                            </div>
+                            <div class="bg-accent text-white px-4 py-2 rounded-lg font-medium">
+                                Current
+                            </div>
+                        </div>
+                        <div class="mt-3 text-xs text-gray-600 space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-check text-primary"></i>
+                                <span>Priority customer support</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-check text-primary"></i>
+                                <span>Advanced analytics</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-check text-primary"></i>
+                                <span>Data backup & restore</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Plan Management Actions -->
+                    <div class="space-y-3">
+                        <button onclick="viewBillingHistory()" class="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-receipt"></i>
+                            <span>View Billing History</span>
+                        </button>
+                        
+                        <button onclick="updatePaymentMethod()" class="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-credit-card"></i>
+                            <span>Update Payment Method</span>
+                        </button>
+                        
+                        <button onclick="cancelSubscription()" class="w-full bg-red-100 text-red-700 py-3 px-4 rounded-lg font-medium hover:bg-red-200 transition-colors flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-times-circle"></i>
+                            <span>Cancel Subscription</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Billing History Modal -->
+    <div id="billingHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Billing History</h2>
+                    <button onclick="closeBillingModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <!-- Billing History Items -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-semibold text-dark">Yearly Plan</h4>
+                                    <p class="text-sm text-gray-600">15 Dec 2023 - 15 Dec 2024</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-semibold text-dark">₹799</div>
+                                    <div class="text-xs text-green-600">Paid</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-semibold text-dark">Monthly Plan</h4>
+                                    <p class="text-sm text-gray-600">15 Nov 2023 - 15 Dec 2023</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-semibold text-dark">₹79</div>
+                                    <div class="text-xs text-green-600">Paid</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="downloadInvoice()" class="w-full mt-6 bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-green-600 transition-colors">
+                        Download All Invoices
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Method Modal -->
+    <div id="paymentMethodModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h2 class="text-xl font-bold text-dark">Payment Method</h2>
+                    <button onclick="closePaymentModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <i class="fa-solid fa-times text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <!-- Current Payment Method -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <h4 class="font-semibold text-dark mb-2">Current Payment Method</h4>
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-solid fa-mobile text-primary text-xl"></i>
+                            <div>
+                                <div class="font-medium text-dark">UPI: user@paytm</div>
+                                <div class="text-sm text-gray-600">Primary payment method</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Method Selection -->
+                    <h4 class="font-semibold text-dark mb-4">Choose Payment Method</h4>
+                    <div class="space-y-3 mb-6">
+                        <button onclick="selectPaymentType('upi')" id="upi-option" class="w-full border-2 border-primary bg-blue-50 rounded-lg p-4 flex items-center space-x-3 transition-colors">
+                            <i class="fa-solid fa-mobile text-primary text-xl"></i>
+                            <div class="text-left">
+                                <div class="font-semibold text-dark">UPI Payment</div>
+                                <div class="text-sm text-gray-600">Pay using any UPI app</div>
+                            </div>
+                        </button>
+                        
+                        <button onclick="selectPaymentType('card')" id="card-option" class="w-full border border-gray-300 rounded-lg p-4 flex items-center space-x-3 hover:border-primary transition-colors">
+                            <i class="fa-solid fa-credit-card text-gray-600 text-xl"></i>
+                            <div class="text-left">
+                                <div class="font-semibold text-dark">Credit/Debit Card</div>
+                                <div class="text-sm text-gray-600">Pay using card details</div>
+                            </div>
+                        </button>
+                    </div>
+                    
+                    <!-- UPI Payment Form -->
+                    <div id="upi-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">UPI ID</label>
+                            <input type="text" id="upi-id" placeholder="yourname@paytm" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                            <p class="text-xs text-gray-500 mt-1">Enter your UPI ID (e.g., 9876543210@paytm, user@googlepay)</p>
+                        </div>
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-dark mb-2">Popular UPI Apps</h5>
+                            <div class="grid grid-cols-4 gap-3">
+                                <button onclick="setUPIApp('paytm')" class="flex flex-col items-center p-2 rounded-lg hover:bg-blue-100">
+                                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mb-1">
+                                        <span class="text-white text-xs font-bold">P</span>
+                                    </div>
+                                    <span class="text-xs">Paytm</span>
+                                </button>
+                                <button onclick="setUPIApp('googlepay')" class="flex flex-col items-center p-2 rounded-lg hover:bg-blue-100">
+                                    <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center mb-1">
+                                        <span class="text-white text-xs font-bold">G</span>
+                                    </div>
+                                    <span class="text-xs">GPay</span>
+                                </button>
+                                <button onclick="setUPIApp('phonepe')" class="flex flex-col items-center p-2 rounded-lg hover:bg-blue-100">
+                                    <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mb-1">
+                                        <span class="text-white text-xs font-bold">P</span>
+                                    </div>
+                                    <span class="text-xs">PhonePe</span>
+                                </button>
+                                <button onclick="setUPIApp('bhim')" class="flex flex-col items-center p-2 rounded-lg hover:bg-blue-100">
+                                    <div class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center mb-1">
+                                        <span class="text-white text-xs font-bold">B</span>
+                                    </div>
+                                    <span class="text-xs">BHIM</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card Payment Form -->
+                    <div id="card-form" class="space-y-4 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Card Number</label>
+                            <input type="text" id="card-number" placeholder="1234 5678 9012 3456" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Expiry</label>
+                                <input type="text" id="card-expiry" placeholder="MM/YY" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                                <input type="text" id="card-cvv" placeholder="123" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Cardholder Name</label>
+                            <input type="text" id="cardholder-name" placeholder="John Doe" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                        </div>
+                    </div>
+                    
+                    <button onclick="savePaymentMethod()" class="w-full mt-6 bg-primary text-white py-3 px-4 rounded-lg font-medium hover:bg-green-600 transition-colors">
+                        Save Payment Method
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function goBack() {
+            window.history.back();
+        }
+
+
+
+        function editProfile() {
+            document.getElementById('editProfileModal').classList.remove('hidden');
+        }
+
+        function closeEditProfile() {
+            document.getElementById('editProfileModal').classList.add('hidden');
+        }
+
+        // Password change functions
+        function changePassword() {
+            document.getElementById('changePasswordModal').classList.remove('hidden');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('changePasswordModal').classList.add('hidden');
+            // Clear form fields
+            document.getElementById('changePasswordForm').reset();
+        }
+
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            const icon = button.querySelector('i');
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                field.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        // Notification Settings Functions
+        function toggleNotificationSettings() {
+            const panel = document.getElementById('notification-settings-panel');
+            const arrow = document.getElementById('notification-arrow');
+            
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                arrow.classList.add('rotate-180');
+            } else {
+                panel.classList.add('hidden');
+                arrow.classList.remove('rotate-180');
+            }
+        }
+
+        function switchNotificationTab(tabName) {
+            // Update tab buttons
+            const tabs = document.querySelectorAll('.notification-tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('bg-primary', 'text-white');
+                tab.classList.add('text-gray-600');
+            });
+            
+            const activeTab = document.getElementById(`tab-${tabName}`);
+            activeTab.classList.add('bg-primary', 'text-white');
+            activeTab.classList.remove('text-gray-600');
+            
+            // Update content
+            const contents = document.querySelectorAll('.notification-content');
+            contents.forEach(content => content.classList.add('hidden'));
+            
+            const activeContent = document.getElementById(`${tabName}-notifications`);
+            activeContent.classList.remove('hidden');
+        }
+
+        // Check URL parameters for highlighting
+        function checkHighlightParam() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const highlight = urlParams.get('highlight');
+            
+            if (highlight === 'backup') {
+                // Expand notification settings and switch to backup tab
+                const panel = document.getElementById('notification-settings-panel');
+                const arrow = document.getElementById('notification-arrow');
+                panel.classList.remove('hidden');
+                arrow.classList.add('rotate-180');
+                switchNotificationTab('backup');
+                
+                // Scroll to notification settings
+                setTimeout(() => {
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            } else if (highlight === 'subscription') {
+                // Scroll to subscription plan section
+                const subscriptionSection = document.getElementById('subscription-plan');
+                if (subscriptionSection) {
+                    setTimeout(() => {
+                        subscriptionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Add temporary highlight effect
+                        subscriptionSection.classList.add('ring-2', 'ring-accent', 'ring-opacity-50');
+                        setTimeout(() => {
+                            subscriptionSection.classList.remove('ring-2', 'ring-accent', 'ring-opacity-50');
+                        }, 3000);
+                    }, 100);
+                }
+            }
+        }
+
+        // Handle password change form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for highlight parameter on page load
+            checkHighlightParam();
+            
+            const form = document.getElementById('changePasswordForm');
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                // Validation
+                if (!currentPassword || !newPassword || !confirmPassword) {
+                    alert('Please fill in all password fields.');
+                    return;
+                }
+                
+                if (newPassword.length < 8) {
+                    alert('New password must be at least 8 characters long.');
+                    return;
+                }
+                
+                if (newPassword !== confirmPassword) {
+                    alert('New password and confirmation do not match.');
+                    return;
+                }
+                
+                // Simulate password change (in real app, this would call an API)
+                // For demo purposes, we'll just show success
+                alert('Password updated successfully!');
+                closePasswordModal();
+            });
+        });
+
+        function saveProfile() {
+            // Get form values
+            const name = document.getElementById('editName').value.trim();
+            const phone = document.getElementById('editPhone').value.trim();
+            const email = document.getElementById('editEmail').value.trim();
+            const shopName = document.getElementById('editShopName').value.trim();
+            const gst = document.getElementById('editGST').value.trim();
+            const udyam = document.getElementById('editUdyam').value.trim();
+            const address = document.getElementById('editAddress').value.trim();
+
+            // Basic validation
+            if (!name || !phone || !shopName) {
+                alert('Please fill in all required fields (Name, Phone, Shop Name).');
+                return;
+            }
+
+            // Phone validation
+            const phoneRegex = /^[+]?[0-9\s\-()]{10,}$/;
+            if (!phoneRegex.test(phone)) {
+                alert('Please enter a valid phone number.');
+                return;
+            }
+
+            // Email validation (if provided)
+            if (email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    alert('Please enter a valid email address.');
+                    return;
+                }
+            }
+
+            // Update the profile display with new values
+            updateProfileDisplay(name, phone, email, shopName, gst, udyam, address);
+            
+            // Close modal and show success message
+            closeEditProfile();
+            alert('Profile updated successfully!');
+        }
+
+        function updateProfileDisplay(name, phone, email, shopName, gst, udyam, address) {
+            // Update profile header
+            const profileHeader = document.querySelector('#profile-header h2');
+            const profilePhone = document.querySelector('#profile-header p:last-child');
+            if (profileHeader) profileHeader.textContent = name;
+            if (profilePhone) profilePhone.textContent = phone;
+
+            // Update shop details
+            const shopDetails = document.querySelectorAll('#shop-details .flex span:last-child');
+            if (shopDetails[0]) shopDetails[0].textContent = shopName;
+            if (shopDetails[1]) shopDetails[1].textContent = gst;
+            if (shopDetails[2]) shopDetails[2].textContent = udyam;
+            if (shopDetails[3]) shopDetails[3].innerHTML = address.replace(/\n/g, '<br>');
+
+            // Update initials in avatar
+            const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+            const avatars = document.querySelectorAll('.bg-primary span');
+            avatars.forEach(avatar => {
+                if (avatar.textContent.length <= 3) {
+                    avatar.textContent = initials;
+                }
+            });
+        }
+
+        function selectPhoto() {
+            // Open photo upload interface
+            console.log('Opening photo upload');
+        }
+
+
+
+        // Quick actions functions
+        function exportBusinessData() {
+            if (confirm('Export complete business data including inventory, bills, customers, and payments? This may take a few minutes.')) {
+                console.log('Data export started');
+                // Create a temporary loading state
+                const button = event.target.closest('button');
+                const originalText = button.querySelector('span').textContent;
+                button.querySelector('span').textContent = 'Exporting...';
+                button.disabled = true;
+                
+                // Open the export URL in a new window for download
+                window.open('/export-business-data', '_blank');
+                
+                // Reset button after a short delay
+                setTimeout(() => {
+                    button.querySelector('span').textContent = originalText;
+                    button.disabled = false;
+                }, 3000);
+            }
+        }
+
+        async function toggleEmailBackup() {
+            const checkbox = document.getElementById('emailBackup');
+            const isEnabled = checkbox.checked;
+            
+            if (isEnabled) {
+                console.log('Email backup enabled');
+                localStorage.setItem('emailBackupEnabled', 'true');
+                
+                // Call API to enable backup and remove notifications
+                try {
+                    const response = await fetch('/api/backup/enable', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        // Dispatch storage event to notify dashboard
+                        window.dispatchEvent(new StorageEvent('storage', {
+                            key: 'emailBackupEnabled',
+                            newValue: 'true'
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error enabling backup:', error);
+                }
+            } else {
+                console.log('Email backup disabled');
+                showBackupConfirmDialog(() => {
+                    localStorage.setItem('emailBackupEnabled', 'false');
+                    
+                    // Call API to disable backup and create notification
+                    fetch('/api/backup/disable', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    }).then(response => {
+                        if (response.ok) {
+                            // Dispatch storage event to notify dashboard
+                            window.dispatchEvent(new StorageEvent('storage', {
+                                key: 'emailBackupEnabled',
+                                newValue: 'false'
+                            }));
+                            
+                            // Show styled warning popup
+                            setTimeout(() => {
+                                showBackupWarningPopup();
+                            }, 500);
+                        }
+                    }).catch(error => {
+                        console.error('Error disabling backup:', error);
+                    });
+                }, () => {
+                    // Re-enable if user cancels
+                    checkbox.checked = true;
+                });
+            }
+        }
+
+        // Dynamic popup functions
+        function showBackupConfirmDialog(onConfirm, onCancel) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl max-w-sm w-full shadow-xl animate-scale-in">
+                    <div class="p-6 text-center">
+                        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-exclamation-triangle text-red-500 text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">Disable Email Backup?</h3>
+                        <p class="text-gray-600 text-sm mb-6">Your business data will not be automatically backed up. This could result in data loss if something goes wrong.</p>
+                        <div class="flex space-x-3">
+                            <button onclick="cancelBackupDisable()" class="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
+                                Cancel
+                            </button>
+                            <button onclick="confirmBackupDisable()" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium">
+                                Disable Backup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+            
+            window.confirmBackupDisable = () => {
+                document.body.removeChild(modal);
+                document.body.style.overflow = 'auto';
+                onConfirm();
+            };
+            
+            window.cancelBackupDisable = () => {
+                document.body.removeChild(modal);
+                document.body.style.overflow = 'auto';
+                onCancel();
+            };
+        }
+
+        function showBackupWarningPopup() {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl max-w-sm w-full shadow-xl animate-scale-in">
+                    <div class="p-6 text-center">
+                        <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-shield-exclamation text-orange-500 text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-dark mb-2">Backup Disabled!</h3>
+                        <p class="text-gray-600 text-sm mb-6">Your business data is no longer being backed up. Enable backup immediately to protect against data loss.</p>
+                        <div class="flex space-x-3">
+                            <button onclick="dismissWarning()" class="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">
+                                Remind Later
+                            </button>
+                            <button onclick="enableBackupNow()" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium">
+                                Enable Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+            
+            window.dismissWarning = () => {
+                document.body.removeChild(modal);
+                document.body.style.overflow = 'auto';
+            };
+            
+            window.enableBackupNow = () => {
+                document.body.removeChild(modal);
+                document.body.style.overflow = 'auto';
+                const checkbox = document.getElementById('emailBackup');
+                checkbox.checked = true;
+                toggleEmailBackup();
+            };
+        }
+
+        // Notification tabs functionality
+        function switchNotificationTab(tabName) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.notification-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Hide all tab contents
+            document.querySelectorAll('.notification-tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // Activate clicked tab
+            const clickedTab = document.querySelector(`[onclick="switchNotificationTab('${tabName}')"]`);
+            if (clickedTab) {
+                clickedTab.classList.add('active');
+            }
+            
+            // Show corresponding content
+            const content = document.getElementById(`${tabName}-content`);
+            if (content) {
+                content.classList.remove('hidden');
+            }
+        }
+
+        // Initialize backup state on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkbox = document.getElementById('emailBackup');
+            
+            if (checkbox) {
+                // Get saved backup status from localStorage (default to enabled)
+                const backupEnabled = localStorage.getItem('emailBackupEnabled') !== 'false';
+                
+                // Set checkbox state
+                checkbox.checked = backupEnabled;
+                
+                // Save initial state if not set
+                if (localStorage.getItem('emailBackupEnabled') === null) {
+                    localStorage.setItem('emailBackupEnabled', 'true');
+                }
+            }
+            
+            // Initialize first notification tab as active
+            switchNotificationTab('business');
+            
+            // Check if we need to highlight backup section
+            checkForBackupHighlight();
+        });
+
+        function checkForBackupHighlight() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('highlight') === 'backup') {
+                highlightBackupSection();
+            }
+        }
+
+        function highlightBackupSection() {
+            // Find the backup section in quick actions - target the Email Backup div specifically
+            const backupSections = document.querySelectorAll('#quick-actions .w-full.flex.items-center.justify-between');
+            let backupSection = null;
+            
+            // Find the section containing Email Backup
+            backupSections.forEach(section => {
+                const textContent = section.textContent;
+                if (textContent.includes('Email Backup')) {
+                    backupSection = section;
+                }
+            });
+            
+            if (backupSection) {
+                // Scroll to the backup section
+                backupSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Add highlight effect
+                backupSection.style.transition = 'all 0.5s ease';
+                backupSection.style.backgroundColor = '#fef3c7'; // Yellow highlight
+                backupSection.style.border = '2px solid #f59e0b';
+                backupSection.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.3)';
+                backupSection.style.borderRadius = '8px';
+                
+                // Remove highlight after 4 seconds
+                setTimeout(() => {
+                    backupSection.style.backgroundColor = '';
+                    backupSection.style.border = '';
+                    backupSection.style.boxShadow = '';
+                }, 4000);
+                
+                // Show a notification
+                showStyledNotification('Backup settings highlighted. Enable backup to protect your data.', 'warning');
+            }
+        }
+
+        function showStyledNotification(message, type = 'info') {
+            // Remove any existing notifications
+            const existingNotifications = document.querySelectorAll('.styled-notification');
+            existingNotifications.forEach(notification => notification.remove());
+            
+            const notification = document.createElement('div');
+            notification.classList.add('styled-notification', 'fixed', 'top-4', 'left-1/2', 'transform', '-translate-x-1/2', 'px-6', 'py-3', 'rounded-lg', 'shadow-lg', 'z-50', 'max-w-sm', 'text-center');
+            
+            // Set colors based on type
+            switch (type) {
+                case 'success':
+                    notification.classList.add('bg-green-500', 'text-white');
+                    break;
+                case 'error':
+                    notification.classList.add('bg-red-500', 'text-white');
+                    break;
+                case 'warning':
+                    notification.classList.add('bg-yellow-500', 'text-white');
+                    break;
+                default:
+                    notification.classList.add('bg-blue-500', 'text-white');
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Auto remove after 4 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 4000);
+        }
+
+        function managePlan() {
+            // Open plan management modal
+            console.log('Opening plan management');
+            document.getElementById('planManagementModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePlanModal() {
+            document.getElementById('planManagementModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function switchToMonthly() {
+            if (confirm('Switch to Monthly Plan (₹79/month)? You will be charged ₹79 on your next billing date.')) {
+                // Update UI to show monthly plan as current
+                updateCurrentPlan('Monthly', '₹79/month', '15 Jan 2025');
+                closePlanModal();
+                alert('Plan switched to Monthly! Your next billing will be ₹79 on 15 Jan 2025.');
+            }
+        }
+
+        function updateCurrentPlan(planName, price, nextBilling) {
+            // Update the main subscription section
+            const planSection = document.querySelector('#subscription-plan');
+            if (planSection) {
+                // Update plan name and pricing in the main display
+                const planTitle = planSection.querySelector('h4');
+                const planPrice = planSection.querySelector('.text-2xl');
+                const billingDate = planSection.querySelector('.bg-gray-50 .font-medium');
+                
+                if (planTitle) planTitle.textContent = planName + ' Plan';
+                if (planPrice) planPrice.textContent = price;
+                if (billingDate) billingDate.textContent = nextBilling;
+            }
+        }
+
+        function viewBillingHistory() {
+            closePlanModal();
+            document.getElementById('billingHistoryModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBillingModal() {
+            document.getElementById('billingHistoryModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function downloadInvoice() {
+            alert('Downloading all invoices as PDF...');
+            // Simulate download
+            setTimeout(() => {
+                closeBillingModal();
+                alert('Invoices downloaded successfully!');
+            }, 1000);
+        }
+
+        function updatePaymentMethod() {
+            closePlanModal();
+            document.getElementById('paymentMethodModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentMethodModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        let selectedPaymentType = 'upi'; // Default to UPI
+
+        function selectPaymentType(type) {
+            selectedPaymentType = type;
+            
+            // Update button styles
+            const upiOption = document.getElementById('upi-option');
+            const cardOption = document.getElementById('card-option');
+            const upiForm = document.getElementById('upi-form');
+            const cardForm = document.getElementById('card-form');
+            
+            if (type === 'upi') {
+                upiOption.className = 'w-full border-2 border-primary bg-blue-50 rounded-lg p-4 flex items-center space-x-3 transition-colors';
+                cardOption.className = 'w-full border border-gray-300 rounded-lg p-4 flex items-center space-x-3 hover:border-primary transition-colors';
+                upiForm.classList.remove('hidden');
+                cardForm.classList.add('hidden');
+            } else {
+                cardOption.className = 'w-full border-2 border-primary bg-blue-50 rounded-lg p-4 flex items-center space-x-3 transition-colors';
+                upiOption.className = 'w-full border border-gray-300 rounded-lg p-4 flex items-center space-x-3 hover:border-primary transition-colors';
+                cardForm.classList.remove('hidden');
+                upiForm.classList.add('hidden');
+            }
+        }
+
+        function setUPIApp(appName) {
+            const upiInput = document.getElementById('upi-id');
+            const currentValue = upiInput.value;
+            
+            // Extract the part before @ if it exists
+            const userPart = currentValue.includes('@') ? currentValue.split('@')[0] : currentValue;
+            
+            // Set the UPI ID with the selected app
+            switch(appName) {
+                case 'paytm':
+                    upiInput.value = userPart + '@paytm';
+                    break;
+                case 'googlepay':
+                    upiInput.value = userPart + '@oksbi';
+                    break;
+                case 'phonepe':
+                    upiInput.value = userPart + '@ybl';
+                    break;
+                case 'bhim':
+                    upiInput.value = userPart + '@upi';
+                    break;
+            }
+            
+            // Focus on the input to show the change
+            upiInput.focus();
+        }
+
+        function savePaymentMethod() {
+            if (selectedPaymentType === 'upi') {
+                const upiId = document.getElementById('upi-id').value;
+                
+                if (!upiId) {
+                    alert('Please enter your UPI ID.');
+                    return;
+                }
+                
+                // Basic UPI ID validation
+                if (!upiId.includes('@') || upiId.length < 5) {
+                    alert('Please enter a valid UPI ID (e.g., user@paytm).');
+                    return;
+                }
+                
+                alert('UPI payment method saved successfully!');
+                
+                // Update current payment method display
+                const currentMethod = document.querySelector('.bg-gray-50 .font-medium');
+                if (currentMethod) {
+                    currentMethod.textContent = 'UPI: ' + upiId;
+                }
+                
+                // Clear form
+                document.getElementById('upi-id').value = '';
+                
+            } else {
+                const cardNumber = document.getElementById('card-number').value;
+                const expiry = document.getElementById('card-expiry').value;
+                const cvv = document.getElementById('card-cvv').value;
+                const cardholderName = document.getElementById('cardholder-name').value;
+
+                if (!cardNumber || !expiry || !cvv || !cardholderName) {
+                    alert('Please fill in all card details.');
+                    return;
+                }
+
+                alert('Card payment method saved successfully!');
+                
+                // Update current payment method display
+                const currentMethod = document.querySelector('.bg-gray-50 .font-medium');
+                const currentIcon = document.querySelector('.bg-gray-50 i');
+                if (currentMethod && currentIcon) {
+                    currentMethod.textContent = '**** **** **** ' + cardNumber.slice(-4);
+                    currentIcon.className = 'fa-solid fa-credit-card text-primary text-xl';
+                }
+                
+                // Clear form
+                document.getElementById('card-number').value = '';
+                document.getElementById('card-expiry').value = '';
+                document.getElementById('card-cvv').value = '';
+                document.getElementById('cardholder-name').value = '';
+            }
+            
+            closePaymentModal();
+        }
+
+        function cancelSubscription() {
+            if (confirm('Are you sure you want to cancel your subscription? You will lose access to all premium features at the end of your current billing period.')) {
+                if (confirm('This action cannot be undone. Your subscription will be cancelled and you will not be charged again. Continue?')) {
+                    closePlanModal();
+                    alert('Your subscription has been cancelled. You will continue to have access until 15 Dec 2024.');
+                    
+                    // Update UI to show cancelled status
+                    const statusElement = document.querySelector('.bg-gray-50 .text-primary');
+                    if (statusElement) {
+                        statusElement.textContent = 'Cancelled';
+                        statusElement.className = 'text-red-600 font-medium';
+                    }
+                }
+            }
+        }
+
+        function manageStaff() {
+            document.getElementById('manageStaffModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeManageStaffModal() {
+            document.getElementById('manageStaffModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function changePosition(staffId, currentPosition) {
+            // Show position selector modal
+            const modal = document.getElementById('positionSelectorModal');
+            const staffName = document.querySelector(`[data-staff-id="${staffId}"] .font-medium`).textContent;
+            
+            // Update modal content
+            document.getElementById('staffNameDisplay').textContent = staffName;
+            document.getElementById('currentPositionDisplay').textContent = currentPosition;
+            
+            // Store current selection data
+            window.currentStaffSelection = { staffId, currentPosition, staffName };
+            
+            // Show modal
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePositionSelector() {
+            document.getElementById('positionSelectorModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function selectNewPosition(newPosition) {
+            const { staffId, currentPosition, staffName } = window.currentStaffSelection;
+            
+            if (newPosition === currentPosition) {
+                closePositionSelector();
+                return;
+            }
+            
+            // Update the position in the UI
+            const staffCard = document.querySelector(`[data-staff-id="${staffId}"]`);
+            if (staffCard) {
+                const positionElement = staffCard.querySelector('.staff-position');
+                if (positionElement) {
+                    positionElement.textContent = newPosition;
+                    
+                    // Update position color based on role
+                    positionElement.className = 'staff-position text-xs px-2 py-1 rounded-full font-medium';
+                    if (newPosition === 'Supervisor' || newPosition === 'Assistant Manager') {
+                        positionElement.classList.add('bg-purple-100', 'text-purple-600', 'hover:bg-purple-200');
+                    } else if (newPosition === 'Cashier') {
+                        positionElement.classList.add('bg-blue-100', 'text-blue-600', 'hover:bg-blue-200');
+                    } else {
+                        positionElement.classList.add('bg-green-100', 'text-green-600', 'hover:bg-green-200');
+                    }
+                    
+                    // Update onclick function
+                    positionElement.setAttribute('onclick', `changePosition('${staffId}', '${newPosition}')`);
+                }
+            }
+            
+            // Show success feedback
+            showPositionChangeSuccess(staffName, currentPosition, newPosition);
+            closePositionSelector();
+        }
+
+        function showPositionChangeSuccess(staffName, oldPosition, newPosition) {
+            // Remove any existing notifications first
+            const existingNotifications = document.querySelectorAll('.kc-notification');
+            existingNotifications.forEach(notif => {
+                if (notif.parentNode) {
+                    notif.parentNode.removeChild(notif);
+                }
+            });
+
+            const feedback = document.createElement('div');
+            feedback.className = 'kc-notification fixed top-4 left-4 right-4 bg-green-500 text-white px-4 py-3 rounded-xl shadow-xl z-[9999] transform transition-all duration-300 ease-out opacity-0 translate-y-[-20px]';
+            feedback.style.maxWidth = 'calc(100vw - 2rem)';
+            feedback.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-check-circle text-lg flex-shrink-0"></i>
+                    <span class="text-sm font-medium flex-1"><strong>${staffName}</strong> moved from ${oldPosition} to ${newPosition}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200 ml-2 flex-shrink-0">
+                        <i class="fa-solid fa-times text-sm"></i>
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(feedback);
+            
+            // Animate in
+            setTimeout(() => {
+                feedback.classList.remove('opacity-0', 'translate-y-[-20px]');
+                feedback.classList.add('opacity-100', 'translate-y-0');
+            }, 50);
+            
+            // Auto remove after 4 seconds
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.classList.add('opacity-0', 'translate-y-[-20px]');
+                    setTimeout(() => {
+                        if (feedback.parentNode) {
+                            feedback.parentNode.removeChild(feedback);
+                        }
+                    }, 300);
+                }
+            }, 4000);
+        }
+
+        // Notification Settings Functions
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize notification toggle functionality
+            const toggles = document.querySelectorAll('.notification-toggle');
+            
+            toggles.forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    const setting = this.dataset.setting;
+                    const isActive = this.classList.contains('active');
+                    
+                    if (isActive) {
+                        this.classList.remove('active');
+                        console.log(`Disabled ${setting} notifications`);
+                        showNotificationFeedback(`${getSettingName(setting)} notifications disabled`);
+                    } else {
+                        this.classList.add('active');
+                        console.log(`Enabled ${setting} notifications`);
+                        showNotificationFeedback(`${getSettingName(setting)} notifications enabled`);
+                    }
+                    
+                    // Save setting to localStorage
+                    saveNotificationSetting(setting, !isActive);
+                });
+            });
+            
+            // Load saved notification settings
+            loadNotificationSettings();
+        });
+
+        function getSettingName(setting) {
+            const settingNames = {
+                'low-stock': 'Low Stock',
+                'expiry-alerts': 'Expiry Alert',
+                'daily-summary': 'Daily Summary',
+                'credit-purchase-sms': 'Credit Purchase SMS',
+                'bill-payment-sms': 'Bill Payment SMS',
+                'credit-payment-sms': 'Credit Payment SMS',
+                'credit-balance-sms': 'Credit Balance SMS',
+                'payment-reminder-sms': 'Payment Reminder SMS',
+                'app-updates': 'App Update',
+                'subscription': 'Subscription',
+                'security': 'Security Alert',
+                'sms-enabled': 'SMS Notifications',
+                'push': 'Push Notification',
+                'email': 'Email Notification',
+                'dnd': 'Do Not Disturb'
+            };
+            return settingNames[setting] || setting;
+        }
+
+        function showNotificationFeedback(message) {
+            // Remove any existing notifications first
+            const existingNotifications = document.querySelectorAll('.kc-notification');
+            existingNotifications.forEach(notif => {
+                if (notif.parentNode) {
+                    notif.parentNode.removeChild(notif);
+                }
+            });
+
+            const feedback = document.createElement('div');
+            feedback.className = 'kc-notification fixed top-4 left-4 right-4 bg-primary text-white px-4 py-3 rounded-xl shadow-xl z-[9999] transform transition-all duration-300 ease-out opacity-0 translate-y-[-20px]';
+            feedback.style.maxWidth = 'calc(100vw - 2rem)';
+            feedback.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-bell text-lg flex-shrink-0"></i>
+                    <span class="text-sm font-medium flex-1">${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200 ml-2 flex-shrink-0">
+                        <i class="fa-solid fa-times text-sm"></i>
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(feedback);
+            
+            // Animate in
+            setTimeout(() => {
+                feedback.classList.remove('opacity-0', 'translate-y-[-20px]');
+                feedback.classList.add('opacity-100', 'translate-y-0');
+            }, 50);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.classList.add('opacity-0', 'translate-y-[-20px]');
+                    setTimeout(() => {
+                        if (feedback.parentNode) {
+                            feedback.parentNode.removeChild(feedback);
+                        }
+                    }, 300);
+                }
+            }, 3000);
+        }
+
+        async function saveNotificationSetting(setting, enabled) {
+            // Map frontend setting names to backend field names
+            const settingMap = {
+                'low-stock': 'low_stock_alerts',
+                'expiry-alerts': 'expiry_alerts',
+                'daily-summary': 'daily_summary',
+                'credit-purchase-sms': 'credit_purchase_sms',
+                'bill-payment-sms': 'bill_payment_sms',
+                'credit-payment-sms': 'credit_payment_sms',
+                'credit-balance-sms': 'credit_balance_sms',
+                'payment-reminder-sms': 'payment_reminder_sms',
+                'system-alerts': 'system_alerts',
+                'backup-alerts': 'backup_alerts',
+                'subscription-alerts': 'subscription_alerts'
+            };
+            
+            const backendSetting = settingMap[setting];
+            if (!backendSetting) {
+                console.error('Unknown setting:', setting);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/notification-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        [backendSetting]: enabled
+                    })
+                });
+                
+                if (!response.ok) {
+                    console.error('Failed to save notification setting');
+                }
+            } catch (error) {
+                console.error('Error saving notification setting:', error);
+            }
+        }
+
+        async function loadNotificationSettings() {
+            try {
+                const response = await fetch('/api/notification-settings');
+                if (response.ok) {
+                    const settings = await response.json();
+                    
+                    // Update toggle states based on backend settings
+                    updateToggleState('low-stock', settings.low_stock_alerts);
+                    updateToggleState('expiry-alerts', settings.expiry_alerts);
+                    updateToggleState('daily-summary', settings.daily_summary);
+                    updateToggleState('credit-purchase-sms', settings.credit_purchase_sms);
+                    updateToggleState('bill-payment-sms', settings.bill_payment_sms);
+                    updateToggleState('credit-payment-sms', settings.credit_payment_sms);
+                    updateToggleState('credit-balance-sms', settings.credit_balance_sms);
+                    updateToggleState('payment-reminder-sms', settings.payment_reminder_sms);
+                }
+            } catch (error) {
+                console.error('Error loading notification settings:', error);
+            }
+        }
+
+        function updateToggleState(setting, isEnabled) {
+            const toggle = document.querySelector(`[data-setting="${setting}"]`);
+            if (toggle) {
+                if (isEnabled) {
+                    toggle.classList.add('active');
+                } else {
+                    toggle.classList.remove('active');
+                }
+            }
+        }
+
+        function resetNotificationSettings() {
+            if (confirm('Reset all notification settings to default? This will enable SMS notifications for credit management.')) {
+                localStorage.removeItem('notificationSettings');
+                
+                // Reset to default states
+                document.querySelectorAll('.notification-toggle').forEach(toggle => {
+                    const setting = toggle.dataset.setting;
+                    // Default enabled settings - focus on SMS for credit management
+                    const defaultEnabled = [
+                        'daily-summary', 
+                        'credit-purchase-sms', 
+                        'bill-payment-sms', 
+                        'credit-payment-sms', 
+                        'credit-balance-sms',
+                        'app-updates', 
+                        'subscription', 
+                        'security'
+                    ];
+                    
+                    if (defaultEnabled.includes(setting)) {
+                        toggle.classList.add('active');
+                    } else {
+                        toggle.classList.remove('active');
+                    }
+                });
+                
+                showNotificationFeedback('Notification settings reset - SMS enabled for credit management');
+            }
+        }
+
+        function switchNotificationTab(tabName) {
+            // Remove active state from all tabs
+            document.querySelectorAll('[id$="-tab"]').forEach(tab => {
+                tab.className = 'flex-1 py-2 px-3 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900';
+            });
+            
+            // Hide all tab contents
+            document.querySelectorAll('.notification-tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // Activate selected tab
+            const activeTab = document.getElementById(tabName + '-tab');
+            if (activeTab) {
+                activeTab.className = 'flex-1 py-2 px-3 text-sm font-medium rounded-md bg-white text-primary shadow-sm';
+            }
+            
+            // Show selected tab content
+            const activeContent = document.getElementById(tabName + '-content');
+            if (activeContent) {
+                activeContent.classList.remove('hidden');
+            }
+        }
+
+        function notificationSettings() {
+            // Open notification settings modal
+            console.log('Opening notification settings');
+            document.getElementById('notificationSettingsModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeNotificationModal() {
+            document.getElementById('notificationSettingsModal').classList.add('hidden');
+            document.body.style.overflow = 'auto'; // Restore scrolling
+        }
+
+        // App settings functions
+        function changeLanguage() {
+            console.log('Opening language selection');
+            document.getElementById('languageModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLanguageModal() {
+            document.getElementById('languageModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function selectLanguage(language) {
+            alert(`Language changed to ${language}`);
+            closeLanguageModal();
+        }
+
+        function helpSupport() {
+            console.log('Opening help and support');
+            document.getElementById('helpSupportModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeHelpModal() {
+            document.getElementById('helpSupportModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function aboutApp() {
+            console.log('Opening about app information');
+            document.getElementById('aboutAppModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAboutModal() {
+            document.getElementById('aboutAppModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Help & Support section functions
+        function openFAQ() {
+            document.getElementById('faqModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeFAQModal() {
+            document.getElementById('faqModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+
+
+        function reportBug() {
+            document.getElementById('reportBugModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBugModal() {
+            document.getElementById('reportBugModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function featureRequest() {
+            document.getElementById('featureRequestModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeFeatureModal() {
+            document.getElementById('featureRequestModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function submitBugReport() {
+            const title = document.getElementById('bugTitle').value;
+            const description = document.getElementById('bugDescription').value;
+            
+            if (!title || !description) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            alert('Bug report submitted successfully! Our team will review it soon.');
+            closeBugModal();
+            // Clear form
+            document.getElementById('bugTitle').value = '';
+            document.getElementById('bugDescription').value = '';
+        }
+
+        function submitFeatureRequest() {
+            const title = document.getElementById('featureTitle').value;
+            const description = document.getElementById('featureDescription').value;
+            
+            if (!title || !description) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            alert('Feature request submitted successfully! We appreciate your feedback.');
+            closeFeatureModal();
+            // Clear form
+            document.getElementById('featureTitle').value = '';
+            document.getElementById('featureDescription').value = '';
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/signin';
+            }
+        }
+
+        // Navigation functions
+        function goToDashboard() {
+            window.location.href = '/dashboard';
+        }
+
+        function goToInventory() {
+            window.location.href = '/inventory';
+        }
+
+        function goToCart() {
+            window.location.href = '/cart';
+        }
+    </script>
+</body>
+</html>

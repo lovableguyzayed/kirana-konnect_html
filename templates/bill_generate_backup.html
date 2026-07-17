@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Bill - Kirana Konnect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>::-webkit-scrollbar { display: none;}</style>
+    
+    <script>tailwind.config = {
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#4CAF50",
+        "secondary": "#2196F3",
+        "accent": "#FF9800",
+        "danger": "#F44336",
+        "dark": "#333333",
+        "light": "#F5F5F5"
+      },
+      "fontFamily": {
+        "poppins": [
+          "Poppins",
+          "sans-serif"
+        ],
+        "sans": [
+          "Inter",
+          "sans-serif"
+        ]
+      }
+    }
+  }
+};</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap">
+<style>
+      body {
+        font-family: 'Inter', sans-serif !important;
+      }
+      
+      /* Preserve Font Awesome icons */
+      .fa, .fas, .far, .fal, .fab {
+        font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+      }
+    </style>
+<style>
+  .highlighted-section {
+    outline: 2px solid #3F20FB;
+    background-color: rgba(63, 32, 251, 0.1);
+  }
+
+  .edit-button {
+    position: absolute;
+    z-index: 1000;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  html, body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+</style>
+</head>
+<body class="font-poppins bg-gray-50">
+    <!-- Header Section -->
+    <header id="header" class="bg-white shadow-sm fixed top-0 left-0 right-0 z-20">
+        <div class="flex items-center justify-between p-4">
+            <button class="p-2 rounded-full hover:bg-gray-100" onclick="goBack()">
+                <i class="fa-solid fa-arrow-left text-dark text-lg"></i>
+            </button>
+            <h1 class="text-lg font-bold text-dark">Cart</h1>
+            <div class="w-10"></div>
+        </div>
+    </header>
+
+    <!-- Shop Info Section -->
+    <div id="shop-info" class="bg-white shadow-sm mt-16 p-3 border-b">
+        <div class="text-center">
+            <h2 class="text-base font-bold text-dark">Kirana Konnect</h2>
+            <h3 class="text-sm font-semibold text-dark mt-1">Sharma Kirana Store</h3>
+            <p class="text-xs text-gray-600 mt-1">GST: 24ABCDE1234F1Z5</p>
+            <p class="text-xs text-gray-600">UDYAM: UDYAM-UP-12-0012345</p>
+        </div>
+    </div>
+
+    <!-- Bill Type Selection -->
+    <div id="bill-type-section" class="px-4 py-3">
+        <div class="bg-white rounded-xl shadow-sm p-3">
+            <div class="flex justify-center">
+                <div class="flex bg-gray-100 rounded-full p-1 w-full max-w-md">
+                    <button id="billing-tab" class="flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs text-center" onclick="showBillingTab()">
+                        Billing
+                    </button>
+                    <button id="customer-tab" class="flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs text-center" onclick="showCustomerTab()">
+                        Customer
+                    </button>
+                    <button id="new-customer-tab" class="flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs text-center" onclick="showNewCustomerTab()">
+                        New Customer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill Section (Default View) -->
+    <div id="bill-section" class="px-4">
+        <!-- Bill Number & Date -->
+        <div id="bill-header" class="bg-white rounded-xl shadow-sm p-3 mb-3">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-xs text-gray-500">Bill Number</h3>
+                    <p class="text-sm font-bold text-dark" id="bill-number">BIL-2024-001234</p>
+                </div>
+                <div class="text-right">
+                    <h3 class="text-xs text-gray-500">Date & Time</h3>
+                    <p class="text-sm font-bold text-dark" id="bill-date">04 Dec, 2024 - 3:45 PM</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Details -->
+        <div id="customer-details" class="bg-white rounded-xl shadow-sm p-3 mb-3">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-sm font-bold text-dark">Customer Details</h3>
+                <button class="text-xs text-primary font-medium">Add Name to Bill</button>
+            </div>
+            <div class="space-y-2">
+                <select id="bill-customer-name" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                    <option value="">Walk-in Customer</option>
+                    <option value="rajesh" data-name="Rajesh Kumar" data-phone="+91 98765 43210" data-outstanding="2150">Rajesh Kumar - Outstanding: ₹2,150</option>
+                    <option value="priya" data-name="Priya Sharma" data-phone="+91 98765 43211" data-outstanding="850">Priya Sharma - Outstanding: ₹850</option>
+                    <option value="amit" data-name="Amit Singh" data-phone="+91 98765 43212" data-outstanding="0">Amit Singh - No Outstanding</option>
+                    <option value="sunita" data-name="Sunita Devi" data-phone="+91 98765 43213" data-outstanding="1200">Sunita Devi - Outstanding: ₹1,200</option>
+                    <option value="ravi" data-name="Ravi Patel" data-phone="+91 98765 43214" data-outstanding="500">Ravi Patel - Outstanding: ₹500</option>
+                </select>
+                <div id="customer-info-display" class="hidden bg-blue-50 p-3 rounded-lg">
+                    <!-- Customer info will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart Items -->
+        <div id="cart-items" class="bg-white rounded-xl shadow-sm p-3 mb-3">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-dark">Items (5)</h3>
+                <button class="text-xs text-primary font-medium">Edit Cart</button>
+            </div>
+            <div class="space-y-2">
+                <!-- Sample cart items -->
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Aashirvaad Atta 5kg</p>
+                        <p class="text-xs text-gray-500">₹120 × 2</p>
+                    </div>
+                    <p class="text-sm font-bold text-dark">₹240</p>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Tata Salt 1kg</p>
+                        <p class="text-xs text-gray-500">₹25 × 3</p>
+                    </div>
+                    <p class="text-sm font-bold text-dark">₹75</p>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Good Day Biscuits</p>
+                        <p class="text-xs text-gray-500">₹30 × 5</p>
+                    </div>
+                    <p class="text-sm font-bold text-dark">₹150</p>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Maggi Noodles</p>
+                        <p class="text-xs text-gray-500">₹14 × 10</p>
+                    </div>
+                    <p class="text-sm font-bold text-dark">₹140</p>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Sunflower Oil 1L</p>
+                        <p class="text-xs text-gray-500">₹150 × 2</p>
+                    </div>
+                    <p class="text-sm font-bold text-dark">₹300</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bill Summary -->
+        <div id="bill-summary" class="bg-white rounded-xl shadow-sm p-3 mb-3">
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-sm text-gray-600">Subtotal</span>
+                    <span class="text-sm font-medium text-dark" id="subtotal">₹905</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">GST (18%)</span>
+                        <input type="checkbox" id="gst-toggle" checked onchange="toggleGST()" class="rounded">
+                    </div>
+                    <span class="text-sm font-medium text-dark" id="gst-amount">₹162.90</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">Offers</span>
+                        <input type="checkbox" id="offers-toggle" onchange="toggleOffers()" class="rounded">
+                    </div>
+                    <span class="text-sm font-medium text-dark" id="offers-amount">₹0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discount Section -->
+        <div id="discount-section" class="bg-white rounded-xl shadow-sm p-3 mb-3 hidden">
+            <h3 class="text-sm font-bold text-dark mb-2">Apply Discount</h3>
+            <div class="space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" placeholder="Discount ₹" class="p-2 border border-gray-200 rounded-lg text-sm" onchange="calculateDiscount()" id="discount-amount">
+                    <input type="number" placeholder="Discount %" class="p-2 border border-gray-200 rounded-lg text-sm" onchange="calculateDiscount()" id="discount-percent">
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Amount -->
+        <div id="total-section" class="px-4 mb-3">
+            <div class="bg-white rounded-xl shadow-sm p-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-lg font-bold text-dark">Total Amount</span>
+                    <span class="text-xl font-bold text-primary" id="total-amount">₹1,067.90</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bill Generated By -->
+        <div id="generated-by-section" class="px-4 mb-3">
+            <div class="bg-white rounded-xl shadow-sm p-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600 font-medium text-sm">Bill Generated By:</span>
+                    <select id="bill-generator" class="p-2 border border-gray-200 rounded-lg bg-white text-sm min-w-0 flex-1 ml-2">
+                        <option>Anil Kumar (Cashier)</option>
+                        <option>Rajesh Sharma (Owner)</option>
+                        <option>Priya Singh (Manager)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Method -->
+        <div id="payment-section" class="px-4 mb-3">
+            <div class="bg-white rounded-xl shadow-sm p-3">
+                <div class="flex justify-center mb-3">
+                    <div class="flex bg-gray-100 rounded-full p-1 w-full max-w-xs">
+                        <button id="cash-payment" class="flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs" onclick="selectPayment('cash')">
+                            Cash
+                        </button>
+                        <button id="online-payment" class="flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs" onclick="selectPayment('online')">
+                            Online
+                        </button>
+                        <button id="split-payment" class="flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs" onclick="selectPayment('split')">
+                            Split
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Online Payment Section -->
+                <div id="online-payment-section" class="hidden">
+                    <div class="space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="upi-button" class="p-2 border border-gray-200 rounded-lg text-sm bg-blue-50 text-blue-600" onclick="selectOnlineMethod('upi')">UPI</button>
+                            <button id="card-button" class="p-2 border border-gray-200 rounded-lg text-sm bg-green-50 text-green-600" onclick="selectOnlineMethod('card')">Card</button>
+                        </div>
+                        <input type="text" id="transaction-reference" placeholder="UPI Transaction ID" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                    </div>
+                </div>
+
+                <!-- Split Payment Section -->
+                <div id="split-payment-section" class="hidden">
+                    <div class="space-y-2">
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="split-amount" placeholder="Enter cash amount" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm">
+                            <button id="apply-split" class="bg-primary text-white px-3 py-2 rounded-lg text-xs font-medium" onclick="applySplit()">Apply</button>
+                        </div>
+                        <div id="remaining-amount" class="hidden">
+                            <p class="text-sm text-gray-600 mb-2">Remaining: <span id="remaining-value" class="font-bold text-primary">₹0.00</span></p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button id="remaining-cash" class="py-2 px-3 border border-gray-300 rounded-lg text-xs" onclick="selectRemaining('cash')">Cash</button>
+                                <button id="remaining-online" class="py-2 px-3 border border-gray-300 rounded-lg text-xs" onclick="selectRemaining('online')">Online</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Section (Hidden by default) -->
+    <div id="customer-section" class="px-4 hidden">
+        <div class="bg-white rounded-xl shadow-sm p-3 mb-3">
+            <h3 class="text-sm font-bold text-dark mb-3">Select Customer</h3>
+            <div class="space-y-2">
+                <div class="flex items-center space-x-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-bold text-xs">RK</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Rajesh Kumar</p>
+                        <p class="text-xs text-gray-500">+91 98765 43210</p>
+                    </div>
+                    <span class="text-xs text-red-500">₹2,150</span>
+                </div>
+                <div class="flex items-center space-x-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-bold text-xs">PS</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Priya Sharma</p>
+                        <p class="text-xs text-gray-500">+91 98765 43211</p>
+                    </div>
+                    <span class="text-xs text-red-500">₹850</span>
+                </div>
+                <div class="flex items-center space-x-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-bold text-xs">AS</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-dark">Amit Singh</p>
+                        <p class="text-xs text-gray-500">+91 98765 43212</p>
+                    </div>
+                    <span class="text-xs text-green-500">No Outstanding</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Customer Section (Hidden by default) -->
+    <div id="new-customer-section" class="px-4 hidden">
+        <div class="bg-white rounded-xl shadow-sm p-3 mb-3">
+            <h3 class="text-sm font-bold text-dark mb-3">Add New Customer</h3>
+            <div class="space-y-3">
+                <input type="text" placeholder="Customer Name" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                <input type="tel" placeholder="Phone Number" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                <input type="email" placeholder="Email (Optional)" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                <textarea placeholder="Address (Optional)" rows="2" class="w-full p-2 border border-gray-200 rounded-lg text-sm resize-none"></textarea>
+                <button class="w-full bg-primary text-white py-2 rounded-lg font-medium text-sm">
+                    Add Customer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate Bill Button -->
+    <div id="generate-button" class="fixed bottom-20 left-0 right-0 px-4 pb-4">
+        <button id="generate-bill-btn" class="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg" onclick="generateBill()">
+            Generate Bill
+        </button>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav id="footer" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div class="flex justify-around items-end py-2">
+            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/dashboard'">
+                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
+                <span class="text-xs mt-1 text-gray-400">Home</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/inventory'">
+                <i class="fa-solid fa-box text-gray-400 text-lg"></i>
+                <span class="text-xs mt-1 text-gray-400">Inventory</span>
+            </button>
+            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg" onclick="window.location.href='/add-item'">
+                <i class="fa-solid fa-barcode text-white text-lg"></i>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/cart'">
+                <i class="fa-solid fa-shopping-cart text-primary text-lg"></i>
+                <span class="text-xs mt-1 text-primary">Cart</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/profile'">
+                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
+                <span class="text-xs mt-1 text-gray-400">Profile</span>
+            </button>
+        </div>
+    </nav>
+
+    <script>
+        let currentTab = 'billing';
+        let taxEnabled = true;
+        let offerEnabled = false;
+        let subtotal = 905;
+        let gstRate = 0.18;
+        let discountAmount = 0;
+        let paymentMode = 'cash';
+        let onlineMethod = 'upi';
+
+        function goBack() {
+            window.history.back();
+        }
+
+        // Tab switching functions
+        function showBillingTab() {
+            switchTab('billing');
+        }
+
+        function showCustomerTab() {
+            switchTab('customer');
+        }
+
+        function showNewCustomerTab() {
+            switchTab('new-customer');
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Reset all tabs
+            document.getElementById('billing-tab').className = 'flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs text-center';
+            document.getElementById('customer-tab').className = 'flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs text-center';
+            document.getElementById('new-customer-tab').className = 'flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs text-center';
+            
+            // Hide all sections
+            document.getElementById('bill-section').classList.add('hidden');
+            document.getElementById('customer-section').classList.add('hidden');
+            document.getElementById('new-customer-section').classList.add('hidden');
+            
+            // Show active tab
+            if (tab === 'billing') {
+                document.getElementById('billing-tab').className = 'flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs text-center';
+                document.getElementById('bill-section').classList.remove('hidden');
+            } else if (tab === 'customer') {
+                document.getElementById('customer-tab').className = 'flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs text-center';
+                document.getElementById('customer-section').classList.remove('hidden');
+            } else if (tab === 'new-customer') {
+                document.getElementById('new-customer-tab').className = 'flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs text-center';
+                document.getElementById('new-customer-section').classList.remove('hidden');
+            }
+        }
+
+        // Payment method selection
+        function selectPayment(mode) {
+            paymentMode = mode;
+            
+            // Reset all payment buttons
+            document.getElementById('cash-payment').className = 'flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs';
+            document.getElementById('online-payment').className = 'flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs';
+            document.getElementById('split-payment').className = 'flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs';
+            
+            // Hide all payment sections
+            document.getElementById('online-payment-section').classList.add('hidden');
+            document.getElementById('split-payment-section').classList.add('hidden');
+            
+            // Show active payment method
+            if (mode === 'cash') {
+                document.getElementById('cash-payment').className = 'flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs';
+            } else if (mode === 'online') {
+                document.getElementById('online-payment').className = 'flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs';
+                document.getElementById('online-payment-section').classList.remove('hidden');
+                selectOnlineMethod('upi'); // Default to UPI
+            } else if (mode === 'split') {
+                document.getElementById('split-payment').className = 'flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs';
+                document.getElementById('split-payment-section').classList.remove('hidden');
+            }
+        }
+
+        function selectOnlineMethod(method) {
+            onlineMethod = method;
+            
+            // Reset button styles
+            document.getElementById('upi-button').className = 'p-2 border border-gray-200 rounded-lg text-sm bg-blue-50 text-blue-600';
+            document.getElementById('card-button').className = 'p-2 border border-gray-200 rounded-lg text-sm bg-green-50 text-green-600';
+            
+            // Update placeholder text and highlight selected button
+            const referenceInput = document.getElementById('transaction-reference');
+            if (method === 'upi') {
+                document.getElementById('upi-button').className = 'p-2 border-2 border-blue-500 rounded-lg text-sm bg-blue-100 text-blue-700 font-medium';
+                referenceInput.placeholder = 'Enter UPI Transaction ID';
+            } else if (method === 'card') {
+                document.getElementById('card-button').className = 'p-2 border-2 border-green-500 rounded-lg text-sm bg-green-100 text-green-700 font-medium';
+                referenceInput.placeholder = 'Enter Card Transaction Reference';
+            }
+        }
+
+        function applySplit() {
+            const splitAmount = parseFloat(document.getElementById('split-amount').value);
+            const total = calculateFinalTotal();
+            
+            if (splitAmount && splitAmount < total) {
+                const remaining = total - splitAmount;
+                document.getElementById('remaining-value').textContent = `₹${remaining.toFixed(2)}`;
+                document.getElementById('remaining-amount').classList.remove('hidden');
+            }
+        }
+
+        function selectRemaining(method) {
+            // Reset remaining buttons
+            document.getElementById('remaining-cash').className = 'py-2 px-3 border border-gray-300 rounded-lg text-xs';
+            document.getElementById('remaining-online').className = 'py-2 px-3 border border-gray-300 rounded-lg text-xs';
+            
+            // Highlight selected method
+            document.getElementById(`remaining-${method}`).className = 'py-2 px-3 border border-primary bg-primary/10 text-primary rounded-lg text-xs';
+        }
+
+        // Handle customer selection
+        document.getElementById('bill-customer-name').addEventListener('change', function() {
+            const customerInfo = document.getElementById('customer-info-display');
+            const selectedOption = this.options[this.selectedIndex];
+            
+            if (this.value) {
+                const name = selectedOption.dataset.name;
+                const phone = selectedOption.dataset.phone;
+                const outstanding = selectedOption.dataset.outstanding;
+                
+                // Update customer info display
+                const initials = name.split(' ').map(n => n[0]).join('');
+                customerInfo.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span class="text-white font-bold text-sm">${initials}</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-medium text-dark">${name}</p>
+                            <p class="text-xs text-gray-600">${phone}</p>
+                            <p class="text-xs text-gray-600">Outstanding: ₹${parseInt(outstanding).toLocaleString()}</p>
+                        </div>
+                    </div>
+                `;
+                customerInfo.classList.remove('hidden');
+            } else {
+                customerInfo.classList.add('hidden');
+            }
+        });
+
+        function calculateTotals() {
+            const gstAmount = taxEnabled ? subtotal * gstRate : 0;
+            const finalTotal = subtotal + gstAmount - discountAmount;
+            
+            document.getElementById('subtotal').textContent = `₹${subtotal}`;
+            document.getElementById('gst-amount').textContent = `₹${gstAmount.toFixed(2)}`;
+            document.getElementById('total-amount').textContent = `₹${finalTotal.toFixed(2)}`;
+        }
+
+        function calculateFinalTotal() {
+            const gstAmount = taxEnabled ? subtotal * gstRate : 0;
+            return subtotal + gstAmount - discountAmount;
+        }
+
+        function toggleGST() {
+            taxEnabled = document.getElementById('gst-toggle').checked;
+            calculateTotals();
+        }
+
+        function toggleOffers() {
+            offerEnabled = document.getElementById('offers-toggle').checked;
+            if (offerEnabled) {
+                document.getElementById('discount-section').classList.remove('hidden');
+            } else {
+                document.getElementById('discount-section').classList.add('hidden');
+                discountAmount = 0;
+                document.getElementById('discount-amount').value = '';
+                document.getElementById('discount-percent').value = '';
+                calculateTotals();
+            }
+        }
+
+        function calculateDiscount() {
+            const discountFlat = parseFloat(document.getElementById('discount-amount').value) || 0;
+            const discountPercent = parseFloat(document.getElementById('discount-percent').value) || 0;
+            
+            if (discountFlat > 0) {
+                discountAmount = discountFlat;
+                document.getElementById('discount-percent').value = '';
+            } else if (discountPercent > 0) {
+                discountAmount = subtotal * (discountPercent / 100);
+                document.getElementById('discount-amount').value = '';
+            } else {
+                discountAmount = 0;
+            }
+            
+            calculateTotals();
+        }
+
+        function generateBill() {
+            const customerName = document.getElementById('bill-customer-name').value;
+            const billGenerator = document.getElementById('bill-generator').value;
+            const billNumber = document.getElementById('bill-number').textContent;
+            const total = document.getElementById('total-amount').textContent;
+            
+            console.log(`Bill Generated!\nCustomer: ${customerName || 'Walk-in Customer'}\nBill Number: ${billNumber}\nTotal: ${total}\nGenerated by: ${billGenerator}\nPayment: ${paymentMode}`);
+            
+            // Navigate to receipt page
+            window.location.href = '/receipt';
+        }
+
+        // Initialize calculations
+        calculateTotals();
+    </script>
+</body>
+</html>

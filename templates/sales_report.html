@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Report - Kirana Konnect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4CAF50',
+                        secondary: '#2196F3',
+                        accent: '#FF9800',
+                        danger: '#F44336',
+                        dark: '#333333',
+                        light: '#F5F5F5'
+                    },
+                    fontFamily: {
+                        poppins: ['Poppins', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif !important;
+        }
+        
+        .fa, .fas, .far, .fal, .fab {
+            font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+        }
+        
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        
+        html, body {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="font-poppins bg-gray-50">
+    <!-- Header Section -->
+    <header class="bg-white shadow-sm fixed top-0 left-0 right-0 z-10">
+        <div class="flex items-center p-4">
+            <button onclick="goBack()" class="mr-4">
+                <i class="fa-solid fa-arrow-left text-dark text-xl"></i>
+            </button>
+            <h1 class="text-xl font-bold text-dark flex-1 text-center">Sales Analytics</h1>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-20">
+        <!-- Period Tabs -->
+        <div class="px-4 mb-6">
+            <div class="flex bg-gray-100 rounded-xl p-1">
+                <button onclick="loadPeriodData('daily')" class="period-tab flex-1 py-3 text-center text-gray-600 rounded-lg" id="daily-tab">Daily</button>
+                <button onclick="loadPeriodData('weekly')" class="period-tab flex-1 py-3 text-center bg-primary text-white rounded-lg font-semibold" id="weekly-tab">Weekly</button>
+                <button onclick="loadPeriodData('monthly')" class="period-tab flex-1 py-3 text-center text-gray-600 rounded-lg" id="monthly-tab">Monthly</button>
+            </div>
+        </div>
+
+        <!-- Investment Recovery -->
+        <div class="px-4 mb-6">
+            <div class="bg-white p-4 rounded-xl shadow-sm">
+                <h3 class="text-lg font-bold mb-4 text-dark">Investment Recovery</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Total Investment (Refilling + New Items)</span>
+                        <span class="font-bold text-dark" id="total-refilled-investment">₹0</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Profit from Sales</span>
+                        <span class="font-bold text-green-600" id="profit-generated">₹0</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Investment Remaining</span>
+                        <span class="font-bold text-orange-600" id="remaining-recovery">₹0</span>
+                    </div>
+                    
+                    <div class="bg-gray-200 rounded-full h-3 mt-4">
+                        <div class="bg-green-600 h-3 rounded-full" style="width: 0%" id="recovery-progress"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 text-center" id="recovery-percentage">0% recovered</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics Cards -->
+        <div class="px-4 mb-6">
+            <div class="grid grid-cols-3 gap-3">
+                <!-- Total Sales -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-primary">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Total Sales</p>
+                        <p class="text-xl font-bold text-primary" id="total-sales">₹0</p>
+                        <p class="text-xs text-green-600 mt-1" id="sales-growth">+15% growth</p>
+                    </div>
+                </div>
+
+                <!-- Total Profit -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-600">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Total Profit</p>
+                        <p class="text-xl font-bold text-green-600" id="total-profit">₹0</p>
+                        <p class="text-xs text-green-600 mt-1" id="profit-growth"></p>
+                    </div>
+                </div>
+
+                <!-- Total Cost -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Total Cost</p>
+                        <p class="text-xl font-bold text-red-500" id="total-cost">₹0</p>
+                        <p class="text-xs text-gray-500 mt-1" id="cost-percentage"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7-Day Investment vs Profit Chart -->
+        <div class="px-4 mb-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-dark" id="chart-title">Investment vs Profit Analysis</h3>
+                        <p class="text-sm text-gray-600 mt-1">Real-time tracking of your business performance</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-primary to-secondary text-white px-3 py-1 rounded-full text-xs font-medium">
+                        Live Data
+                    </div>
+                </div>
+                <div style="height: 320px;">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Selling Items -->
+        <div class="px-4 mb-6">
+            <div class="bg-white p-4 rounded-xl shadow-sm">
+                <h3 class="text-lg font-bold mb-4 text-dark">Top Selling Items</h3>
+                <div class="max-h-64 overflow-y-auto space-y-3" id="top-selling-items">
+                    <!-- Top selling items will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+
+
+
+
+
+
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
+        <div class="flex justify-around items-end py-2">
+            <button class="flex flex-col items-center py-1 px-3" onclick="goToDashboard()">
+                <i class="fa-solid fa-home text-primary text-xl"></i>
+                <span class="text-xs mt-1 text-primary font-semibold">Home</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="goToInventory()">
+                <i class="fa-solid fa-box text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Inventory</span>
+            </button>
+            <button class="relative -top-4 bg-primary rounded-full p-4 shadow-lg" onclick="openScanner()">
+                <i class="fa-solid fa-barcode text-white text-xl"></i>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3 relative" onclick="goToCart()">
+                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Cart</span>
+                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
+            </button>
+            <button class="flex flex-col items-center py-1 px-3" onclick="goToProfile()">
+                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
+                <span class="text-xs mt-1 text-gray-400">Profile</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Include Universal Scanner -->
+    <script src="/static/js/universal-scanner.js"></script>
+
+    <script>
+        let currentPeriod = 'weekly';
+        let salesChart = null;
+        
+        // Navigation functions
+        function goBack() {
+            window.location.href = '/dashboard';
+        }
+
+        function goToDashboard() {
+            window.location.href = '/dashboard';
+        }
+
+        function goToInventory() {
+            window.location.href = '/inventory';
+        }
+
+        function goToCart() {
+            window.location.href = '/cart';
+        }
+
+        function goToProfile() {
+            window.location.href = '/profile';
+        }
+
+        // Date picker removed - Daily mode is real-time only
+        
+        // Set period and update data
+        async function setPeriod(period) {
+            currentPeriod = period;
+            
+            // Update tab appearance
+            document.getElementById('daily-tab').className = 'flex-1 py-3 text-center text-gray-600';
+            document.getElementById('weekly-tab').className = 'flex-1 py-3 text-center text-gray-600';
+            document.getElementById('monthly-tab').className = 'flex-1 py-3 text-center text-gray-600';
+            
+            document.getElementById(`${period}-tab`).className = 'flex-1 py-3 text-center bg-primary text-white rounded-lg font-semibold';
+            
+            // Update chart title based on period
+            updateChartTitle(period);
+            
+            // Load data based on selected period
+            await loadPeriodData(period);
+        }
+        
+        // Update chart title based on selected period
+        function updateChartTitle(period) {
+            const chartTitle = document.getElementById('chart-title');
+            switch(period) {
+                case 'daily':
+                    chartTitle.textContent = 'Today\'s Investment vs Profit Analysis';
+                    break;
+                case 'weekly':
+                    chartTitle.textContent = '7-Day Investment vs Profit Analysis';
+                    break;
+                case 'monthly':
+                    chartTitle.textContent = '30-Day Investment vs Profit Analysis';
+                    break;
+                default:
+                    chartTitle.textContent = 'Investment vs Profit Analysis';
+            }
+        }
+        
+        // Load data for specific period
+        async function loadPeriodData(period) {
+            try {
+                console.log(`Loading data for period: ${period}`);
+                const response = await fetch(`/api/sales-data?period=${period}`);
+                const result = await response.json();
+                
+                console.log('API Response:', result);
+                
+                if (result.success) {
+                    console.log('Updating dashboard with data:', result.data);
+                    updateDashboard(result.data);
+                } else {
+                    console.error('Error loading sales data:', result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Initialize data loading (keeping for backwards compatibility)
+        async function loadInitialData(period) {
+            try {
+                const today = new Date();
+                let fromDate, toDate;
+                
+                switch(period) {
+                    case 'daily':
+                        fromDate = today.toISOString().split('T')[0];
+                        toDate = today.toISOString().split('T')[0];
+                        break;
+                    case 'weekly':
+                        const sevenDaysAgo = new Date(today);
+                        sevenDaysAgo.setDate(today.getDate() - 6);
+                        fromDate = sevenDaysAgo.toISOString().split('T')[0];
+                        toDate = today.toISOString().split('T')[0];
+                        break;
+                    case 'monthly':
+                        const thirtyDaysAgo = new Date(today);
+                        thirtyDaysAgo.setDate(today.getDate() - 29);
+                        fromDate = thirtyDaysAgo.toISOString().split('T')[0];
+                        toDate = today.toISOString().split('T')[0];
+                        break;
+                }
+                
+                await loadSalesData(fromDate, toDate, period);
+            } catch (error) {
+                console.error(`Error loading ${period} sales data:`, error);
+                showNotification('Error loading sales data', 'error');
+            }
+        }
+        
+        // Load 7-day sales data (default)
+        async function load7DaySalesData() {
+            updateChartTitle('weekly');
+            await loadPeriodData('weekly');
+        }
+
+        // Load sales data
+        async function loadSalesData(fromDate = null, toDate = null, period = 'weekly') {
+            try {
+                console.log('Loading sales data...');
+                showNotification('Loading sales data...', 'info');
+                
+                const salesData = await fetchSalesData(fromDate, toDate);
+                console.log('Received sales data:', salesData);
+                
+                updateSalesStats(salesData);
+                updateTopSellingItems(salesData.topItems);
+                updateSalesChart(salesData, period);
+                updateInvestmentRecovery(salesData);
+                
+                showNotification('Sales data loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading sales data:', error);
+                showNotification('Error loading sales data: ' + error.message, 'error');
+            }
+        }
+
+        // Fetch sales data from API
+        async function fetchSalesData(fromDate, toDate) {
+            let url = '/api/sales-data';
+            const params = new URLSearchParams();
+            
+            if (fromDate) params.append('from_date', fromDate);
+            if (toDate) params.append('to_date', toDate);
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to fetch sales data');
+            }
+            
+            return result.data;
+        }
+
+        // Main dashboard update function
+        function updateDashboard(data) {
+            console.log('Updating dashboard with data:', data);
+            
+            const totalInvestment = data.totalInvestment || 0;
+            const totalProfit = data.totalProfit || 0;
+            
+            // Update main metrics cards with period-based data
+            document.getElementById('total-sales').textContent = `₹${Math.round(data.totalRevenue || 0)}`;
+            document.getElementById('total-profit').textContent = `₹${Math.round(totalProfit)}`;
+            document.getElementById('total-cost').textContent = `₹${Math.round(totalInvestment)}`;
+            
+            // Remove percentage from cost card as requested
+            document.getElementById('cost-percentage').textContent = '';
+            
+            // Update Investment Recovery section with dynamic investment
+            const combinedInvestment = data.totalCombinedInvestment || 0;  // Dynamic - Updates with refilling
+            const remainingInvestment = data.remainingInvestment || 0;  // Dynamic - Updates with sales
+            const recoveryPercentage = combinedInvestment > 0 ? Math.round(((combinedInvestment - remainingInvestment) / combinedInvestment) * 100) : 0;
+            
+            console.log('Investment values:', {combinedInvestment, remainingInvestment, recoveryPercentage});
+            
+            document.getElementById('total-refilled-investment').textContent = `₹${Math.round(combinedInvestment)}`;
+            document.getElementById('profit-generated').textContent = `₹${Math.round(totalProfit)}`;  // Period-based profit
+            document.getElementById('remaining-recovery').textContent = `₹${Math.round(remainingInvestment)}`;
+            document.getElementById('recovery-progress').style.width = `${Math.min(100, recoveryPercentage)}%`;
+            document.getElementById('recovery-percentage').textContent = `${recoveryPercentage}% recovered`;
+            
+            // Update growth indicators without percentages
+            document.getElementById('sales-growth').textContent = `Sales for ${data.period || 'weekly'}`;
+            document.getElementById('profit-growth').textContent = `Profit for ${data.period || 'weekly'}`;
+            
+            // Update chart and top selling items
+            updateInvestmentProfitChart(data.chartData);
+            updateTopSellingItems(data.topItems);
+        }
+
+
+
+
+
+        // Update metrics cards with real data
+        function updateMetricsCards(data) {
+            // Total Sales
+            const totalSalesElement = document.getElementById('total-sales');
+            if (totalSalesElement) {
+                totalSalesElement.textContent = `₹${Math.round(data.totalRevenue || 0)}`;
+            }
+            
+            // Total Profit
+            const totalProfit = data.totalProfit || 0;
+            const profitElement = document.getElementById('total-profit');
+            if (profitElement) {
+                profitElement.textContent = `₹${Math.round(totalProfit)}`;
+                profitElement.className = totalProfit >= 0 ? 'text-xl font-bold text-green-600' : 'text-xl font-bold text-red-600';
+            }
+            
+            // Total Cost (Investment)
+            const totalCostElement = document.getElementById('total-cost');
+            if (totalCostElement) {
+                totalCostElement.textContent = `₹${Math.round(data.totalInvestment || 0)}`;
+            }
+            
+            // Update chart title with period
+            const chartTitle = document.getElementById('chart-title');
+            if (chartTitle) {
+                const periodName = data.period === 'daily' ? 'Today\'s' : 
+                                 data.period === 'weekly' ? 'This Week\'s' : 'This Month\'s';
+                chartTitle.textContent = `${periodName} Investment vs Profit Analysis`;
+            }
+        }
+
+        // Update top selling items
+        function updateTopSellingItems(topItems) {
+            const topItemsContainer = document.getElementById('top-selling-items');
+            topItemsContainer.innerHTML = '';
+            
+            if (!topItems || topItems.length === 0) {
+                topItemsContainer.innerHTML = '<p class="text-gray-500 text-center">No top selling items data available</p>';
+                return;
+            }
+            
+            const colors = ['primary', 'secondary', 'accent', 'purple-600', 'pink-600'];
+            
+            topItems.forEach((item, index) => {
+                const color = colors[index % colors.length];
+                const rank = index + 1;
+                const itemElement = document.createElement('div');
+                itemElement.className = 'flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors';
+                itemElement.onclick = () => openProductDetails(item.product_id);
+                itemElement.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-${color}/10 rounded-lg flex items-center justify-center">
+                            <span class="text-${color} font-bold text-sm">${rank}</span>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-dark">${item.name}</p>
+                            <p class="text-xs text-gray-500">${Math.round(item.quantity)} units sold • Investment: ₹${Math.round(item.investment || 0)}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-dark">₹${Math.round(item.amount)}</p>
+                        <p class="text-xs text-green-600">+₹${Math.round(item.profit || 0)} profit</p>
+                    </div>
+                `;
+                topItemsContainer.appendChild(itemElement);
+            });
+        }
+        
+        // Open product details page
+        function openProductDetails(productId) {
+            if (productId) {
+                window.location.href = `/product-details?id=${productId}`;
+            }
+        }
+
+        // Update investment vs profit chart with dynamic period data
+        function updateSalesChart(data, period = 'weekly') {
+            try {
+                console.log('Updating chart with data:', data);
+                const ctx = document.getElementById('salesChart');
+                if (!ctx) {
+                    console.error('Chart canvas not found');
+                    return;
+                }
+                
+                if (salesChart) {
+                    salesChart.destroy();
+                }
+                
+                let labels, investmentData, profitData;
+                
+                // Use real data from API based on period
+                if (data.chartData && data.chartData.dates && data.chartData.dates.length > 0) {
+                    labels = data.chartData.dates.map(date => {
+                        const d = new Date(date);
+                        switch(period) {
+                            case 'daily':
+                                return d.toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit' });
+                            case 'weekly':
+                                return d.toLocaleDateString('en-US', { weekday: 'short' });
+                            case 'monthly':
+                                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            default:
+                                return d.toLocaleDateString('en-US', { weekday: 'short' });
+                        }
+                    });
+                    investmentData = data.chartData.investment;
+                    profitData = data.chartData.profit;
+                } else {
+                    // Empty chart based on period
+                    switch(period) {
+                        case 'daily':
+                            labels = ['6AM', '9AM', '12PM', '3PM', '6PM', '9PM'];
+                            investmentData = [0, 0, 0, 0, 0, 0];
+                            profitData = [0, 0, 0, 0, 0, 0];
+                            break;
+                        case 'monthly':
+                            labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+                            investmentData = [0, 0, 0, 0];
+                            profitData = [0, 0, 0, 0];
+                            break;
+                        default: // weekly
+                            labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                            investmentData = [0, 0, 0, 0, 0, 0, 0];
+                            profitData = [0, 0, 0, 0, 0, 0, 0];
+                    }
+                }
+                
+                console.log('Chart data:', { labels, investmentData, profitData });
+                
+                salesChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Investment ₹',
+                            data: investmentData,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.05)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#e74c3c',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }, {
+                            label: 'Profit ₹',
+                            data: profitData,
+                            borderColor: '#27ae60',
+                            backgroundColor: 'rgba(39, 174, 96, 0.05)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#27ae60',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 20,
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11,
+                                        weight: 'bold'
+                                    },
+                                    color: '#666'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0,0,0,0.05)',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + (value >= 1000 ? (value/1000).toFixed(1) + 'K' : Math.round(value));
+                                    },
+                                    font: {
+                                        size: 11
+                                    },
+                                    color: '#666'
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Chart created successfully');
+            } catch (error) {
+                console.error('Error updating investment vs profit chart:', error);
+            }
+        }
+
+
+
+
+        
+
+        
+
+
+        // Update investment recovery based on current period
+        function updateInvestmentRecovery(data) {
+            const totalCombinedInvestment = data.totalCombinedInvestment || 0;
+            const totalProfit = data.totalProfit || 0;
+            const remainingInvestment = data.remainingInvestment || 0;
+            
+            // Update investment recovery section
+            const totalInvestmentElement = document.getElementById('total-refilled-investment');
+            if (totalInvestmentElement) {
+                totalInvestmentElement.textContent = `₹${Math.round(totalCombinedInvestment)}`;
+            }
+            
+            const profitGeneratedElement = document.getElementById('profit-generated');
+            if (profitGeneratedElement) {
+                profitGeneratedElement.textContent = `₹${Math.round(totalProfit)}`;
+                profitGeneratedElement.className = totalProfit >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-600';
+            }
+            
+            const remainingRecoveryElement = document.getElementById('remaining-recovery');
+            if (remainingRecoveryElement) {
+                remainingRecoveryElement.textContent = `₹${Math.round(remainingInvestment)}`;
+            }
+            
+            // Update progress bar
+            const recoveryPercentage = totalCombinedInvestment > 0 ? 
+                Math.max(0, Math.min(100, ((totalCombinedInvestment - remainingInvestment) / totalCombinedInvestment) * 100)) : 0;
+            
+            const progressBar = document.getElementById('recovery-progress');
+            if (progressBar) {
+                progressBar.style.width = `${recoveryPercentage}%`;
+            }
+            
+            const recoveryPercentageElement = document.getElementById('recovery-percentage');
+            if (recoveryPercentageElement) {
+                recoveryPercentageElement.textContent = `${Math.round(recoveryPercentage)}% recovered`;
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-20 left-4 right-4 z-50 p-3 rounded-lg text-white text-sm font-medium ${
+                type === 'success' ? 'bg-primary' : 
+                type === 'error' ? 'bg-danger' : 
+                'bg-gray-600'
+            }`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Set current date
+        function setCurrentDate() {
+            const today = new Date();
+            document.getElementById('current-date').textContent = today.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+
+        // Load data for specific period
+        function loadPeriodData(period = 'weekly') {
+            console.log(`Loading ${period} data...`);
+            
+            // Update active tab
+            document.querySelectorAll('.period-tab').forEach(tab => {
+                tab.classList.remove('bg-primary', 'text-white', 'font-semibold');
+                tab.classList.add('text-gray-600');
+            });
+            
+            const activeTab = document.getElementById(`${period}-tab`);
+            if (activeTab) {
+                activeTab.classList.remove('text-gray-600');
+                activeTab.classList.add('bg-primary', 'text-white', 'font-semibold');
+            }
+            
+            // Show loading state
+            showLoadingState();
+            
+            // Fetch data from API
+            fetch(`/api/sales-data?period=${period}`)
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        console.log('Data loaded successfully:', result.data);
+                        updateAllElements(result.data, period);
+                    } else {
+                        console.error('API returned error:', result.message);
+                        showNotification('Failed to load sales data', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading sales data:', error);
+                    showNotification('Error loading data. Please try again.', 'error');
+                })
+                .finally(() => {
+                    hideLoadingState();
+                });
+        }
+        
+        // Update all elements with new data
+        function updateAllElements(data, period) {
+            updateMetricsCards(data);
+            updateSalesChart(data, period);
+            updateTopSellingItems(data.topItems || []);
+            updateInvestmentRecovery(data);
+            setCurrentDate();
+        }
+        
+        // Show loading state
+        function showLoadingState() {
+            const loadingElements = document.querySelectorAll('.metric-card, #top-selling-items');
+            loadingElements.forEach(el => {
+                el.style.opacity = '0.5';
+                el.style.pointerEvents = 'none';
+            });
+        }
+        
+        // Hide loading state
+        function hideLoadingState() {
+            const loadingElements = document.querySelectorAll('.metric-card, #top-selling-items');
+            loadingElements.forEach(el => {
+                el.style.opacity = '1';
+                el.style.pointerEvents = 'auto';
+            });
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing analytics page...');
+            loadPeriodData('weekly');
+        });
+    </script>
+</body>
+</html>
