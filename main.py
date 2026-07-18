@@ -242,6 +242,22 @@ def api_notifications():
     
     return jsonify(notifications_data)
 
+@app.route('/api/dashboard/stats')
+def api_dashboard_stats():
+    return jsonify({
+        'today_profit': 1240,
+        'profit_growth': 12.5,
+        'total_sales': 8450,
+        'actual_cost': 7210,
+        'total_revenue': 8450,
+        'transaction_count': 18,
+        'outstanding_amount': 3000,
+        'customers_with_credit': 5,
+        'total_products': 42,
+        'expired_products': 2,
+        'low_stock_products': 4
+    })
+
 @app.route('/api/low-stock-products')
 def api_low_stock_products():
     low_stock_data = {
