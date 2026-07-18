@@ -422,7 +422,7 @@
         let modalOnlineMethod = 'upi';
 
         function goBack() {
-            window.history.back();
+            window.history.length > 1 ? window.history.back() : window.location.href = '/dashboard';
         }
 
         function selectModalPayment(method) {
