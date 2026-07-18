@@ -282,5 +282,59 @@ def api_low_stock_products():
     
     return jsonify(low_stock_data)
 
+@app.route('/api/notifications/<int:notification_id>/mark-read', methods=['POST'])
+def api_mark_notification_read(notification_id):
+    return jsonify({'success': True, 'id': notification_id})
+
+@app.route('/api/notifications/mark-all-read', methods=['POST'])
+def api_mark_all_notifications_read():
+    return jsonify({'success': True})
+
+@app.route('/api/customers', methods=['GET', 'POST'])
+def api_customers():
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        new_customer = {
+            'id': len(sample_customers) + 1,
+            'name': data.get('name', ''),
+            'phone': data.get('phone', ''),
+            'outstanding_balance': 0.0,
+            'address': '',
+            'created_at': datetime.now().strftime('%Y-%m-%d')
+        }
+        sample_customers.append(new_customer)
+        return jsonify(new_customer), 201
+    return jsonify(sample_customers)
+
+@app.route('/api/bills', methods=['POST'])
+def api_create_bill():
+    data = request.get_json() or {}
+    bill_number = 'BILL-' + datetime.now().strftime('%Y%m%d%H%M%S')
+    return jsonify({'success': True, 'bill_number': bill_number, 'id': 1}), 201
+
+@app.route('/api/payments', methods=['POST'])
+def api_payments():
+    data = request.get_json() or {}
+    return jsonify({'success': True, 'message': 'Payment recorded successfully'})
+
+@app.route('/api/backup/enable', methods=['POST'])
+def api_backup_enable():
+    return jsonify({'success': True, 'message': 'Backup enabled'})
+
+@app.route('/api/backup/disable', methods=['POST'])
+def api_backup_disable():
+    return jsonify({'success': True, 'message': 'Backup disabled'})
+
+@app.route('/api/notification-settings', methods=['GET', 'POST'])
+def api_notification_settings():
+    if request.method == 'POST':
+        return jsonify({'success': True})
+    return jsonify({
+        'low_stock_alerts': True,
+        'expiry_alerts': True,
+        'daily_summary': True,
+        'credit_purchase_sms': False
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
