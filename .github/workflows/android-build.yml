@@ -1,13 +1,6 @@
 name: Build Android APK
 
-# Builds the Cordova Android app inside a self-contained Android build container
-# and uploads the APK as a downloadable artifact.
-#
-# We build in a container (rather than on the bare GitHub runner) because the
-# runner's Android toolchain hit a resource-compiler bug
-# (com.android.aaptcompiler ... "Can not extract resource / Invalid <color>")
-# that was invariant to every cordova-android / AGP / AppCompat / JDK version we
-# tried. The container ships a known-good, self-contained SDK + JDK + Cordova.
+# Builds the Cordova Android app and uploads the APK as a downloadable artifact.
 
 on:
   push:
@@ -28,10 +21,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Purpose-built Cordova/Android image: bundles the Android SDK, JDK and
-    # Cordova, so the whole toolchain is swapped out from the GitHub runner's.
-    container:
-      image: mingc/android-build-box:latest
     defaults:
       run:
         working-directory: mobile
@@ -39,34 +28,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The image's Node is too old to install cordova-android 14. Provide a
-      # modern Node (its npm then handles the platform install), while keeping the
-      # container's own JDK / Android SDK / locale as the environment under test.
-      - name: Set up Node.js 20
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Show toolchain versions
-        run: |
-          echo "JAVA:"; java -version 2>&1 || true
-          echo "NODE:"; node --version 2>&1 || true
-          echo "NPM:"; npm --version 2>&1 || true
-          echo "CORDOVA (image default):"; cordova --version 2>&1 || true
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT ANDROID_HOME=$ANDROID_HOME"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install a current Cordova CLI
-        # The image's bundled Cordova CLI is too old to fetch cordova-android 14
-        # ("Cannot find module 'cordova-android/package.json'"). Force a current one.
-        run: |
-          npm install -g cordova@latest
-          echo "CORDOVA (installed):"; cordova --version
+      - name: Install SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Ensure SDK packages (android-35 / build-tools 35)
-        run: |
-          SDKMGR="$(command -v sdkmanager || echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager")"
-          yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
-          "$SDKMGR" "platform-tools" "platforms;android-35" "build-tools;35.0.0" || true
+      - name: Install Cordova
+        run: npm install -g cordova
 
       - name: Configure backend URL
         run: |
@@ -84,7 +64,10 @@ jobs:
         run: cordova platform add android@14.0.0
 
       - name: Build debug APK
-        run: cordova build android --verbose -- --gradleArg=--stacktrace
+        # Pin AndroidX AppCompat to 1.4.2 (predates the Material dynamic <color>
+        # that the runner's aaptcompiler cannot parse: "Can not extract resource
+        # from ParsedResource" / appcompat values.xml "Invalid <color>").
+        run: cordova build android --verbose -- --gradleArg=-PcdvAndroidXAppCompatVersion=1.4.2 --gradleArg=--stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
