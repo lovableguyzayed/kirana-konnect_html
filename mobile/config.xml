@@ -45,5 +45,5 @@
         <icon density="xxxhdpi" src="res/android/icon-192-xxxhdpi.png" />
     </platform>
 
-    <engine name="android" spec="^13.0.0" />
+    <engine name="android" spec="^14.0.0" />
 </widget>

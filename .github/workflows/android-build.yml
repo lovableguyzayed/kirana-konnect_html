@@ -44,7 +44,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install Cordova
         run: npm install -g cordova
@@ -62,14 +62,13 @@ jobs:
           grep APP_URL www/js/config.js
 
       - name: Add Android platform
-        run: cordova platform add android
+        # cordova-android 14 (AGP 8.7 / compileSdk 35 / appcompat 1.7.0) matches the
+        # modern runner toolchain. cordova-android 13's AGP 8.3 aapt2 failed to compile
+        # resources on current runners (":app:mergeDebugResources ... Invalid <color>").
+        run: cordova platform add android@14.0.0
 
       - name: Build debug APK
-        # Override the AndroidX AppCompat version to 1.7.0. cordova-android 13 ships
-        # 1.6.1, whose color resources fail to compile with the runner's newer aapt2
-        # (":app:mergeDebugResources ... appcompat-1.6.1 ... Invalid <color>"). 1.7.0
-        # matches the newer toolchain and is compatible with compileSdk 34.
-        run: cordova build android --verbose -- --gradleArg=-PcdvAndroidXAppCompatVersion=1.7.0
+        run: cordova build android --verbose
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
