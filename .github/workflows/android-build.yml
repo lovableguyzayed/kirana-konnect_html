@@ -1,0 +1,82 @@
+name: Build Android APK
+
+# Builds the Cordova Android app inside a self-contained Android build container
+# and uploads the APK as a downloadable artifact.
+#
+# We build in a container (rather than on the bare GitHub runner) because the
+# runner's Android toolchain hit a resource-compiler bug
+# (com.android.aaptcompiler ... "Can not extract resource / Invalid <color>")
+# that was invariant to every cordova-android / AGP / AppCompat / JDK version we
+# tried. The container ships a known-good, self-contained SDK + JDK + Cordova.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-build.yml"
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Backend URL to bake into the app (overrides the APP_URL repo variable and config.js)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Purpose-built Cordova/Android image: bundles the Android SDK, JDK and
+    # Cordova, so the whole toolchain is swapped out from the GitHub runner's.
+    container:
+      image: mingc/android-build-box:latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          echo "JAVA:"; java -version 2>&1 || true
+          echo "NODE:"; node --version 2>&1 || true
+          echo "CORDOVA:"; cordova --version 2>&1 || true
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT ANDROID_HOME=$ANDROID_HOME"
+
+      - name: Ensure Cordova CLI
+        run: cordova --version >/dev/null 2>&1 || npm install -g cordova
+
+      - name: Ensure SDK packages (android-35 / build-tools 35)
+        run: |
+          SDKMGR="$(command -v sdkmanager || echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager")"
+          yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+          "$SDKMGR" "platform-tools" "platforms;android-35" "build-tools;35.0.0" || true
+
+      - name: Configure backend URL
+        run: |
+          URL="${{ github.event.inputs.app_url || vars.APP_URL }}"
+          if [ -n "$URL" ]; then
+            echo "Baking APP_URL = $URL into www/js/config.js"
+            sed -i "s#APP_URL: \".*\"#APP_URL: \"$URL\"#" www/js/config.js
+          else
+            echo "No APP_URL provided (workflow input or APP_URL repo variable);"
+            echo "building with the value currently in www/js/config.js."
+          fi
+          grep APP_URL www/js/config.js
+
+      - name: Add Android platform
+        run: cordova platform add android@14.0.0
+
+      - name: Build debug APK
+        run: cordova build android --verbose -- --gradleArg=--stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kirana-konnect-debug-apk
+          path: mobile/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,27 @@
+{
+  "name": "com.kiranakonnect.app",
+  "displayName": "Kirana Konnect",
+  "version": "1.0.0",
+  "description": "Native Android shell (Apache Cordova) for the Kirana Konnect web app.",
+  "main": "index.js",
+  "scripts": {
+    "prepare-android": "cordova platform add android",
+    "build": "cordova build android",
+    "build:release": "cordova build android --release",
+    "run": "cordova run android"
+  },
+  "keywords": [
+    "ecosystem:cordova",
+    "cordova-android"
+  ],
+  "author": "Kirana Konnect",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "cordova-android": "^14.0.0"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ]
+  }
+}

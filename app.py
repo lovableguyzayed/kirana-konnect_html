@@ -87,7 +87,8 @@ class Bill(db.Model):
     # Staff and metadata
     generated_by = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    include_dates = db.Column(db.Boolean, default=True)  # Whether to show dates on the receipt
+
     # Relationships
     items = db.relationship('BillItem', backref='bill', lazy=True, cascade='all, delete-orphan')
 
@@ -870,73 +871,88 @@ def create_customer():
 @app.route('/api/bills', methods=['POST'])
 def create_bill():
     """Generate a new bill and save it to database"""
-    data = request.get_json()
-    
-    # Generate bill number
-    import random
-    bill_number = f"KK-{datetime.now().year}-{random.randint(1000, 9999)}"
-    
-    # Create the bill
-    bill = Bill(
-        bill_number=bill_number,
-        customer_id=data.get('customer_id'),
-        customer_name=data.get('customer_name'),
-        subtotal=data['subtotal'],
-        tax_amount=data.get('tax_amount', 0),
-        discount_amount=data.get('discount_amount', 0),
-        total_amount=data['total_amount'],
-        payment_mode=data['payment_mode'],
-        payment_status='pending' if data['payment_mode'] == 'credit' else 'paid',
-        generated_by=data.get('generated_by', 'System'),
-        include_dates=data.get('include_dates', True)
-    )
-    
-    db.session.add(bill)
-    db.session.flush()  # Get the bill ID
-    
-    # Add bill items
-    for item_data in data.get('items', []):
-        bill_item = BillItem(
-            bill_id=bill.id,
-            item_name=item_data['name'],
-            quantity=item_data['quantity'],
-            unit_price=item_data['unit_price'],
-            total_price=item_data['total_price'],
-            weight=item_data.get('weight'),
-            price_per_kg=item_data.get('price_per_kg')
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+        payment_mode = data.get('payment_mode')
+        required = ['subtotal', 'total_amount']
+        missing = [f for f in required if data.get(f) is None]
+        if missing or not payment_mode:
+            fields = missing + ([] if payment_mode else ['payment_mode'])
+            return jsonify({'error': f"Missing required field(s): {', '.join(fields)}"}), 400
+
+        # Generate bill number
+        import random
+        bill_number = f"KK-{datetime.now().year}-{random.randint(1000, 9999)}"
+
+        # Create the bill
+        bill = Bill(
+            bill_number=bill_number,
+            customer_id=data.get('customer_id'),
+            customer_name=data.get('customer_name'),
+            subtotal=data['subtotal'],
+            tax_amount=data.get('tax_amount', 0),
+            discount_amount=data.get('discount_amount', 0),
+            total_amount=data['total_amount'],
+            payment_mode=payment_mode,
+            payment_status='pending' if payment_mode == 'credit' else 'paid',
+            generated_by=data.get('generated_by', 'System'),
+            include_dates=data.get('include_dates', True)
         )
-        db.session.add(bill_item)
-    
-    # If payment is made, create payment record and send SMS
-    if data['payment_mode'] != 'credit' and data.get('customer_id'):
-        payment = Payment(
-            customer_id=data['customer_id'],
-            bill_id=bill.id,
-            amount=data['total_amount'],
-            payment_mode=data['payment_mode'],
-            reference_number=data.get('reference_number')
-        )
-        db.session.add(payment)
-        
-        # Send bill payment SMS if enabled
-        customer = Customer.query.get(data['customer_id'])
-        if customer and customer.phone:
-            send_bill_payment_sms(customer.phone, customer.name, data['total_amount'], bill.bill_number)
-    
-    # If credit purchase, send credit purchase SMS
-    elif data['payment_mode'] == 'credit' and data.get('customer_id'):
-        customer = Customer.query.get(data['customer_id'])
-        if customer and customer.phone:
-            new_balance = customer.outstanding_balance() + data['total_amount']
-            send_credit_purchase_sms(customer.phone, customer.name, data['total_amount'], new_balance)
-    
-    db.session.commit()
-    
-    return jsonify({
-        'bill_id': bill.id,
-        'bill_number': bill.bill_number,
-        'message': 'Bill generated successfully'
-    })
+
+        db.session.add(bill)
+        db.session.flush()  # Get the bill ID
+
+        # Add bill items
+        for item_data in data.get('items', []):
+            bill_item = BillItem(
+                bill_id=bill.id,
+                item_name=item_data['name'],
+                quantity=item_data['quantity'],
+                unit_price=item_data['unit_price'],
+                total_price=item_data['total_price'],
+                weight=item_data.get('weight'),
+                price_per_kg=item_data.get('price_per_kg')
+            )
+            db.session.add(bill_item)
+
+        # If payment is made, create payment record and send SMS
+        if payment_mode != 'credit' and data.get('customer_id'):
+            payment = Payment(
+                customer_id=data['customer_id'],
+                bill_id=bill.id,
+                amount=data['total_amount'],
+                payment_mode=payment_mode,
+                reference_number=data.get('reference_number')
+            )
+            db.session.add(payment)
+
+            # Send bill payment SMS if enabled
+            customer = Customer.query.get(data['customer_id'])
+            if customer and customer.phone:
+                send_bill_payment_sms(customer.phone, customer.name, data['total_amount'], bill.bill_number)
+
+        # If credit purchase, send credit purchase SMS
+        elif payment_mode == 'credit' and data.get('customer_id'):
+            customer = Customer.query.get(data['customer_id'])
+            if customer and customer.phone:
+                new_balance = customer.outstanding_balance + data['total_amount']
+                send_credit_purchase_sms(customer.phone, customer.name, data['total_amount'], new_balance)
+
+        db.session.commit()
+
+        return jsonify({
+            'bill_id': bill.id,
+            'bill_number': bill.bill_number,
+            'message': 'Bill generated successfully'
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error creating bill: {str(e)}")
+        return jsonify({'error': 'Failed to generate bill'}), 500
 
 @app.route('/api/customers/<int:customer_id>/ledger')
 def api_customer_ledger(customer_id):
@@ -1046,7 +1062,7 @@ def create_payment():
         # Send credit payment SMS if enabled
         customer = Customer.query.get(customer_id)
         if customer and customer.phone:
-            remaining_balance = customer.outstanding_balance() - amount
+            remaining_balance = customer.outstanding_balance - amount
             send_credit_payment_sms(customer.phone, customer.name, amount, remaining_balance)
         
         return jsonify({'message': 'Payment recorded successfully', 'payment_id': payment.id}), 201
