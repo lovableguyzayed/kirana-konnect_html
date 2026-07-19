@@ -39,6 +39,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The image's Node is too old to install cordova-android 14. Provide a
+      # modern Node (its npm then handles the platform install), while keeping the
+      # container's own JDK / Android SDK / locale as the environment under test.
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Show toolchain versions
         run: |
           echo "JAVA:"; java -version 2>&1 || true
