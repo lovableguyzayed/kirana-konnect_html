@@ -1,7 +1,13 @@
 name: Build Android APK
 
-# Builds the Cordova Android app and uploads the APK as a downloadable artifact.
-# Runs on GitHub's runners, which have access to the Android SDK.
+# Builds the Cordova Android app inside a self-contained Android build container
+# and uploads the APK as a downloadable artifact.
+#
+# We build in a container (rather than on the bare GitHub runner) because the
+# runner's Android toolchain hit a resource-compiler bug
+# (com.android.aaptcompiler ... "Can not extract resource / Invalid <color>")
+# that was invariant to every cordova-android / AGP / AppCompat / JDK version we
+# tried. The container ships a known-good, self-contained SDK + JDK + Cordova.
 
 on:
   push:
@@ -22,6 +28,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Purpose-built Cordova/Android image: bundles the Android SDK, JDK and
+    # Cordova, so the whole toolchain is swapped out from the GitHub runner's.
+    container:
+      image: mingc/android-build-box:latest
     defaults:
       run:
         working-directory: mobile
@@ -29,25 +39,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
+      - name: Show toolchain versions
+        run: |
+          echo "JAVA:"; java -version 2>&1 || true
+          echo "NODE:"; node --version 2>&1 || true
+          echo "CORDOVA:"; cordova --version 2>&1 || true
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT ANDROID_HOME=$ANDROID_HOME"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
+      - name: Ensure Cordova CLI
+        run: cordova --version >/dev/null 2>&1 || npm install -g cordova
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Install Cordova
-        run: npm install -g cordova
+      - name: Ensure SDK packages (android-35 / build-tools 35)
+        run: |
+          SDKMGR="$(command -v sdkmanager || echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager")"
+          yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+          "$SDKMGR" "platform-tools" "platforms;android-35" "build-tools;35.0.0" || true
 
       - name: Configure backend URL
         run: |
@@ -62,9 +68,6 @@ jobs:
           grep APP_URL www/js/config.js
 
       - name: Add Android platform
-        # cordova-android 14 (AGP 8.7 / compileSdk 35 / appcompat 1.7.0) matches the
-        # modern runner toolchain. cordova-android 13's AGP 8.3 aapt2 failed to compile
-        # resources on current runners (":app:mergeDebugResources ... Invalid <color>").
         run: cordova platform add android@14.0.0
 
       - name: Build debug APK
