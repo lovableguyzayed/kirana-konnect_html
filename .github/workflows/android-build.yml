@@ -43,11 +43,16 @@ jobs:
         run: |
           echo "JAVA:"; java -version 2>&1 || true
           echo "NODE:"; node --version 2>&1 || true
-          echo "CORDOVA:"; cordova --version 2>&1 || true
+          echo "NPM:"; npm --version 2>&1 || true
+          echo "CORDOVA (image default):"; cordova --version 2>&1 || true
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT ANDROID_HOME=$ANDROID_HOME"
 
-      - name: Ensure Cordova CLI
-        run: cordova --version >/dev/null 2>&1 || npm install -g cordova
+      - name: Install a current Cordova CLI
+        # The image's bundled Cordova CLI is too old to fetch cordova-android 14
+        # ("Cannot find module 'cordova-android/package.json'"). Force a current one.
+        run: |
+          npm install -g cordova@latest
+          echo "CORDOVA (installed):"; cordova --version
 
       - name: Ensure SDK packages (android-35 / build-tools 35)
         run: |
