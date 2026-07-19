@@ -1,8 +1,12 @@
 import os
 import logging
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
+
+# Load environment variables from a local .env file (e.g. DATABASE_URL)
+load_dotenv()
 from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
@@ -22,7 +26,12 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-for-pricing-preview")
 
 # Database configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+database_url = os.environ.get("DATABASE_URL")
+# SQLAlchemy 2.x requires the "postgresql://" scheme; some providers still hand
+# out legacy "postgres://" URLs, so normalize it here.
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
