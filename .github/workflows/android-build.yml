@@ -1,0 +1,76 @@
+name: Build Android APK
+
+# Builds the Cordova Android app and uploads the APK as a downloadable artifact.
+# Runs on GitHub's runners, which have access to the Android SDK.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-build.yml"
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Backend URL to bake into the app (overrides the APP_URL repo variable and config.js)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install Cordova
+        run: npm install -g cordova
+
+      - name: Configure backend URL
+        run: |
+          URL="${{ github.event.inputs.app_url || vars.APP_URL }}"
+          if [ -n "$URL" ]; then
+            echo "Baking APP_URL = $URL into www/js/config.js"
+            sed -i "s#APP_URL: \".*\"#APP_URL: \"$URL\"#" www/js/config.js
+          else
+            echo "No APP_URL provided (workflow input or APP_URL repo variable);"
+            echo "building with the value currently in www/js/config.js."
+          fi
+          grep APP_URL www/js/config.js
+
+      - name: Add Android platform
+        run: cordova platform add android
+
+      - name: Build debug APK
+        run: cordova build android --verbose
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kirana-konnect-debug-apk
+          path: mobile/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
