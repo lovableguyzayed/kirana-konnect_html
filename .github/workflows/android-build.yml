@@ -65,10 +65,11 @@ jobs:
         run: cordova platform add android
 
       - name: Build debug APK
-        # Pin build-tools to 34.0.0 to match compileSdk 34. Otherwise cordova-android
-        # auto-selects the runner's newest build-tools (35/36), whose aapt2 fails to
-        # compile appcompat resources ("Invalid <color>") against SDK 34.
-        run: cordova build android --verbose -- --gradleArg=-PcdvBuildToolsVersion=34.0.0
+        # Override the AndroidX AppCompat version to 1.7.0. cordova-android 13 ships
+        # 1.6.1, whose color resources fail to compile with the runner's newer aapt2
+        # (":app:mergeDebugResources ... appcompat-1.6.1 ... Invalid <color>"). 1.7.0
+        # matches the newer toolchain and is compatible with compileSdk 34.
+        run: cordova build android --verbose -- --gradleArg=-PcdvAndroidXAppCompatVersion=1.7.0
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
