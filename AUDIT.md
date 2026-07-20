@@ -94,19 +94,38 @@ settings-aware creation; PDF export and receipt lookup work; the customer ledger
   refill, splash: **zero app-level JS errors**; Add-Item form submitted in the browser and
   the product verified present in the database and rendered in inventory.
 
-## 4. Recommended roadmap (not yet implemented)
+## 4. Roadmap — status after the second remediation pass
 
-| Priority | Item | Why |
+### Implemented ✅
+
+| Item | What was done |
+|---|---|
+| **Authentication (P0)** | Flask-Login with a `User` model (hashed passwords), real signup/login/logout wired into the existing signin/signup pages, a global `before_request` guard (pages redirect to signin, APIs return 401 JSON), 30-day remember-me sessions, and first-run single-shop signup (second signup blocked). Verified end-to-end in a real browser: gate redirect → signup form → authenticated dashboard. |
+| **Vendored assets + unified brand (P1)** | Tailwind is now a committed static build (`static/css/tailwind.css`, built from all templates via `tailwind.config.js` with a safelist for JS-composed classes); FontAwesome, Chart.js, html2pdf and the Inter/Poppins fonts are served from `static/vendor/`. All 23 templates rewritten to local assets — **zero CDN references remain**, the app renders fully styled with no internet, and the brand palette is unified on the green scheme. |
+| **Dead template cleanup (P1)** | `inventory_clean`, `inventory_original`, `inventory_camera_fixed`, `bill_generate_backup` deleted (verified unreferenced). 27 → 23 templates. |
+| **Barcode lookup (P2)** | `GET /api/products?barcode=` exact-match endpoint for scanner flows. |
+| **Search + pagination + indexes (P2)** | `GET /api/products?q=&page=&per_page=` (default response unchanged); indexes on `Product.name/barcode/category` (apply to newly created databases). |
+| **PWA manifest (P3, partial)** | `static/manifest.json` + icons + `theme-color` linked from every page — installable via Add to Home Screen. (A service worker was deliberately not added; see below.) |
+
+### Remaining (deliberately not done, with reasons)
+
+| Priority | Item | Why deferred |
 |---|---|---|
-| P0 | **Authentication & multi-tenancy** (Flask-Login is already a dependency) | The deployed instance is public; anyone can read/write shop data. Biggest gap to real production. |
-| P1 | Consolidate templates onto a shared base layout; delete the 4 dead template variants; unify the brand color | Cuts the maintenance surface massively; ends per-page drift. |
-| P1 | Vendor Tailwind/FontAwesome/Chart.js locally (or a build step) | Removes CDN dependency; the app currently renders unstyled offline. |
-| P1 | Bill-generate: read cart from structured data (localStorage) instead of DOM scraping; carry `product_id` end-to-end | Removes the name-matching fallback for stock decrement. |
-| P2 | Staff model + per-staff billing attribution (staff page is currently static) | The staff page implies functionality that isn't stored. |
-| P2 | Real barcode→product lookup endpoint (`/api/products?barcode=`) for the scanner flows | Scanner currently matches against sample data in several pages. |
-| P2 | Pagination/search on the products API; DB indexes on `barcode`, `name` | Grows past a few hundred SKUs. |
-| P3 | PWA/service worker for offline-first cart & catalog | Kirana connectivity reality. |
-| P3 | Replace `alert()`/`confirm()` with the app's toast/modal components consistently | UX polish. |
+| P1 | Bill-generate reading cart from structured data instead of DOM scraping | The server-side name/ID fallback already decrements stock correctly; the page rewrite is invasive relative to its payoff. |
+| P1 | Full shared base-template consolidation | The vendored-head rewrite already unified the `<head>` of all pages; merging 23 bodies onto one layout is a large refactor best done with visual QA on real devices. |
+| P2 | Staff model + per-staff attribution | Bills already store `generated_by`; a Staff CRUD is net-new product scope, not a defect. |
+| P2 | Multi-shop tenancy | The auth model is single-shop-per-instance (matches the Render deploy model). True multi-tenancy means scoping every query by shop — a schema migration project. |
+| P3 | Service worker | Offline caching of authenticated pages risks stale/broken states; needs a deliberate caching strategy and device QA. Manifest-only was the safe subset. |
+| P3 | Replacing all `alert()`/`confirm()` with in-app toasts | Cosmetic; touches nearly every template. |
+
+### Deployment notes for this pass
+
+- `requirements.txt` gains `Flask-Login`; Render installs it on next deploy.
+- New `user` table is auto-created by `db.create_all()` at startup. **The deployed app will
+  require signup on first visit after deploy** — the first account created owns the shop.
+- Existing Postgres keeps its integer stock column and unindexed product fields (SQLAlchemy
+  does not alter live tables); fresh databases get floats + indexes.
+- The Android APK needs no rebuild: it loads the deployed site, which now serves login first.
 
 ## 5. Honest limitations of this audit
 

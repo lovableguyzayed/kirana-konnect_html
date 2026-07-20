@@ -3,6 +3,8 @@ import logging
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import DeclarativeBase
 
 # Load environment variables from a local .env file (e.g. DATABASE_URL)
@@ -39,6 +41,122 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
+
+# Authentication setup (single-shop instance: one owner account)
+from datetime import timedelta as _timedelta
+app.permanent_session_lifetime = _timedelta(days=30)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'signin'
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    owner_name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(15), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    shop_name = db.Column(db.String(150), nullable=False)
+    gst_number = db.Column(db.String(20))
+    udyam_number = db.Column(db.String(30))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+# Endpoints reachable without a session. Everything else requires login:
+# pages redirect to /signin, API calls get a 401 JSON response.
+PUBLIC_ENDPOINTS = {
+    'static', 'index', 'pricing', 'splash', 'signin', 'signup',
+    'auth_login', 'auth_signup', 'auth_status', 'logout'
+}
+
+@app.before_request
+def require_login():
+    if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    if current_user.is_authenticated:
+        return None
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    return redirect(url_for('signin'))
+
+@app.route('/api/auth/status')
+def auth_status():
+    """Whether the shop account exists and whether this session is signed in."""
+    return jsonify({
+        'account_exists': db.session.query(User.id).first() is not None,
+        'authenticated': current_user.is_authenticated,
+        'shop_name': current_user.shop_name if current_user.is_authenticated else None,
+        'owner_name': current_user.owner_name if current_user.is_authenticated else None
+    })
+
+@app.route('/api/auth/signup', methods=['POST'])
+def auth_signup():
+    """Create the shop owner account (first run only on this instance)."""
+    try:
+        if db.session.query(User.id).first() is not None:
+            return jsonify({'success': False,
+                            'error': 'This shop is already set up. Please sign in.'}), 403
+        data = request.get_json() or {}
+        owner_name = (data.get('owner_name') or '').strip()
+        phone = ''.join(ch for ch in (data.get('phone') or '') if ch.isdigit())[-10:]
+        email = (data.get('email') or '').strip().lower() or None
+        password = data.get('password') or ''
+        shop_name = (data.get('shop_name') or '').strip()
+
+        if not owner_name or not shop_name:
+            return jsonify({'success': False, 'error': 'Name and shop name are required'}), 400
+        if len(phone) != 10:
+            return jsonify({'success': False, 'error': 'A valid 10-digit phone number is required'}), 400
+        if len(password) < 6:
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
+
+        user = User(owner_name=owner_name, phone=phone, email=email,
+                    shop_name=shop_name,
+                    gst_number=(data.get('gst_number') or '').strip() or None,
+                    udyam_number=(data.get('udyam_number') or '').strip() or None)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        login_user(user, remember=True)
+        return jsonify({'success': True, 'shop_name': user.shop_name}), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Signup error: {e}")
+        return jsonify({'success': False, 'error': 'Could not create the account'}), 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    """Sign in with phone number or email + password."""
+    data = request.get_json() or {}
+    identifier = (data.get('identifier') or '').strip().lower()
+    password = data.get('password') or ''
+    if not identifier or not password:
+        return jsonify({'success': False, 'error': 'Phone/email and password are required'}), 400
+
+    digits = ''.join(ch for ch in identifier if ch.isdigit())[-10:]
+    user = None
+    if '@' in identifier:
+        user = User.query.filter(User.email == identifier).first()
+    if user is None and len(digits) == 10:
+        user = User.query.filter(User.phone == digits).first()
+    if user is None or not user.check_password(password):
+        return jsonify({'success': False, 'error': 'Incorrect phone/email or password'}), 401
+
+    login_user(user, remember=bool(data.get('remember', True)))
+    return jsonify({'success': True, 'shop_name': user.shop_name})
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('signin'))
 
 # Database Models
 class Customer(db.Model):
@@ -131,9 +249,9 @@ class Payment(db.Model):
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    barcode = db.Column(db.String(50))
-    category = db.Column(db.String(50))
+    name = db.Column(db.String(100), nullable=False, index=True)
+    barcode = db.Column(db.String(50), index=True)
+    category = db.Column(db.String(50), index=True)
     
     # Pricing
     price = db.Column(db.Float, nullable=False)
@@ -695,9 +813,37 @@ def staff():
 @app.route('/api/products')
 def get_products():
     """Get all products for inventory display"""
-    products = Product.query.all()
-    results = [_product_to_dict(product) for product in products]
-    return jsonify({'products': results})
+    query = Product.query
+
+    # Exact barcode lookup (used by the scanner flows). Returns at most one product.
+    barcode = request.args.get('barcode', '').strip()
+    if barcode:
+        product = query.filter(Product.barcode == barcode).first()
+        return jsonify({'products': [_product_to_dict(product)] if product else []})
+
+    # Optional name/category search and pagination. Without parameters the
+    # response is the full list, exactly as before, so existing pages keep working.
+    q = request.args.get('q', '').strip()
+    if q:
+        query = query.filter(db.or_(
+            Product.name.ilike(f'%{q}%'),
+            Product.category.ilike(f'%{q}%'),
+            Product.barcode == q
+        ))
+    query = query.order_by(Product.name)
+
+    page = request.args.get('page', type=int)
+    if page:
+        per_page = min(request.args.get('per_page', 50, type=int), 200)
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'products': [_product_to_dict(p) for p in pagination.items],
+            'total': pagination.total,
+            'page': pagination.page,
+            'pages': pagination.pages
+        })
+
+    return jsonify({'products': [_product_to_dict(p) for p in query.all()]})
 
 def _parse_date(value):
     """Parse a date string in ISO (YYYY-MM-DD) or DD/MM/YYYY format."""

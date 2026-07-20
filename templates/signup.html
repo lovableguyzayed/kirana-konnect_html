@@ -4,39 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up - Kirana Konnect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
     <style>::-webkit-scrollbar { display: none;}</style>
     
-    <script>tailwind.config = {
-  "theme": {
-    "extend": {
-      "colors": {
-        "primary": "#4CAF50",
-        "secondary": "#2196F3",
-        "accent": "#FF9800",
-        "danger": "#F44336",
-        "dark": "#333333",
-        "light": "#F5F5F5"
-      },
-      "fontFamily": {
-        "poppins": [
-          "Poppins",
-          "sans-serif"
-        ],
-        "sans": [
-          "Inter",
-          "sans-serif"
-        ]
-      }
-    }
-  }
-};</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap">
 <style>
       body {
         font-family: 'Inter', sans-serif !important;
@@ -318,13 +292,35 @@
             
             if (isValid) {
                 document.getElementById('loading-overlay').classList.remove('hidden');
-                
-                setTimeout(() => {
+
+                const payload = {
+                    owner_name: document.querySelector('input[placeholder*="full name"]').value.trim(),
+                    phone: document.querySelector('input[type="tel"]').value.trim(),
+                    email: document.querySelector('input[type="email"]').value.trim(),
+                    password: document.querySelector('input[type="password"]').value,
+                    shop_name: document.querySelector('input[placeholder*="shop name"]').value.trim(),
+                    gst_number: (document.querySelector('input[placeholder*="GST"]') || {value: ''}).value.trim(),
+                    udyam_number: (document.querySelector('input[placeholder*="UDYAM"]') || {value: ''}).value.trim()
+                };
+
+                fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
                     document.getElementById('loading-overlay').classList.add('hidden');
-                    alert('Account created successfully! Please verify your mobile number.');
-                    // Redirect to dashboard
-                    window.location.href = '/dashboard';
-                }, 3000);
+                    if (ok && data.success) {
+                        window.location.href = '/dashboard';
+                    } else {
+                        alert(data.error || 'Could not create the account. Please try again.');
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                    alert('Network error. Please try again.');
+                });
             } else {
                 alert('Please fill all required fields and accept terms & conditions.');
             }
