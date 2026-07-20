@@ -4,33 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Refill Stock - Weight Based - Kirana Konnect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@zxing/library@latest"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2563eb',
-                        secondary: '#64748b',
-                        accent: '#f59e0b',
-                        success: '#10b981',
-                        danger: '#ef4444',
-                        dark: '#1e293b',
-                        light: '#f8fafc'
-                    },
-                    fontFamily: {
-                        inter: ['Inter', 'sans-serif'],
-                        sans: ['Inter', 'sans-serif']
-                    }
-                }
-            }
-        };
-    </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <script src="/static/vendor/js/zxing.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif !important;
@@ -975,9 +954,7 @@
                 barcode: barcode
             };
 
-            console.log('Adding weight-based stock:', stockData);
-            
-            // Show custom success popup
+            // Persist the refill to the backend (stock is stored in kg)
             const unitDisplay = unit === 'kg' ? 'kg' : 'grams';
             let priceInfo;
             if (selectedPriceMode === 'per-kg') {
@@ -987,8 +964,27 @@
             } else {
                 priceInfo = ` with total value ₹${sellingPriceInput}`;
             }
-            
-            showSuccessPopup(`Successfully added ${quantity} ${unitDisplay} to stock${priceInfo}!`, true);
+
+            fetch(`/api/products/${productData.id}/refill`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quantity: quantityInKg,
+                    cost_price: purchasePrice,
+                    price: finalSellingPricePerKg,
+                    barcode: barcode || null,
+                    expiry_date: expDate || null
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    showSuccessPopup(`Successfully added ${quantity} ${unitDisplay} to stock${priceInfo}!`, true);
+                } else {
+                    showErrorPopup(data.error || 'Could not save the refill. Please try again.');
+                }
+            })
+            .catch(() => showErrorPopup('Network error - the refill was not saved.'));
         }
 
         // Event listeners

@@ -4,39 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory - Kirana Konnect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
     <style>::-webkit-scrollbar { display: none;}</style>
     
-    <script>tailwind.config = {
-  "theme": {
-    "extend": {
-      "colors": {
-        "primary": "#4CAF50",
-        "secondary": "#2196F3",
-        "accent": "#FF9800",
-        "danger": "#F44336",
-        "dark": "#333333",
-        "light": "#F5F5F5"
-      },
-      "fontFamily": {
-        "poppins": [
-          "Poppins",
-          "sans-serif"
-        ],
-        "sans": [
-          "Inter",
-          "sans-serif"
-        ]
-      }
-    }
-  }
-};</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap">
 <style>
       body {
         font-family: 'Inter', sans-serif !important;
@@ -709,7 +683,8 @@
         async function loadProducts() {
             try {
                 const response = await fetch('/api/products');
-                products = await response.json();
+                const data = await response.json();
+                products = data.products || [];
                 filteredProducts = products;
                 renderProducts();
                 updateCartCount();
@@ -721,7 +696,8 @@
 
         // Render products in the inventory grid
         function renderProducts() {
-            const container = document.getElementById('inventory-items');
+            const container = document.getElementById('inventory-list');
+            if (!container) return;
             container.innerHTML = '';
 
             filteredProducts.forEach((product, index) => {
@@ -739,9 +715,9 @@
                     `${product.stock_quantity} Pieces Available`;
 
                 const productCard = `
-                    <div id="product-${product.id}" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" 
-                         data-category="${product.category.toLowerCase()}" 
-                         data-status="${product.is_expired ? 'expired' : 'available'}" 
+                    <div id="product-${product.id}" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                         data-category="${product.category.toLowerCase()}"
+                         data-status="${product.is_expired ? 'expiring' : (product.is_low_stock ? 'lowstock' : 'available')}"
                          onclick="viewProductDetails(${product.id})">
                         <div class="flex items-center space-x-4">
                             <div class="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
@@ -1031,8 +1007,19 @@
 
                 closeDeleteModal();
 
-                // In a real app, this would call an API to delete the product
-                // fetch(`/api/products/${deleteProductId}`, { method: 'DELETE' })
+                // Persist the deletion to the backend; restore the UI if it fails.
+                fetch(`/api/products/${deleteProductId}`, { method: 'DELETE' })
+                    .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                    .then(({ ok, data }) => {
+                        if (!ok || !data.success) {
+                            showNotification(data.error || 'Server could not delete the product', 'error');
+                            loadProducts();
+                        }
+                    })
+                    .catch(() => {
+                        showNotification('Network error - deletion not saved', 'error');
+                        loadProducts();
+                    });
             }
         }
 
@@ -1207,10 +1194,12 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                products = await response.json();
+                const data = await response.json();
+                products = data.products || [];
                 filteredProducts = products;
                 updateStats();
                 renderProducts();
+                renderCategoryTabs();
             } catch (error) {
                 console.error('Error loading products:', error);
             }
@@ -1519,6 +1508,20 @@
         function filterBy(status) {
             currentFilter = status;
             applyFilters();
+        }
+
+        // Build the category chips from the categories actually present in the
+        // loaded products, so filtering always matches the real inventory.
+        function renderCategoryTabs() {
+            const container = document.querySelector('#category-tabs .flex');
+            if (!container || !Array.isArray(products) || products.length === 0) return;
+            const label = c => c.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            const categories = [...new Set(products.map(p => (p.category || 'general').toLowerCase()))].sort();
+            container.innerHTML =
+                `<button class="category-tab active bg-primary text-white px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap hover:bg-primary/90 transition-colors" onclick="filterCategory('all')">All</button>` +
+                categories.map(c =>
+                    `<button class="category-tab bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap hover:bg-gray-200 transition-colors" onclick="filterCategory('${c}')">${label(c)}</button>`
+                ).join('');
         }
 
         function filterCategory(category) {

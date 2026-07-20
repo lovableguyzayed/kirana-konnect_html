@@ -4,38 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add New Item - Kirana Konnect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
     <style>::-webkit-scrollbar { display: none;}</style>
     
-    <script>tailwind.config = {
-  "theme": {
-    "extend": {
-      "colors": {
-        "primary": "#10B981",
-        "secondary": "#6366F1",
-        "accent": "#F59E0B",
-        "danger": "#EF4444",
-        "dark": "#1F2937",
-        "light": "#F8FAFC"
-      },
-      "fontFamily": {
-        "inter": [
-          "Inter",
-          "sans-serif"
-        ],
-        "sans": [
-          "Inter",
-          "sans-serif"
-        ]
-      }
-    }
-  }
-};</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
 <style>
       body {
         font-family: 'Inter', sans-serif !important;
@@ -498,7 +473,8 @@
             };
 
             // Add quantity and pricing data based on type
-            if (quantityType.value === 'kg_gram' || quantityType.value === 'ltr_ml') {
+            const isWeightBased = quantityType.value === 'kg_gram' || quantityType.value === 'ltr_ml';
+            if (isWeightBased) {
                 itemData.quantity = document.getElementById('weight-quantity').value;
                 itemData.unit = document.getElementById('unit-dropdown').value;
                 itemData.purchasePrice = document.getElementById('weight-purchase-price').value;
@@ -510,11 +486,46 @@
                 itemData.sellingPrice = document.getElementById('unit-selling-price').value;
             }
 
-            // In a real application, this would send data to the server
-            console.log('Item Data:', itemData);
-            
-            alert(`${productName} has been successfully added to your inventory!`);
-            window.location.href = '/inventory';
+            const sellingPrice = parseFloat(itemData.sellingPrice);
+            if (!sellingPrice || sellingPrice <= 0) {
+                alert('Please enter a valid selling price.');
+                return;
+            }
+
+            // Save the product to the backend
+            const saveButton = event ? event.target : null;
+            if (saveButton) { saveButton.disabled = true; saveButton.textContent = 'Saving...'; }
+
+            fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: itemData.name,
+                    category: itemData.category,
+                    barcode: itemData.barcode,
+                    price: sellingPrice,
+                    cost_price: parseFloat(itemData.purchasePrice) || 0,
+                    is_weight_based: isWeightBased,
+                    price_per_kg: isWeightBased ? sellingPrice : null,
+                    stock_quantity: parseFloat(itemData.quantity) || 0,
+                    reorder_level: parseFloat(itemData.threshold) || 10,
+                    expiry_date: itemData.expDate || null
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    alert(`${productName} has been added to your inventory!`);
+                    window.location.href = '/inventory';
+                } else {
+                    alert(data.error || 'Could not save the product. Please try again.');
+                    if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Add Item'; }
+                }
+            })
+            .catch(() => {
+                alert('Network error - the product was not saved. Please try again.');
+                if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Add Item'; }
+            });
         }
 
         // Handle image upload

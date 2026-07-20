@@ -4,39 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Product Details - Kirana Konnect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
     <style>::-webkit-scrollbar { display: none;}</style>
     
-    <script>tailwind.config = {
-  "theme": {
-    "extend": {
-      "colors": {
-        "primary": "#2563eb",
-        "secondary": "#64748b",
-        "accent": "#f59e0b",
-        "success": "#10b981",
-        "danger": "#ef4444",
-        "dark": "#1e293b",
-        "light": "#f8fafc"
-      },
-      "fontFamily": {
-        "inter": [
-          "Inter",
-          "sans-serif"
-        ],
-        "sans": [
-          "Inter",
-          "sans-serif"
-        ]
-      }
-    }
-  }
-};</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
 <style>
       body {
         font-family: 'Inter', sans-serif !important;
@@ -308,24 +282,63 @@
         let productData = {};
         
         function loadProductFromInventory() {
+            // Load the real product from the backend using the id URL parameter.
+            const params = new URLSearchParams(window.location.search);
+            const productId = params.get('id');
+            if (productId && /^\d+$/.test(productId)) {
+                fetch(`/api/products/${productId}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.success) throw new Error(data.error);
+                        const p = data.product;
+                        const price = p.is_weight_based ? (p.price_per_kg || p.price) : p.price;
+                        productData = {
+                            id: p.id,
+                            name: p.name,
+                            description: `${p.name} — ${p.category} item from your inventory`,
+                            category: p.category.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+                            type: p.is_weight_based ? 'Weight-Based' : 'Unit-Based',
+                            purchasePrice: p.cost_price || 0,
+                            sellingPrice: price,
+                            unit: p.unit,
+                            stock: p.stock_quantity,
+                            size: p.is_weight_based ? `${p.stock_quantity} kg` : `${p.stock_quantity} ${p.unit}`,
+                            threshold: p.reorder_level,
+                            mfgDate: '—',
+                            expDate: p.expiry_date || '—',
+                            barcode: p.barcode || 'Not set',
+                            image: null,
+                            isWeightBased: p.is_weight_based,
+                            is_low_stock: p.is_low_stock,
+                            is_expired: p.is_expired
+                        };
+                        updateUI();
+                    })
+                    .catch(() => loadFromLocalStorageFallback());
+                return;
+            }
+            loadFromLocalStorageFallback();
+        }
+
+        function loadFromLocalStorageFallback() {
             const storedProduct = localStorage.getItem('currentProduct');
             if (storedProduct) {
                 const product = JSON.parse(storedProduct);
                 productData = {
                     id: localStorage.getItem('currentProductId') || '1',
                     name: product.name,
-                    description: `Premium quality ${product.name.toLowerCase()} for daily use`,
-                    category: "Grocery",
-                    type: product.type === 'regular' ? "Unit-Based" : "Weight-Based",
-                    purchasePrice: Math.round(product.price * 0.8),
+                    description: `${product.name} from your inventory`,
+                    category: product.category || 'Grocery',
+                    type: product.type === 'regular' ? 'Unit-Based' : 'Weight-Based',
+                    purchasePrice: product.cost_price || 0,
                     sellingPrice: product.price,
                     unit: product.unit,
                     stock: product.stock,
-                    size: product.size || `${product.stock} ${product.stockUnit}`,
-                    threshold: Math.round(product.stock * 0.2),
-                    mfgDate: "01/05/2025",
-                    expDate: "01/09/2025",
-                    barcode: `890103${Math.floor(Math.random() * 1000000)}`,
+                    size: product.size || `${product.stock} ${product.stockUnit || ''}`,
+                    threshold: product.threshold || 5,
+                    mfgDate: '—',
+                    expDate: product.expDate || '—',
+                    barcode: product.barcode || 'Not set',
                     image: product.image
                 };
                 updateUI();
@@ -334,7 +347,7 @@
                 updateUI();
             }
         }
-        
+
         function getDefaultProductData() {
             return {
                 id: 1,

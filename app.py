@@ -3,6 +3,8 @@ import logging
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import DeclarativeBase
 
 # Load environment variables from a local .env file (e.g. DATABASE_URL)
@@ -40,6 +42,126 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
+# Authentication setup (single-shop instance: one owner account)
+from datetime import timedelta as _timedelta
+app.permanent_session_lifetime = _timedelta(days=30)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'signin'
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    owner_name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(15), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    shop_name = db.Column(db.String(150), nullable=False)
+    gst_number = db.Column(db.String(20))
+    udyam_number = db.Column(db.String(30))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+# Endpoints reachable without a session. Everything else requires login:
+# pages redirect to /signin, API calls get a 401 JSON response.
+PUBLIC_ENDPOINTS = {
+    'static', 'index', 'pricing', 'splash', 'signin', 'signup',
+    'auth_login', 'auth_signup', 'auth_status', 'logout'
+}
+
+@app.before_request
+def require_login():
+    if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+    if current_user.is_authenticated:
+        return None
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    return redirect(url_for('signin'))
+
+@app.route('/api/auth/status')
+def auth_status():
+    """Whether the shop account exists and whether this session is signed in."""
+    payload = {
+        'account_exists': db.session.query(User.id).first() is not None,
+        'authenticated': current_user.is_authenticated,
+        'shop_name': current_user.shop_name if current_user.is_authenticated else None,
+        'owner_name': current_user.owner_name if current_user.is_authenticated else None
+    }
+    if current_user.is_authenticated:
+        payload['phone'] = current_user.phone
+        payload['gst_number'] = current_user.gst_number
+    return jsonify(payload)
+
+@app.route('/api/auth/signup', methods=['POST'])
+def auth_signup():
+    """Create the shop owner account (first run only on this instance)."""
+    try:
+        if db.session.query(User.id).first() is not None:
+            return jsonify({'success': False,
+                            'error': 'This shop is already set up. Please sign in.'}), 403
+        data = request.get_json() or {}
+        owner_name = (data.get('owner_name') or '').strip()
+        phone = ''.join(ch for ch in (data.get('phone') or '') if ch.isdigit())[-10:]
+        email = (data.get('email') or '').strip().lower() or None
+        password = data.get('password') or ''
+        shop_name = (data.get('shop_name') or '').strip()
+
+        if not owner_name or not shop_name:
+            return jsonify({'success': False, 'error': 'Name and shop name are required'}), 400
+        if len(phone) != 10:
+            return jsonify({'success': False, 'error': 'A valid 10-digit phone number is required'}), 400
+        if len(password) < 6:
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
+
+        user = User(owner_name=owner_name, phone=phone, email=email,
+                    shop_name=shop_name,
+                    gst_number=(data.get('gst_number') or '').strip() or None,
+                    udyam_number=(data.get('udyam_number') or '').strip() or None)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        login_user(user, remember=True)
+        return jsonify({'success': True, 'shop_name': user.shop_name}), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Signup error: {e}")
+        return jsonify({'success': False, 'error': 'Could not create the account'}), 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    """Sign in with phone number or email + password."""
+    data = request.get_json() or {}
+    identifier = (data.get('identifier') or '').strip().lower()
+    password = data.get('password') or ''
+    if not identifier or not password:
+        return jsonify({'success': False, 'error': 'Phone/email and password are required'}), 400
+
+    digits = ''.join(ch for ch in identifier if ch.isdigit())[-10:]
+    user = None
+    if '@' in identifier:
+        user = User.query.filter(User.email == identifier).first()
+    if user is None and len(digits) == 10:
+        user = User.query.filter(User.phone == digits).first()
+    if user is None or not user.check_password(password):
+        return jsonify({'success': False, 'error': 'Incorrect phone/email or password'}), 401
+
+    login_user(user, remember=bool(data.get('remember', True)))
+    return jsonify({'success': True, 'shop_name': user.shop_name})
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('signin'))
+
 # Database Models
 class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -58,15 +180,27 @@ class Customer(db.Model):
     def outstanding_balance(self):
         from sqlalchemy import func
         total_bills = db.session.query(func.sum(Bill.total_amount)).filter(
-            Bill.customer_id == self.id, 
+            Bill.customer_id == self.id,
             Bill.payment_status != 'paid'
         ).scalar() or 0
-        
+
+        # Only count payments against outstanding credit. Payments that were
+        # auto-recorded alongside an already-paid bill (cash/online sales) are
+        # excluded, otherwise every cash sale would drive the balance negative.
         total_payments = db.session.query(func.sum(Payment.amount)).filter(
-            Payment.customer_id == self.id
+            Payment.customer_id == self.id,
+            db.or_(
+                Payment.bill_id.is_(None),
+                Payment.bill_id.in_(
+                    db.session.query(Bill.id).filter(
+                        Bill.customer_id == self.id,
+                        Bill.payment_status != 'paid'
+                    )
+                )
+            )
         ).scalar() or 0
-        
-        return total_bills - total_payments
+
+        return max(total_bills - total_payments, 0)
 
 class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -119,9 +253,9 @@ class Payment(db.Model):
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    barcode = db.Column(db.String(50))
-    category = db.Column(db.String(50))
+    name = db.Column(db.String(100), nullable=False, index=True)
+    barcode = db.Column(db.String(50), index=True)
+    category = db.Column(db.String(50), index=True)
     
     # Pricing
     price = db.Column(db.Float, nullable=False)
@@ -129,9 +263,10 @@ class Product(db.Model):
     price_per_kg = db.Column(db.Float)  # For weight-based items
     is_weight_based = db.Column(db.Boolean, default=False)
     
-    # Inventory
-    stock_quantity = db.Column(db.Integer, default=0)
-    reorder_level = db.Column(db.Integer, default=10)
+    # Inventory. Stock is a float because weight-based products (rice, oil,
+    # etc.) are stocked and sold in fractional kg/litre quantities.
+    stock_quantity = db.Column(db.Float, default=0)
+    reorder_level = db.Column(db.Float, default=10)
     expiry_date = db.Column(db.Date)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -566,6 +701,11 @@ def pricing():
     """Serve the pricing plans page"""
     return render_template('index.html')
 
+@app.route('/splash')
+def splash():
+    """Serve the splash screen page"""
+    return render_template('splash.html')
+
 @app.route('/signup')
 def signup():
     """Serve the signup page"""
@@ -677,31 +817,257 @@ def staff():
 @app.route('/api/products')
 def get_products():
     """Get all products for inventory display"""
-    products = Product.query.all()
-    
-    results = []
-    for product in products:
-        # Check if product is low stock or expired
-        is_low_stock = product.stock_quantity <= product.reorder_level
-        is_expired = product.expiry_date and product.expiry_date < datetime.utcnow().date()
-        
-        results.append({
-            'id': str(product.id),
-            'name': product.name,
-            'barcode': product.barcode,
-            'category': product.category or 'general',
-            'price': product.price,
-            'price_per_kg': product.price_per_kg,
-            'is_weight_based': product.is_weight_based,
-            'stock_quantity': product.stock_quantity,
-            'reorder_level': product.reorder_level,
-            'expiry_date': product.expiry_date.strftime('%d/%m/%Y') if product.expiry_date else None,
-            'is_low_stock': is_low_stock,
-            'is_expired': is_expired,
-            'unit': 'kg' if product.is_weight_based else 'Piece'
+    query = Product.query
+
+    # Exact barcode lookup (used by the scanner flows). Returns at most one product.
+    barcode = request.args.get('barcode', '').strip()
+    if barcode:
+        product = query.filter(Product.barcode == barcode).first()
+        return jsonify({'products': [_product_to_dict(product)] if product else []})
+
+    # Optional name/category search and pagination. Without parameters the
+    # response is the full list, exactly as before, so existing pages keep working.
+    q = request.args.get('q', '').strip()
+    if q:
+        query = query.filter(db.or_(
+            Product.name.ilike(f'%{q}%'),
+            Product.category.ilike(f'%{q}%'),
+            Product.barcode == q
+        ))
+    query = query.order_by(Product.name)
+
+    page = request.args.get('page', type=int)
+    if page:
+        per_page = min(request.args.get('per_page', 50, type=int), 200)
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'products': [_product_to_dict(p) for p in pagination.items],
+            'total': pagination.total,
+            'page': pagination.page,
+            'pages': pagination.pages
         })
-    
-    return jsonify({'products': results})
+
+    return jsonify({'products': [_product_to_dict(p) for p in query.all()]})
+
+def _parse_date(value):
+    """Parse a date string in ISO (YYYY-MM-DD) or DD/MM/YYYY format."""
+    if not value:
+        return None
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+def _product_to_dict(product):
+    is_low_stock = product.stock_quantity <= product.reorder_level
+    is_expired = bool(product.expiry_date and product.expiry_date < datetime.utcnow().date())
+    return {
+        'id': str(product.id),
+        'name': product.name,
+        'barcode': product.barcode,
+        'category': product.category or 'general',
+        'price': product.price,
+        'cost_price': product.cost_price,
+        'price_per_kg': product.price_per_kg,
+        'is_weight_based': product.is_weight_based,
+        'stock_quantity': product.stock_quantity,
+        'reorder_level': product.reorder_level,
+        'expiry_date': product.expiry_date.strftime('%d/%m/%Y') if product.expiry_date else None,
+        'is_low_stock': is_low_stock,
+        'is_expired': is_expired,
+        'unit': 'kg' if product.is_weight_based else 'Piece'
+    }
+
+@app.route('/api/products', methods=['POST'])
+def create_product():
+    """Create a new product (used by the Add Item page)."""
+    try:
+        data = request.get_json() or {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({'success': False, 'error': 'Product name is required'}), 400
+
+        is_weight_based = bool(data.get('is_weight_based'))
+        try:
+            price = float(data.get('price') or 0)
+            stock_quantity = float(data.get('stock_quantity') or 0)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Price and stock must be numbers'}), 400
+        if price <= 0:
+            return jsonify({'success': False, 'error': 'Selling price must be greater than 0'}), 400
+
+        product = Product(
+            name=name,
+            barcode=(data.get('barcode') or '').strip() or None,
+            category=(data.get('category') or 'general').strip().lower(),
+            price=price,
+            cost_price=float(data.get('cost_price') or 0),
+            price_per_kg=float(data['price_per_kg']) if data.get('price_per_kg') else (price if is_weight_based else None),
+            is_weight_based=is_weight_based,
+            stock_quantity=stock_quantity,
+            reorder_level=float(data.get('reorder_level') or 10),
+            expiry_date=_parse_date(data.get('expiry_date'))
+        )
+        db.session.add(product)
+        db.session.commit()
+        return jsonify({'success': True, 'product': _product_to_dict(product)}), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating product: {e}")
+        return jsonify({'success': False, 'error': 'Failed to create product'}), 500
+
+@app.route('/api/products/<int:product_id>', methods=['GET'])
+def get_product(product_id):
+    """Get a single product."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    return jsonify({'success': True, 'product': _product_to_dict(product)})
+
+@app.route('/api/products/<int:product_id>', methods=['PUT', 'PATCH'])
+def update_product(product_id):
+    """Update product fields (name, pricing, stock, reorder level, expiry)."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    try:
+        data = request.get_json() or {}
+        if 'name' in data and (data['name'] or '').strip():
+            product.name = data['name'].strip()
+        if 'barcode' in data:
+            product.barcode = (data['barcode'] or '').strip() or None
+        if 'category' in data and data['category']:
+            product.category = data['category'].strip().lower()
+        for field in ('price', 'cost_price', 'price_per_kg', 'stock_quantity', 'reorder_level'):
+            if data.get(field) is not None:
+                setattr(product, field, float(data[field]))
+        if 'expiry_date' in data:
+            product.expiry_date = _parse_date(data['expiry_date'])
+        if 'is_weight_based' in data:
+            product.is_weight_based = bool(data['is_weight_based'])
+        product.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'success': True, 'product': _product_to_dict(product)})
+    except (TypeError, ValueError):
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Numeric fields must be valid numbers'}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating product {product_id}: {e}")
+        return jsonify({'success': False, 'error': 'Failed to update product'}), 500
+
+@app.route('/api/products/<int:product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    """Delete a product from inventory."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    try:
+        # Detach notifications that reference this product, then delete.
+        Notification.query.filter_by(product_id=product_id).delete()
+        db.session.delete(product)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'{product.name} deleted'})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting product {product_id}: {e}")
+        return jsonify({'success': False, 'error': 'Failed to delete product'}), 500
+
+@app.route('/api/products/<int:product_id>/refill', methods=['POST'])
+def refill_product(product_id):
+    """Add stock to a product (used by the Refill Stock pages)."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    try:
+        data = request.get_json() or {}
+        try:
+            quantity = float(data.get('quantity') or 0)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Quantity must be a number'}), 400
+        if quantity <= 0:
+            return jsonify({'success': False, 'error': 'Quantity must be greater than 0'}), 400
+
+        product.stock_quantity = (product.stock_quantity or 0) + quantity
+        if data.get('cost_price') is not None:
+            product.cost_price = float(data['cost_price'])
+        if data.get('price') is not None and float(data['price']) > 0:
+            product.price = float(data['price'])
+            if product.is_weight_based:
+                product.price_per_kg = float(data['price'])
+        if data.get('barcode'):
+            product.barcode = str(data['barcode']).strip()
+        if data.get('expiry_date'):
+            product.expiry_date = _parse_date(data['expiry_date'])
+        product.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'success': True, 'product': _product_to_dict(product),
+                        'message': f'Added {quantity} to {product.name}'})
+    except (TypeError, ValueError):
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Numeric fields must be valid numbers'}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error refilling product {product_id}: {e}")
+        return jsonify({'success': False, 'error': 'Failed to refill stock'}), 500
+
+@app.route('/api/seed-demo', methods=['GET', 'POST'])
+def seed_demo_data():
+    """Populate the store with a realistic demo catalog, customers and sales
+    history. Idempotent: products are matched by name and customers by phone,
+    so calling it again never duplicates data. Requires login."""
+    try:
+        from seed_data import seed_demo
+        added = seed_demo(db, Product, Customer, Bill, BillItem, Payment)
+        return jsonify({
+            'success': True,
+            'added': added,
+            'totals': {
+                'products': Product.query.count(),
+                'customers': Customer.query.count(),
+                'bills': Bill.query.count()
+            },
+            'message': 'Demo data ready'
+        })
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Seed error: {e}")
+        return jsonify({'success': False, 'error': 'Seeding failed'}), 500
+
+@app.route('/api/customer/<int:customer_id>')
+def get_customer(customer_id):
+    """Get a single customer (used by the cart's customer picker)."""
+    customer = Customer.query.get(customer_id)
+    if not customer:
+        return jsonify({'success': False, 'error': 'Customer not found'}), 404
+    return jsonify({
+        'id': customer.id,
+        'name': customer.name,
+        'phone': customer.phone,
+        'address': customer.address,
+        'outstanding_balance': customer.outstanding_balance
+    })
+
+@app.route('/api/search-customers')
+def search_customers_wrapped():
+    """Customer search returning {customers: [...]} (shape the cart expects)."""
+    query = request.args.get('q', '').strip()
+    if len(query) < 1:
+        return jsonify({'customers': []})
+    customers = Customer.query.filter(
+        db.or_(
+            Customer.name.ilike(f'%{query}%'),
+            Customer.phone.ilike(f'%{query}%')
+        )
+    ).limit(10).all()
+    return jsonify({'customers': [{
+        'id': c.id,
+        'name': c.name,
+        'phone': c.phone,
+        'outstanding_balance': c.outstanding_balance
+    } for c in customers]})
 
 @app.route('/api/dashboard/stats')
 def get_dashboard_stats():
@@ -906,7 +1272,10 @@ def create_bill():
         db.session.add(bill)
         db.session.flush()  # Get the bill ID
 
-        # Add bill items
+        # Add bill items and decrement inventory for each sold product.
+        # Items are matched to products by product_id when the client sends
+        # one, falling back to an exact name match (the cart UI does not carry
+        # product ids through to the bill payload).
         for item_data in data.get('items', []):
             bill_item = BillItem(
                 bill_id=bill.id,
@@ -918,6 +1287,21 @@ def create_bill():
                 price_per_kg=item_data.get('price_per_kg')
             )
             db.session.add(bill_item)
+
+            product = None
+            if item_data.get('product_id'):
+                product = Product.query.get(item_data['product_id'])
+            if product is None and item_data.get('name'):
+                product = Product.query.filter(
+                    Product.name.ilike(item_data['name'].strip())
+                ).first()
+            if product is not None:
+                sold = item_data.get('weight') if product.is_weight_based and item_data.get('weight') else item_data['quantity']
+                try:
+                    product.stock_quantity = max((product.stock_quantity or 0) - float(sold), 0)
+                    product.updated_at = datetime.utcnow()
+                except (TypeError, ValueError):
+                    pass
 
         # If payment is made, create payment record and send SMS
         if payment_mode != 'credit' and data.get('customer_id'):
@@ -943,6 +1327,12 @@ def create_bill():
                 send_credit_purchase_sms(customer.phone, customer.name, data['total_amount'], new_balance)
 
         db.session.commit()
+
+        # Selling stock may have pushed products under their reorder level.
+        try:
+            check_low_stock()
+        except Exception as check_error:
+            app.logger.warning(f"Low-stock check after billing failed: {check_error}")
 
         return jsonify({
             'bill_id': bill.id,
@@ -1009,6 +1399,7 @@ def api_get_bill(bill_number):
         return jsonify({
             'success': True,
             'bill_number': bill.bill_number,
+            'customer_id': bill.customer_id,
             'customer_name': bill.customer_name,
             'subtotal': bill.subtotal,
             'tax_amount': bill.tax_amount,
@@ -1030,6 +1421,183 @@ def api_get_bill(bill_number):
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/bills', methods=['GET'])
+def list_bills():
+    """List recent bills, optionally filtered by payment status."""
+    query = Bill.query
+    status = request.args.get('status', '').strip()
+    if status:
+        query = query.filter(Bill.payment_status == status)
+    limit = min(request.args.get('limit', 20, type=int), 100)
+    bills = query.order_by(Bill.created_at.desc()).limit(limit).all()
+    return jsonify({'bills': [{
+        'id': b.id,
+        'bill_number': b.bill_number,
+        'customer_id': b.customer_id,
+        'customer_name': b.customer.name if b.customer else (b.customer_name or 'Walk-in Customer'),
+        'total_amount': b.total_amount,
+        'payment_mode': b.payment_mode,
+        'payment_status': b.payment_status,
+        'item_count': len(b.items),
+        'created_at': b.created_at.isoformat()
+    } for b in bills]})
+
+@app.route('/api/customers/with-balance')
+def customers_with_balance():
+    """Customers who currently owe money (for the pending credits screen)."""
+    result = []
+    for c in Customer.query.all():
+        balance = c.outstanding_balance
+        if balance > 0:
+            last_credit = Bill.query.filter_by(customer_id=c.id, payment_status='pending') \
+                .order_by(Bill.created_at.desc()).first()
+            result.append({
+                'id': c.id,
+                'name': c.name,
+                'phone': c.phone,
+                'outstanding_balance': balance,
+                'last_credit_at': last_credit.created_at.isoformat() if last_credit else None
+            })
+    result.sort(key=lambda x: x['outstanding_balance'], reverse=True)
+    return jsonify({'customers': result})
+
+@app.route('/api/bills/<bill_number>/pdf')
+def bill_pdf(bill_number):
+    """Generate a printable A4 invoice PDF for a bill."""
+    bill = Bill.query.filter_by(bill_number=bill_number).first()
+    if not bill:
+        return jsonify({'success': False, 'error': 'Bill not found'}), 404
+
+    shop = User.query.first()
+    shop_name = shop.shop_name if shop else 'Kirana Konnect'
+    owner_phone = shop.phone if shop else ''
+    gst = shop.gst_number if shop else None
+
+    # Register a bundled Unicode font so the rupee sign renders on any host.
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    font_dir = os.path.join(app.root_path, 'static', 'vendor', 'fonts')
+    if 'DejaVu' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf')))
+        pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf')))
+        registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
+                           italic='DejaVu', boldItalic='DejaVu-Bold')
+
+    GREEN = colors.HexColor('#4CAF50')
+    DARK = colors.HexColor('#333333')
+    LIGHT_ROW = colors.HexColor('#F3F9F3')
+    GREY = colors.HexColor('#777777')
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=0.7 * inch, rightMargin=0.7 * inch,
+                            topMargin=0.6 * inch, bottomMargin=0.6 * inch,
+                            title=f"Invoice {bill.bill_number}")
+    styles = getSampleStyleSheet()
+    story = []
+
+    shop_style = ParagraphStyle('Shop', parent=styles['Title'], fontSize=22, fontName='DejaVu-Bold',
+                                textColor=colors.white, alignment=0, leading=26)
+    sub_style = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, fontName='DejaVu',
+                               textColor=colors.white, alignment=0)
+    inv_style = ParagraphStyle('Inv', parent=styles['Normal'], fontSize=12, fontName='DejaVu',
+                               textColor=colors.white, alignment=2)
+    header_inner = Table([
+        [Paragraph(f"<b>{shop_name}</b>", shop_style),
+         Paragraph("<b>TAX INVOICE</b>" if gst else "<b>INVOICE</b>", inv_style)],
+        [Paragraph((f"GSTIN: {gst} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
+         Paragraph(f"# {bill.bill_number}", inv_style)],
+    ], colWidths=[4.5 * inch, 2.6 * inch])
+    header_inner.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), GREEN),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 12),
+        ('LEFTPADDING', (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+    ]))
+    story.append(header_inner)
+    story.append(Spacer(1, 14))
+
+    label = ParagraphStyle('Lbl', parent=styles['Normal'], fontSize=8, textColor=GREY, fontName='DejaVu')
+    value = ParagraphStyle('Val', parent=styles['Normal'], fontSize=11, textColor=DARK, fontName='DejaVu')
+    customer_name = bill.customer.name if bill.customer else (bill.customer_name or 'Walk-in Customer')
+    customer_phone = f"+91 {bill.customer.phone}" if bill.customer else ''
+    meta = Table([
+        [Paragraph('BILLED TO', label), Paragraph('DATE', label), Paragraph('PAYMENT', label)],
+        [Paragraph(f"<b>{customer_name}</b><br/>{customer_phone}", value),
+         Paragraph(bill.created_at.strftime('%d %b %Y, %I:%M %p'), value),
+         Paragraph(f"{bill.payment_mode.title()} &bull; "
+                   f"<font color='{'#4CAF50' if bill.payment_status == 'paid' else '#F44336'}'>"
+                   f"<b>{bill.payment_status.upper()}</b></font>", value)],
+    ], colWidths=[3.0 * inch, 2.05 * inch, 2.05 * inch])
+    meta.setStyle(TableStyle([
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 14))
+
+    head = ParagraphStyle('TH', parent=styles['Normal'], fontSize=9,
+                          textColor=colors.white, fontName='DejaVu-Bold')
+    cell = ParagraphStyle('TD', parent=styles['Normal'], fontSize=10, textColor=DARK, fontName='DejaVu')
+    cell_r = ParagraphStyle('TDR', parent=cell, alignment=2)
+    rows = [[Paragraph(h, head) for h in ('#', 'ITEM', 'QTY', 'RATE', 'AMOUNT')]]
+    for i, item in enumerate(bill.items, 1):
+        qty = f"{item.quantity:g} kg" if item.weight else f"{item.quantity:g}"
+        rows.append([Paragraph(str(i), cell), Paragraph(item.item_name, cell),
+                     Paragraph(qty, cell_r), Paragraph(f"₹{item.unit_price:,.2f}", cell_r),
+                     Paragraph(f"₹{item.total_price:,.2f}", cell_r)])
+    items_table = Table(rows, colWidths=[0.4 * inch, 3.5 * inch, 0.9 * inch, 1.15 * inch, 1.15 * inch],
+                        repeatRows=1)
+    items_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), DARK),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, LIGHT_ROW]),
+        ('LINEBELOW', (0, -1), (-1, -1), 0.75, GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(items_table)
+    story.append(Spacer(1, 10))
+
+    tot_lbl = ParagraphStyle('TotL', parent=styles['Normal'], fontSize=10, textColor=GREY, alignment=2, fontName='DejaVu')
+    tot_val = ParagraphStyle('TotV', parent=styles['Normal'], fontSize=10, textColor=DARK, alignment=2, fontName='DejaVu')
+    grand_l = ParagraphStyle('GrL', parent=styles['Normal'], fontSize=13, alignment=2,
+                             textColor=colors.white, fontName='DejaVu-Bold')
+    totals_rows = [[Paragraph('Subtotal', tot_lbl), Paragraph(f"₹{bill.subtotal:,.2f}", tot_val)]]
+    if bill.tax_amount:
+        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(f"₹{bill.tax_amount:,.2f}", tot_val)])
+    if bill.discount_amount:
+        totals_rows.append([Paragraph('Discount', tot_lbl), Paragraph(f"- ₹{bill.discount_amount:,.2f}", tot_val)])
+    totals_rows.append([Paragraph('TOTAL', grand_l), Paragraph(f"₹{bill.total_amount:,.2f}", grand_l)])
+    totals = Table(totals_rows, colWidths=[1.6 * inch, 1.5 * inch], hAlign='RIGHT')
+    totals.setStyle(TableStyle([
+        ('BACKGROUND', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), 9),
+        ('BOTTOMPADDING', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), 9),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(totals)
+    story.append(Spacer(1, 24))
+
+    foot = ParagraphStyle('Foot', parent=styles['Normal'], fontSize=9,
+                          textColor=GREY, alignment=1, fontName='DejaVu')
+    if bill.generated_by:
+        story.append(Paragraph(f"Billed by: {bill.generated_by}", foot))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("Thank you for shopping with us! &nbsp;&bull;&nbsp; "
+                           "Goods once sold are not returnable.", foot))
+
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(buffer, mimetype='application/pdf', as_attachment=False,
+                     download_name=f"{bill.bill_number}.pdf")
 
 @app.route('/api/payments', methods=['POST'])
 def create_payment():
@@ -2043,6 +2611,21 @@ def api_expired_products():
             'success': False,
             'error': str(e)
         }), 500
+
+# Global error handlers: JSON for API calls, a redirect to the dashboard for
+# unknown pages so mistyped URLs don't dead-end users on a stack trace.
+@app.errorhandler(404)
+def handle_404(e):
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    return redirect(url_for('dashboard'))
+
+@app.errorhandler(500)
+def handle_500(e):
+    db.session.rollback()
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+    return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

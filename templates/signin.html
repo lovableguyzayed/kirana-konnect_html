@@ -4,39 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In - Kirana Konnect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script> window.FontAwesomeConfig = { autoReplaceSvg: 'nest'};</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
     <style>::-webkit-scrollbar { display: none;}</style>
     
-    <script>tailwind.config = {
-  "theme": {
-    "extend": {
-      "colors": {
-        "primary": "#4CAF50",
-        "secondary": "#2196F3",
-        "accent": "#FF9800",
-        "danger": "#F44336",
-        "dark": "#333333",
-        "light": "#F5F5F5"
-      },
-      "fontFamily": {
-        "poppins": [
-          "Poppins",
-          "sans-serif"
-        ],
-        "sans": [
-          "Inter",
-          "sans-serif"
-        ]
-      }
-    }
-  }
-};</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;500;600;700;800;900&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap">
 <style>
       body {
         font-family: 'Inter', sans-serif !important;
@@ -531,19 +505,32 @@
                 showNotification('Please fill in all required fields.', 'error');
                 return;
             }
-            
-            // Show loading overlay
+
             document.getElementById('loading-overlay').classList.remove('hidden');
-            
-            // Simulate login process
-            setTimeout(() => {
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    identifier: loginField.value.trim(),
+                    password: passwordField.value,
+                    remember: document.getElementById('remember').checked
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
                 document.getElementById('loading-overlay').classList.add('hidden');
-                showNotification('Login successful! Redirecting to dashboard...', 'success');
-                // Redirect to dashboard
-                setTimeout(() => {
-                    window.location.href = '/dashboard';
-                }, 1000);
-            }, 2000);
+                if (ok && data.success) {
+                    showNotification('Login successful! Redirecting...', 'success');
+                    setTimeout(() => { window.location.href = '/dashboard'; }, 600);
+                } else {
+                    showNotification(data.error || 'Sign in failed. Please try again.', 'error');
+                }
+            })
+            .catch(() => {
+                document.getElementById('loading-overlay').classList.add('hidden');
+                showNotification('Network error. Please try again.', 'error');
+            });
         });
 
         // OTP Login

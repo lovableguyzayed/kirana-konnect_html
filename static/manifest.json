@@ -1,0 +1,13 @@
+{
+  "name": "Kirana Konnect",
+  "short_name": "Kirana",
+  "description": "Store management for kirana shops: billing, inventory, credit ledger",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#4CAF50",
+  "theme_color": "#4CAF50",
+  "icons": [
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

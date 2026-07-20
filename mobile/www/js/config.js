@@ -10,5 +10,5 @@
 //  <allow-navigation> host in config.xml so the WebView is allowed to load it.
 // ============================================================================
 window.APP_CONFIG = {
-    APP_URL: "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com"
+    APP_URL: "https://kirana-konnect.onrender.com"
 };

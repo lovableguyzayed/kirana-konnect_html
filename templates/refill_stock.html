@@ -4,29 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Refill Stock - Kirana Konnect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@zxing/library@latest"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2563eb',
-                        secondary: '#64748b',
-                        accent: '#f59e0b',
-                        success: '#10b981',
-                        danger: '#ef4444',
-                        dark: '#1e293b',
-                        light: '#f8fafc'
-                    }
-                }
-            }
-        }
-    </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <script src="/static/vendor/js/zxing.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { display: none; }
@@ -856,14 +839,31 @@
                 barcode: barcode
             };
 
-            console.log('Adding stock:', stockData);
-            
-            // Show custom success popup with pricing details
-            const priceInfo = priceMode === 'per-unit' ? 
-                ` at ₹${finalSellingPricePerUnit}/${productData.unit}` : 
+            // Persist the refill to the backend
+            const priceInfo = priceMode === 'per-unit' ?
+                ` at ₹${finalSellingPricePerUnit}/${productData.unit}` :
                 ` with total value ₹${stockData.totalSellingPrice}`;
-            
-            showSuccessPopup(`Successfully added ${quantity} ${productData.unit}s to stock${priceInfo}!`, true);
+
+            fetch(`/api/products/${productData.id}/refill`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quantity: quantity,
+                    cost_price: purchasePrice,
+                    price: finalSellingPricePerUnit,
+                    barcode: barcode || null,
+                    expiry_date: expDate || null
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    showSuccessPopup(`Successfully added ${quantity} ${productData.unit}s to stock${priceInfo}!`, true);
+                } else {
+                    showErrorPopup(data.error || 'Could not save the refill. Please try again.');
+                }
+            })
+            .catch(() => showErrorPopup('Network error - the refill was not saved.'));
         }
 
         // Simplified barcode scanner that works without complex camera setup
