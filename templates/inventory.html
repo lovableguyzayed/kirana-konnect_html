@@ -715,9 +715,9 @@
                     `${product.stock_quantity} Pieces Available`;
 
                 const productCard = `
-                    <div id="product-${product.id}" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" 
-                         data-category="${product.category.toLowerCase()}" 
-                         data-status="${product.is_expired ? 'expired' : 'available'}" 
+                    <div id="product-${product.id}" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                         data-category="${product.category.toLowerCase()}"
+                         data-status="${product.is_expired ? 'expiring' : (product.is_low_stock ? 'lowstock' : 'available')}"
                          onclick="viewProductDetails(${product.id})">
                         <div class="flex items-center space-x-4">
                             <div class="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
@@ -1199,6 +1199,7 @@
                 filteredProducts = products;
                 updateStats();
                 renderProducts();
+                renderCategoryTabs();
             } catch (error) {
                 console.error('Error loading products:', error);
             }
@@ -1507,6 +1508,20 @@
         function filterBy(status) {
             currentFilter = status;
             applyFilters();
+        }
+
+        // Build the category chips from the categories actually present in the
+        // loaded products, so filtering always matches the real inventory.
+        function renderCategoryTabs() {
+            const container = document.querySelector('#category-tabs .flex');
+            if (!container || !Array.isArray(products) || products.length === 0) return;
+            const label = c => c.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            const categories = [...new Set(products.map(p => (p.category || 'general').toLowerCase()))].sort();
+            container.innerHTML =
+                `<button class="category-tab active bg-primary text-white px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap hover:bg-primary/90 transition-colors" onclick="filterCategory('all')">All</button>` +
+                categories.map(c =>
+                    `<button class="category-tab bg-gray-100 text-gray-600 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap hover:bg-gray-200 transition-colors" onclick="filterCategory('${c}')">${label(c)}</button>`
+                ).join('');
         }
 
         function filterCategory(category) {
