@@ -691,8 +691,10 @@
 
         // Set current date
         function setCurrentDate() {
+            const dateElement = document.getElementById('current-date');
+            if (!dateElement) return;
             const today = new Date();
-            document.getElementById('current-date').textContent = today.toLocaleDateString('en-GB', {
+            dateElement.textContent = today.toLocaleDateString('en-GB', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric'

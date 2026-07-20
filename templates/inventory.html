@@ -709,7 +709,8 @@
         async function loadProducts() {
             try {
                 const response = await fetch('/api/products');
-                products = await response.json();
+                const data = await response.json();
+                products = data.products || [];
                 filteredProducts = products;
                 renderProducts();
                 updateCartCount();
@@ -721,7 +722,8 @@
 
         // Render products in the inventory grid
         function renderProducts() {
-            const container = document.getElementById('inventory-items');
+            const container = document.getElementById('inventory-list');
+            if (!container) return;
             container.innerHTML = '';
 
             filteredProducts.forEach((product, index) => {
@@ -1031,8 +1033,19 @@
 
                 closeDeleteModal();
 
-                // In a real app, this would call an API to delete the product
-                // fetch(`/api/products/${deleteProductId}`, { method: 'DELETE' })
+                // Persist the deletion to the backend; restore the UI if it fails.
+                fetch(`/api/products/${deleteProductId}`, { method: 'DELETE' })
+                    .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                    .then(({ ok, data }) => {
+                        if (!ok || !data.success) {
+                            showNotification(data.error || 'Server could not delete the product', 'error');
+                            loadProducts();
+                        }
+                    })
+                    .catch(() => {
+                        showNotification('Network error - deletion not saved', 'error');
+                        loadProducts();
+                    });
             }
         }
 
@@ -1207,7 +1220,8 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                products = await response.json();
+                const data = await response.json();
+                products = data.products || [];
                 filteredProducts = products;
                 updateStats();
                 renderProducts();

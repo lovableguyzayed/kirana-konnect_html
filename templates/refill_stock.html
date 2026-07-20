@@ -856,14 +856,31 @@
                 barcode: barcode
             };
 
-            console.log('Adding stock:', stockData);
-            
-            // Show custom success popup with pricing details
-            const priceInfo = priceMode === 'per-unit' ? 
-                ` at ₹${finalSellingPricePerUnit}/${productData.unit}` : 
+            // Persist the refill to the backend
+            const priceInfo = priceMode === 'per-unit' ?
+                ` at ₹${finalSellingPricePerUnit}/${productData.unit}` :
                 ` with total value ₹${stockData.totalSellingPrice}`;
-            
-            showSuccessPopup(`Successfully added ${quantity} ${productData.unit}s to stock${priceInfo}!`, true);
+
+            fetch(`/api/products/${productData.id}/refill`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quantity: quantity,
+                    cost_price: purchasePrice,
+                    price: finalSellingPricePerUnit,
+                    barcode: barcode || null,
+                    expiry_date: expDate || null
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    showSuccessPopup(`Successfully added ${quantity} ${productData.unit}s to stock${priceInfo}!`, true);
+                } else {
+                    showErrorPopup(data.error || 'Could not save the refill. Please try again.');
+                }
+            })
+            .catch(() => showErrorPopup('Network error - the refill was not saved.'));
         }
 
         // Simplified barcode scanner that works without complex camera setup

@@ -975,9 +975,7 @@
                 barcode: barcode
             };
 
-            console.log('Adding weight-based stock:', stockData);
-            
-            // Show custom success popup
+            // Persist the refill to the backend (stock is stored in kg)
             const unitDisplay = unit === 'kg' ? 'kg' : 'grams';
             let priceInfo;
             if (selectedPriceMode === 'per-kg') {
@@ -987,8 +985,27 @@
             } else {
                 priceInfo = ` with total value ₹${sellingPriceInput}`;
             }
-            
-            showSuccessPopup(`Successfully added ${quantity} ${unitDisplay} to stock${priceInfo}!`, true);
+
+            fetch(`/api/products/${productData.id}/refill`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quantity: quantityInKg,
+                    cost_price: purchasePrice,
+                    price: finalSellingPricePerKg,
+                    barcode: barcode || null,
+                    expiry_date: expDate || null
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    showSuccessPopup(`Successfully added ${quantity} ${unitDisplay} to stock${priceInfo}!`, true);
+                } else {
+                    showErrorPopup(data.error || 'Could not save the refill. Please try again.');
+                }
+            })
+            .catch(() => showErrorPopup('Network error - the refill was not saved.'));
         }
 
         // Event listeners

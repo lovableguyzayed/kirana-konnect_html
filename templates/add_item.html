@@ -498,7 +498,8 @@
             };
 
             // Add quantity and pricing data based on type
-            if (quantityType.value === 'kg_gram' || quantityType.value === 'ltr_ml') {
+            const isWeightBased = quantityType.value === 'kg_gram' || quantityType.value === 'ltr_ml';
+            if (isWeightBased) {
                 itemData.quantity = document.getElementById('weight-quantity').value;
                 itemData.unit = document.getElementById('unit-dropdown').value;
                 itemData.purchasePrice = document.getElementById('weight-purchase-price').value;
@@ -510,11 +511,46 @@
                 itemData.sellingPrice = document.getElementById('unit-selling-price').value;
             }
 
-            // In a real application, this would send data to the server
-            console.log('Item Data:', itemData);
-            
-            alert(`${productName} has been successfully added to your inventory!`);
-            window.location.href = '/inventory';
+            const sellingPrice = parseFloat(itemData.sellingPrice);
+            if (!sellingPrice || sellingPrice <= 0) {
+                alert('Please enter a valid selling price.');
+                return;
+            }
+
+            // Save the product to the backend
+            const saveButton = event ? event.target : null;
+            if (saveButton) { saveButton.disabled = true; saveButton.textContent = 'Saving...'; }
+
+            fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: itemData.name,
+                    category: itemData.category,
+                    barcode: itemData.barcode,
+                    price: sellingPrice,
+                    cost_price: parseFloat(itemData.purchasePrice) || 0,
+                    is_weight_based: isWeightBased,
+                    price_per_kg: isWeightBased ? sellingPrice : null,
+                    stock_quantity: parseFloat(itemData.quantity) || 0,
+                    reorder_level: parseFloat(itemData.threshold) || 10,
+                    expiry_date: itemData.expDate || null
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    alert(`${productName} has been added to your inventory!`);
+                    window.location.href = '/inventory';
+                } else {
+                    alert(data.error || 'Could not save the product. Please try again.');
+                    if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Add Item'; }
+                }
+            })
+            .catch(() => {
+                alert('Network error - the product was not saved. Please try again.');
+                if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Add Item'; }
+            });
         }
 
         // Handle image upload

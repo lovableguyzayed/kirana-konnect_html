@@ -58,15 +58,27 @@ class Customer(db.Model):
     def outstanding_balance(self):
         from sqlalchemy import func
         total_bills = db.session.query(func.sum(Bill.total_amount)).filter(
-            Bill.customer_id == self.id, 
+            Bill.customer_id == self.id,
             Bill.payment_status != 'paid'
         ).scalar() or 0
-        
+
+        # Only count payments against outstanding credit. Payments that were
+        # auto-recorded alongside an already-paid bill (cash/online sales) are
+        # excluded, otherwise every cash sale would drive the balance negative.
         total_payments = db.session.query(func.sum(Payment.amount)).filter(
-            Payment.customer_id == self.id
+            Payment.customer_id == self.id,
+            db.or_(
+                Payment.bill_id.is_(None),
+                Payment.bill_id.in_(
+                    db.session.query(Bill.id).filter(
+                        Bill.customer_id == self.id,
+                        Bill.payment_status != 'paid'
+                    )
+                )
+            )
         ).scalar() or 0
-        
-        return total_bills - total_payments
+
+        return max(total_bills - total_payments, 0)
 
 class Bill(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -129,9 +141,10 @@ class Product(db.Model):
     price_per_kg = db.Column(db.Float)  # For weight-based items
     is_weight_based = db.Column(db.Boolean, default=False)
     
-    # Inventory
-    stock_quantity = db.Column(db.Integer, default=0)
-    reorder_level = db.Column(db.Integer, default=10)
+    # Inventory. Stock is a float because weight-based products (rice, oil,
+    # etc.) are stocked and sold in fractional kg/litre quantities.
+    stock_quantity = db.Column(db.Float, default=0)
+    reorder_level = db.Column(db.Float, default=10)
     expiry_date = db.Column(db.Date)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -566,6 +579,11 @@ def pricing():
     """Serve the pricing plans page"""
     return render_template('index.html')
 
+@app.route('/splash')
+def splash():
+    """Serve the splash screen page"""
+    return render_template('splash.html')
+
 @app.route('/signup')
 def signup():
     """Serve the signup page"""
@@ -678,30 +696,205 @@ def staff():
 def get_products():
     """Get all products for inventory display"""
     products = Product.query.all()
-    
-    results = []
-    for product in products:
-        # Check if product is low stock or expired
-        is_low_stock = product.stock_quantity <= product.reorder_level
-        is_expired = product.expiry_date and product.expiry_date < datetime.utcnow().date()
-        
-        results.append({
-            'id': str(product.id),
-            'name': product.name,
-            'barcode': product.barcode,
-            'category': product.category or 'general',
-            'price': product.price,
-            'price_per_kg': product.price_per_kg,
-            'is_weight_based': product.is_weight_based,
-            'stock_quantity': product.stock_quantity,
-            'reorder_level': product.reorder_level,
-            'expiry_date': product.expiry_date.strftime('%d/%m/%Y') if product.expiry_date else None,
-            'is_low_stock': is_low_stock,
-            'is_expired': is_expired,
-            'unit': 'kg' if product.is_weight_based else 'Piece'
-        })
-    
+    results = [_product_to_dict(product) for product in products]
     return jsonify({'products': results})
+
+def _parse_date(value):
+    """Parse a date string in ISO (YYYY-MM-DD) or DD/MM/YYYY format."""
+    if not value:
+        return None
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+def _product_to_dict(product):
+    is_low_stock = product.stock_quantity <= product.reorder_level
+    is_expired = bool(product.expiry_date and product.expiry_date < datetime.utcnow().date())
+    return {
+        'id': str(product.id),
+        'name': product.name,
+        'barcode': product.barcode,
+        'category': product.category or 'general',
+        'price': product.price,
+        'cost_price': product.cost_price,
+        'price_per_kg': product.price_per_kg,
+        'is_weight_based': product.is_weight_based,
+        'stock_quantity': product.stock_quantity,
+        'reorder_level': product.reorder_level,
+        'expiry_date': product.expiry_date.strftime('%d/%m/%Y') if product.expiry_date else None,
+        'is_low_stock': is_low_stock,
+        'is_expired': is_expired,
+        'unit': 'kg' if product.is_weight_based else 'Piece'
+    }
+
+@app.route('/api/products', methods=['POST'])
+def create_product():
+    """Create a new product (used by the Add Item page)."""
+    try:
+        data = request.get_json() or {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return jsonify({'success': False, 'error': 'Product name is required'}), 400
+
+        is_weight_based = bool(data.get('is_weight_based'))
+        try:
+            price = float(data.get('price') or 0)
+            stock_quantity = float(data.get('stock_quantity') or 0)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Price and stock must be numbers'}), 400
+        if price <= 0:
+            return jsonify({'success': False, 'error': 'Selling price must be greater than 0'}), 400
+
+        product = Product(
+            name=name,
+            barcode=(data.get('barcode') or '').strip() or None,
+            category=(data.get('category') or 'general').strip().lower(),
+            price=price,
+            cost_price=float(data.get('cost_price') or 0),
+            price_per_kg=float(data['price_per_kg']) if data.get('price_per_kg') else (price if is_weight_based else None),
+            is_weight_based=is_weight_based,
+            stock_quantity=stock_quantity,
+            reorder_level=float(data.get('reorder_level') or 10),
+            expiry_date=_parse_date(data.get('expiry_date'))
+        )
+        db.session.add(product)
+        db.session.commit()
+        return jsonify({'success': True, 'product': _product_to_dict(product)}), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating product: {e}")
+        return jsonify({'success': False, 'error': 'Failed to create product'}), 500
+
+@app.route('/api/products/<int:product_id>', methods=['GET'])
+def get_product(product_id):
+    """Get a single product."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    return jsonify({'success': True, 'product': _product_to_dict(product)})
+
+@app.route('/api/products/<int:product_id>', methods=['PUT', 'PATCH'])
+def update_product(product_id):
+    """Update product fields (name, pricing, stock, reorder level, expiry)."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    try:
+        data = request.get_json() or {}
+        if 'name' in data and (data['name'] or '').strip():
+            product.name = data['name'].strip()
+        if 'barcode' in data:
+            product.barcode = (data['barcode'] or '').strip() or None
+        if 'category' in data and data['category']:
+            product.category = data['category'].strip().lower()
+        for field in ('price', 'cost_price', 'price_per_kg', 'stock_quantity', 'reorder_level'):
+            if data.get(field) is not None:
+                setattr(product, field, float(data[field]))
+        if 'expiry_date' in data:
+            product.expiry_date = _parse_date(data['expiry_date'])
+        if 'is_weight_based' in data:
+            product.is_weight_based = bool(data['is_weight_based'])
+        product.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'success': True, 'product': _product_to_dict(product)})
+    except (TypeError, ValueError):
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Numeric fields must be valid numbers'}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating product {product_id}: {e}")
+        return jsonify({'success': False, 'error': 'Failed to update product'}), 500
+
+@app.route('/api/products/<int:product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    """Delete a product from inventory."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    try:
+        # Detach notifications that reference this product, then delete.
+        Notification.query.filter_by(product_id=product_id).delete()
+        db.session.delete(product)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'{product.name} deleted'})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting product {product_id}: {e}")
+        return jsonify({'success': False, 'error': 'Failed to delete product'}), 500
+
+@app.route('/api/products/<int:product_id>/refill', methods=['POST'])
+def refill_product(product_id):
+    """Add stock to a product (used by the Refill Stock pages)."""
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Product not found'}), 404
+    try:
+        data = request.get_json() or {}
+        try:
+            quantity = float(data.get('quantity') or 0)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Quantity must be a number'}), 400
+        if quantity <= 0:
+            return jsonify({'success': False, 'error': 'Quantity must be greater than 0'}), 400
+
+        product.stock_quantity = (product.stock_quantity or 0) + quantity
+        if data.get('cost_price') is not None:
+            product.cost_price = float(data['cost_price'])
+        if data.get('price') is not None and float(data['price']) > 0:
+            product.price = float(data['price'])
+            if product.is_weight_based:
+                product.price_per_kg = float(data['price'])
+        if data.get('barcode'):
+            product.barcode = str(data['barcode']).strip()
+        if data.get('expiry_date'):
+            product.expiry_date = _parse_date(data['expiry_date'])
+        product.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'success': True, 'product': _product_to_dict(product),
+                        'message': f'Added {quantity} to {product.name}'})
+    except (TypeError, ValueError):
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Numeric fields must be valid numbers'}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error refilling product {product_id}: {e}")
+        return jsonify({'success': False, 'error': 'Failed to refill stock'}), 500
+
+@app.route('/api/customer/<int:customer_id>')
+def get_customer(customer_id):
+    """Get a single customer (used by the cart's customer picker)."""
+    customer = Customer.query.get(customer_id)
+    if not customer:
+        return jsonify({'success': False, 'error': 'Customer not found'}), 404
+    return jsonify({
+        'id': customer.id,
+        'name': customer.name,
+        'phone': customer.phone,
+        'address': customer.address,
+        'outstanding_balance': customer.outstanding_balance
+    })
+
+@app.route('/api/search-customers')
+def search_customers_wrapped():
+    """Customer search returning {customers: [...]} (shape the cart expects)."""
+    query = request.args.get('q', '').strip()
+    if len(query) < 1:
+        return jsonify({'customers': []})
+    customers = Customer.query.filter(
+        db.or_(
+            Customer.name.ilike(f'%{query}%'),
+            Customer.phone.ilike(f'%{query}%')
+        )
+    ).limit(10).all()
+    return jsonify({'customers': [{
+        'id': c.id,
+        'name': c.name,
+        'phone': c.phone,
+        'outstanding_balance': c.outstanding_balance
+    } for c in customers]})
 
 @app.route('/api/dashboard/stats')
 def get_dashboard_stats():
@@ -906,7 +1099,10 @@ def create_bill():
         db.session.add(bill)
         db.session.flush()  # Get the bill ID
 
-        # Add bill items
+        # Add bill items and decrement inventory for each sold product.
+        # Items are matched to products by product_id when the client sends
+        # one, falling back to an exact name match (the cart UI does not carry
+        # product ids through to the bill payload).
         for item_data in data.get('items', []):
             bill_item = BillItem(
                 bill_id=bill.id,
@@ -918,6 +1114,21 @@ def create_bill():
                 price_per_kg=item_data.get('price_per_kg')
             )
             db.session.add(bill_item)
+
+            product = None
+            if item_data.get('product_id'):
+                product = Product.query.get(item_data['product_id'])
+            if product is None and item_data.get('name'):
+                product = Product.query.filter(
+                    Product.name.ilike(item_data['name'].strip())
+                ).first()
+            if product is not None:
+                sold = item_data.get('weight') if product.is_weight_based and item_data.get('weight') else item_data['quantity']
+                try:
+                    product.stock_quantity = max((product.stock_quantity or 0) - float(sold), 0)
+                    product.updated_at = datetime.utcnow()
+                except (TypeError, ValueError):
+                    pass
 
         # If payment is made, create payment record and send SMS
         if payment_mode != 'credit' and data.get('customer_id'):
@@ -943,6 +1154,12 @@ def create_bill():
                 send_credit_purchase_sms(customer.phone, customer.name, data['total_amount'], new_balance)
 
         db.session.commit()
+
+        # Selling stock may have pushed products under their reorder level.
+        try:
+            check_low_stock()
+        except Exception as check_error:
+            app.logger.warning(f"Low-stock check after billing failed: {check_error}")
 
         return jsonify({
             'bill_id': bill.id,
@@ -2043,6 +2260,21 @@ def api_expired_products():
             'success': False,
             'error': str(e)
         }), 500
+
+# Global error handlers: JSON for API calls, a redirect to the dashboard for
+# unknown pages so mistyped URLs don't dead-end users on a stack trace.
+@app.errorhandler(404)
+def handle_404(e):
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    return redirect(url_for('dashboard'))
+
+@app.errorhandler(500)
+def handle_500(e):
+    db.session.rollback()
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+    return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

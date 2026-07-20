@@ -447,6 +447,7 @@
                         items.forEach(item => {
                             cartItems.push({
                                 id: Date.now() + Math.random(),
+                                product_id: item.product_id || item.id || null,
                                 name: item.name,
                                 quantity: item.quantity || 1,
                                 unit: item.unit || 'Piece',
