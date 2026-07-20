@@ -234,17 +234,21 @@
         }
 
         function downloadPDF() {
-            const billNumber = new URLSearchParams(window.location.search).get('bill') || '001234';
+            const billNumber = new URLSearchParams(window.location.search).get('bill');
+            if (billNumber) {
+                // Server-rendered invoice PDF: crisp, consistent, printable.
+                window.open(`/api/bills/${billNumber}/pdf`, '_blank');
+                return;
+            }
+            // Fallback for a receipt shown without a bill number: capture the DOM.
             const element = document.querySelector('.bg-white.rounded-lg.shadow-sm');
-            
             const opt = {
                 margin: 0.5,
-                filename: `Receipt_${billNumber}.pdf`,
+                filename: 'Receipt.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
             };
-            
             html2pdf().set(opt).from(element).save();
         }
 
@@ -314,12 +318,60 @@
             // Replace items (keep the header)
             itemsContainer.innerHTML = `<h3 class="text-sm font-semibold text-dark mb-3">Items Purchased</h3>${itemsHTML}`;
             
-            // Update totals
-            document.querySelector('.space-y-2 .flex:nth-child(1) .text-sm.font-medium').textContent = `₹${billData.subtotal.toFixed(2)}`;
-            document.querySelector('.space-y-2 .flex:nth-child(2) .text-sm.font-medium').textContent = `₹${billData.tax_amount.toFixed(2)}`;
-            document.querySelector('.space-y-2 .flex:nth-child(3) .text-sm.font-medium').textContent = `₹${billData.discount_amount.toFixed(2)}`;
-            document.querySelector('.text-lg.font-bold.text-dark').textContent = `₹${billData.total_amount.toFixed(2)}`;
+            // Update every label/value row by matching the label text - robust
+            // against the static markup's varying classes.
+            const setRow = (labelText, valueText) => {
+                document.querySelectorAll('.flex.justify-between').forEach(row => {
+                    const label = row.firstElementChild;
+                    const value = row.lastElementChild;
+                    if (label && value && label !== value && label.textContent.trim().startsWith(labelText)) {
+                        value.textContent = valueText;
+                    }
+                });
+            };
+            const money = v => `₹${(v || 0).toFixed(2)}`;
+            const isPaid = billData.payment_status === 'paid';
+
+            setRow('Subtotal', money(billData.subtotal));
+            setRow('GST', money(billData.tax_amount));
+            setRow('Discount', `- ${money(billData.discount_amount)}`);
+            setRow('Total:', money(billData.total_amount));
+            setRow('Payment Mode', billData.payment_mode.charAt(0).toUpperCase() + billData.payment_mode.slice(1));
+            setRow('Amount Paid', money(isPaid ? billData.total_amount : 0));
+            setRow('Amount Due', money(isPaid ? 0 : billData.total_amount));
+
+            // Customer outstanding balance: show live data for account customers,
+            // hide the block for walk-in/paid bills.
+            const balanceBlock = document.querySelector('.bg-red-50');
+            if (balanceBlock) {
+                if (billData.customer_id) {
+                    fetch(`/api/customer/${billData.customer_id}`)
+                        .then(r => r.json())
+                        .then(cust => {
+                            const amountEl = balanceBlock.querySelector('.text-lg');
+                            if (amountEl) amountEl.textContent = `₹${(cust.outstanding_balance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+                        })
+                        .catch(() => balanceBlock.classList.add('hidden'));
+                } else {
+                    balanceBlock.classList.add('hidden');
+                }
+            }
         }
+
+        // Store header: real shop details instead of the demo placeholder.
+        fetch('/api/auth/status')
+            .then(r => r.json())
+            .then(info => {
+                if (!info.authenticated) return;
+                const header = document.querySelector('.text-center.py-6');
+                if (!header) return;
+                header.querySelector('h2').textContent = info.shop_name || 'Kirana Konnect';
+                const lines = header.querySelectorAll('p');
+                if (lines[0]) lines[0].textContent = '';
+                if (lines[1]) lines[1].textContent = info.phone ? `Phone: +91 ${info.phone}` : '';
+                if (lines[2]) lines[2].textContent = info.gst_number ? `GST: ${info.gst_number}` : '';
+            })
+            .catch(() => {});
     </script>
 </body>
 </html>

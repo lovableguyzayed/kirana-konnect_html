@@ -90,12 +90,16 @@ def require_login():
 @app.route('/api/auth/status')
 def auth_status():
     """Whether the shop account exists and whether this session is signed in."""
-    return jsonify({
+    payload = {
         'account_exists': db.session.query(User.id).first() is not None,
         'authenticated': current_user.is_authenticated,
         'shop_name': current_user.shop_name if current_user.is_authenticated else None,
         'owner_name': current_user.owner_name if current_user.is_authenticated else None
-    })
+    }
+    if current_user.is_authenticated:
+        payload['phone'] = current_user.phone
+        payload['gst_number'] = current_user.gst_number
+    return jsonify(payload)
 
 @app.route('/api/auth/signup', methods=['POST'])
 def auth_signup():
@@ -1009,6 +1013,29 @@ def refill_product(product_id):
         app.logger.error(f"Error refilling product {product_id}: {e}")
         return jsonify({'success': False, 'error': 'Failed to refill stock'}), 500
 
+@app.route('/api/seed-demo', methods=['GET', 'POST'])
+def seed_demo_data():
+    """Populate the store with a realistic demo catalog, customers and sales
+    history. Idempotent: products are matched by name and customers by phone,
+    so calling it again never duplicates data. Requires login."""
+    try:
+        from seed_data import seed_demo
+        added = seed_demo(db, Product, Customer, Bill, BillItem, Payment)
+        return jsonify({
+            'success': True,
+            'added': added,
+            'totals': {
+                'products': Product.query.count(),
+                'customers': Customer.query.count(),
+                'bills': Bill.query.count()
+            },
+            'message': 'Demo data ready'
+        })
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Seed error: {e}")
+        return jsonify({'success': False, 'error': 'Seeding failed'}), 500
+
 @app.route('/api/customer/<int:customer_id>')
 def get_customer(customer_id):
     """Get a single customer (used by the cart's customer picker)."""
@@ -1372,6 +1399,7 @@ def api_get_bill(bill_number):
         return jsonify({
             'success': True,
             'bill_number': bill.bill_number,
+            'customer_id': bill.customer_id,
             'customer_name': bill.customer_name,
             'subtotal': bill.subtotal,
             'tax_amount': bill.tax_amount,
@@ -1393,6 +1421,143 @@ def api_get_bill(bill_number):
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/bills/<bill_number>/pdf')
+def bill_pdf(bill_number):
+    """Generate a printable A4 invoice PDF for a bill."""
+    bill = Bill.query.filter_by(bill_number=bill_number).first()
+    if not bill:
+        return jsonify({'success': False, 'error': 'Bill not found'}), 404
+
+    shop = User.query.first()
+    shop_name = shop.shop_name if shop else 'Kirana Konnect'
+    owner_phone = shop.phone if shop else ''
+    gst = shop.gst_number if shop else None
+
+    # Register a bundled Unicode font so the rupee sign renders on any host.
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    font_dir = os.path.join(app.root_path, 'static', 'vendor', 'fonts')
+    if 'DejaVu' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf')))
+        pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf')))
+        registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
+                           italic='DejaVu', boldItalic='DejaVu-Bold')
+
+    GREEN = colors.HexColor('#4CAF50')
+    DARK = colors.HexColor('#333333')
+    LIGHT_ROW = colors.HexColor('#F3F9F3')
+    GREY = colors.HexColor('#777777')
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=0.7 * inch, rightMargin=0.7 * inch,
+                            topMargin=0.6 * inch, bottomMargin=0.6 * inch,
+                            title=f"Invoice {bill.bill_number}")
+    styles = getSampleStyleSheet()
+    story = []
+
+    shop_style = ParagraphStyle('Shop', parent=styles['Title'], fontSize=22, fontName='DejaVu-Bold',
+                                textColor=colors.white, alignment=0, leading=26)
+    sub_style = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, fontName='DejaVu',
+                               textColor=colors.white, alignment=0)
+    inv_style = ParagraphStyle('Inv', parent=styles['Normal'], fontSize=12, fontName='DejaVu',
+                               textColor=colors.white, alignment=2)
+    header_inner = Table([
+        [Paragraph(f"<b>{shop_name}</b>", shop_style),
+         Paragraph("<b>TAX INVOICE</b>" if gst else "<b>INVOICE</b>", inv_style)],
+        [Paragraph((f"GSTIN: {gst} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
+         Paragraph(f"# {bill.bill_number}", inv_style)],
+    ], colWidths=[4.5 * inch, 2.6 * inch])
+    header_inner.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), GREEN),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 12),
+        ('LEFTPADDING', (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+    ]))
+    story.append(header_inner)
+    story.append(Spacer(1, 14))
+
+    label = ParagraphStyle('Lbl', parent=styles['Normal'], fontSize=8, textColor=GREY, fontName='DejaVu')
+    value = ParagraphStyle('Val', parent=styles['Normal'], fontSize=11, textColor=DARK, fontName='DejaVu')
+    customer_name = bill.customer.name if bill.customer else (bill.customer_name or 'Walk-in Customer')
+    customer_phone = f"+91 {bill.customer.phone}" if bill.customer else ''
+    meta = Table([
+        [Paragraph('BILLED TO', label), Paragraph('DATE', label), Paragraph('PAYMENT', label)],
+        [Paragraph(f"<b>{customer_name}</b><br/>{customer_phone}", value),
+         Paragraph(bill.created_at.strftime('%d %b %Y, %I:%M %p'), value),
+         Paragraph(f"{bill.payment_mode.title()} &bull; "
+                   f"<font color='{'#4CAF50' if bill.payment_status == 'paid' else '#F44336'}'>"
+                   f"<b>{bill.payment_status.upper()}</b></font>", value)],
+    ], colWidths=[3.0 * inch, 2.05 * inch, 2.05 * inch])
+    meta.setStyle(TableStyle([
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 14))
+
+    head = ParagraphStyle('TH', parent=styles['Normal'], fontSize=9,
+                          textColor=colors.white, fontName='DejaVu-Bold')
+    cell = ParagraphStyle('TD', parent=styles['Normal'], fontSize=10, textColor=DARK, fontName='DejaVu')
+    cell_r = ParagraphStyle('TDR', parent=cell, alignment=2)
+    rows = [[Paragraph(h, head) for h in ('#', 'ITEM', 'QTY', 'RATE', 'AMOUNT')]]
+    for i, item in enumerate(bill.items, 1):
+        qty = f"{item.quantity:g} kg" if item.weight else f"{item.quantity:g}"
+        rows.append([Paragraph(str(i), cell), Paragraph(item.item_name, cell),
+                     Paragraph(qty, cell_r), Paragraph(f"₹{item.unit_price:,.2f}", cell_r),
+                     Paragraph(f"₹{item.total_price:,.2f}", cell_r)])
+    items_table = Table(rows, colWidths=[0.4 * inch, 3.5 * inch, 0.9 * inch, 1.15 * inch, 1.15 * inch],
+                        repeatRows=1)
+    items_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), DARK),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, LIGHT_ROW]),
+        ('LINEBELOW', (0, -1), (-1, -1), 0.75, GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(items_table)
+    story.append(Spacer(1, 10))
+
+    tot_lbl = ParagraphStyle('TotL', parent=styles['Normal'], fontSize=10, textColor=GREY, alignment=2, fontName='DejaVu')
+    tot_val = ParagraphStyle('TotV', parent=styles['Normal'], fontSize=10, textColor=DARK, alignment=2, fontName='DejaVu')
+    grand_l = ParagraphStyle('GrL', parent=styles['Normal'], fontSize=13, alignment=2,
+                             textColor=colors.white, fontName='DejaVu-Bold')
+    totals_rows = [[Paragraph('Subtotal', tot_lbl), Paragraph(f"₹{bill.subtotal:,.2f}", tot_val)]]
+    if bill.tax_amount:
+        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(f"₹{bill.tax_amount:,.2f}", tot_val)])
+    if bill.discount_amount:
+        totals_rows.append([Paragraph('Discount', tot_lbl), Paragraph(f"- ₹{bill.discount_amount:,.2f}", tot_val)])
+    totals_rows.append([Paragraph('TOTAL', grand_l), Paragraph(f"₹{bill.total_amount:,.2f}", grand_l)])
+    totals = Table(totals_rows, colWidths=[1.6 * inch, 1.5 * inch], hAlign='RIGHT')
+    totals.setStyle(TableStyle([
+        ('BACKGROUND', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), GREEN),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), 9),
+        ('BOTTOMPADDING', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), 9),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(totals)
+    story.append(Spacer(1, 24))
+
+    foot = ParagraphStyle('Foot', parent=styles['Normal'], fontSize=9,
+                          textColor=GREY, alignment=1, fontName='DejaVu')
+    if bill.generated_by:
+        story.append(Paragraph(f"Billed by: {bill.generated_by}", foot))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("Thank you for shopping with us! &nbsp;&bull;&nbsp; "
+                           "Goods once sold are not returnable.", foot))
+
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(buffer, mimetype='application/pdf', as_attachment=False,
+                     download_name=f"{bill.bill_number}.pdf")
 
 @app.route('/api/payments', methods=['POST'])
 def create_payment():
