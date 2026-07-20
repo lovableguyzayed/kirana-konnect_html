@@ -44,6 +44,31 @@
 
     <!-- Main Content -->
     <main class="pt-16 pb-20 bg-gray-100">
+        <!-- My Team (live) -->
+        <div class="px-4 pt-4">
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100 mb-2">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-lg font-bold text-dark">My Team</h3>
+                    <button onclick="toggleAddStaff()" class="text-sm bg-primary text-white px-3 py-1.5 rounded-lg font-medium">
+                        <i class="fa-solid fa-plus mr-1"></i>Add
+                    </button>
+                </div>
+                <div id="add-staff-form" class="hidden mb-3 space-y-2">
+                    <input type="text" id="staff-name-input" placeholder="Name" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                    <div class="flex space-x-2">
+                        <select id="staff-role-input" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm bg-white">
+                            <option>Cashier</option><option>Manager</option><option>Helper</option>
+                        </select>
+                        <input type="tel" id="staff-phone-input" placeholder="Phone (optional)" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm">
+                    </div>
+                    <button onclick="addStaffMember()" class="w-full bg-primary text-white py-2 rounded-lg text-sm font-medium">Save Member</button>
+                </div>
+                <div id="staff-list" class="space-y-2">
+                    <p class="text-sm text-gray-400 text-center py-2">Loading team...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Date Selector -->
         <div class="bg-white px-4 py-3 border-b border-gray-100">
             <div class="flex items-center justify-between">
@@ -348,6 +373,64 @@
         // Initialize
         updateCurrentTime();
         setInterval(updateCurrentTime, 60000); // Update every minute
+    </script>
+
+    <script>
+        function toggleAddStaff() {
+            document.getElementById('add-staff-form').classList.toggle('hidden');
+        }
+        function loadStaff() {
+            fetch('/api/staff').then(r => r.json()).then(data => {
+                const list = document.getElementById('staff-list');
+                const staff = data.staff || [];
+                if (staff.length === 0) {
+                    list.innerHTML = '<p class="text-sm text-gray-400 text-center py-2">No staff yet - add your first team member.</p>';
+                    return;
+                }
+                list.innerHTML = staff.map(s => `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                                <i class="fa-solid fa-user text-primary text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium text-dark text-sm">${s.name}</p>
+                                <p class="text-xs text-gray-500">${s.role}${s.phone ? ' &bull; +91 ' + s.phone : ''}</p>
+                            </div>
+                        </div>
+                        <button onclick="removeStaff(${s.id}, '${s.name.replace(/'/g, "&#39;")}')" class="text-gray-400 hover:text-danger p-2">
+                            <i class="fa-solid fa-trash text-sm"></i>
+                        </button>
+                    </div>`).join('');
+            }).catch(() => {});
+        }
+        function addStaffMember() {
+            const name = document.getElementById('staff-name-input').value.trim();
+            if (!name) { alert('Please enter a name.'); return; }
+            fetch('/api/staff', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    role: document.getElementById('staff-role-input').value,
+                    phone: document.getElementById('staff-phone-input').value.trim()
+                })
+            }).then(r => r.json().then(d => ({ok: r.ok, d})))
+            .then(({ok, d}) => {
+                if (ok) {
+                    document.getElementById('staff-name-input').value = '';
+                    document.getElementById('staff-phone-input').value = '';
+                    toggleAddStaff(); loadStaff();
+                } else alert(d.error || 'Could not add the member.');
+            }).catch(() => alert('Network error.'));
+        }
+        function removeStaff(id, name) {
+            if (!confirm(`Remove ${name} from the team?`)) return;
+            fetch(`/api/staff/${id}`, { method: 'DELETE' })
+                .then(r => r.json()).then(() => loadStaff())
+                .catch(() => alert('Network error.'));
+        }
+        loadStaff();
     </script>
 </body>
 </html>

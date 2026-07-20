@@ -272,6 +272,14 @@ class Product(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Staff(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(50), default='Cashier')  # Owner, Manager, Cashier, Helper
+    phone = db.Column(db.String(15))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -1020,7 +1028,7 @@ def seed_demo_data():
     so calling it again never duplicates data. Requires login."""
     try:
         from seed_data import seed_demo
-        added = seed_demo(db, Product, Customer, Bill, BillItem, Payment)
+        added = seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=Staff)
         return jsonify({
             'success': True,
             'added': added,
@@ -1442,6 +1450,40 @@ def list_bills():
         'item_count': len(b.items),
         'created_at': b.created_at.isoformat()
     } for b in bills]})
+
+@app.route('/api/staff', methods=['GET', 'POST'])
+def staff_api():
+    """List active staff or add a new staff member."""
+    if request.method == 'POST':
+        try:
+            data = request.get_json() or {}
+            name = (data.get('name') or '').strip()
+            if not name:
+                return jsonify({'success': False, 'error': 'Staff name is required'}), 400
+            member = Staff(name=name,
+                           role=(data.get('role') or 'Cashier').strip(),
+                           phone=(data.get('phone') or '').strip() or None)
+            db.session.add(member)
+            db.session.commit()
+            return jsonify({'success': True, 'staff': {'id': member.id, 'name': member.name,
+                                                       'role': member.role, 'phone': member.phone}}), 201
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Staff create error: {e}")
+            return jsonify({'success': False, 'error': 'Could not add staff member'}), 500
+    members = Staff.query.filter_by(is_active=True).order_by(Staff.name).all()
+    return jsonify({'staff': [{'id': s.id, 'name': s.name, 'role': s.role, 'phone': s.phone}
+                              for s in members]})
+
+@app.route('/api/staff/<int:staff_id>', methods=['DELETE'])
+def staff_delete(staff_id):
+    """Deactivate a staff member (kept in history, hidden from lists)."""
+    member = Staff.query.get(staff_id)
+    if not member:
+        return jsonify({'success': False, 'error': 'Staff member not found'}), 404
+    member.is_active = False
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/api/customers/with-balance')
 def customers_with_balance():

@@ -184,14 +184,28 @@ def _barcode_for(index):
     return body[:13]
 
 
-def seed_demo(db, Product, Customer, Bill, BillItem, Payment, with_history=True):
+STAFF = [
+    ("Anil Kumar", "Cashier", "9700011122"),
+    ("Priya Singh", "Manager", "9700033344"),
+    ("Sonu Yadav", "Helper", "9700055566"),
+]
+
+
+def seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=None, with_history=True):
     """Idempotently seed products, customers and (optionally) billing history.
 
     Returns a dict of counts describing what was added.
     """
     today = date.today()
     now = datetime.utcnow()
-    added = {"products": 0, "customers": 0, "bills": 0, "payments": 0}
+    added = {"products": 0, "customers": 0, "bills": 0, "payments": 0, "staff": 0}
+
+    if Staff is not None:
+        existing_staff = {n for (n,) in db.session.query(Staff.name).all()}
+        for name, role, phone in STAFF:
+            if name not in existing_staff:
+                db.session.add(Staff(name=name, role=role, phone=phone))
+                added["staff"] += 1
 
     existing_names = {n for (n,) in db.session.query(Product.name).all()}
     for i, (name, category, price, cost, weight_based, stock, reorder, exp_days) in enumerate(CATALOG):
