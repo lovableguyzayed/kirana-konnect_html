@@ -553,30 +553,41 @@
 
         // Load product data from localStorage
         function loadProductData() {
+            // Prefer the real product from the backend (id URL parameter).
+            const id = urlParams.get('id');
+            if (id && /^\d+$/.test(id)) {
+                fetch(`/api/products/${id}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.success) throw new Error(data.error);
+                        const p = data.product;
+                        const rate = p.price_per_kg || p.price;
+                        document.getElementById('product-name').textContent = p.name;
+                        document.getElementById('purchase-price').textContent = `₹${p.cost_price || 0}/kg`;
+                        document.getElementById('selling-price').textContent = `₹${rate}/kg`;
+                        document.getElementById('available-stock').textContent = `${p.stock_quantity} kg`;
+                        updateStockStatus({ stock: p.stock_quantity });
+                        unitPrice = rate;
+                    })
+                    .catch(loadProductDataFromStorage);
+                return;
+            }
+            loadProductDataFromStorage();
+        }
+
+        function loadProductDataFromStorage() {
             const productDataStr = localStorage.getItem('currentProduct');
-            
             if (productDataStr) {
                 const product = JSON.parse(productDataStr);
-                
-                // Update product name
                 document.getElementById('product-name').textContent = product.name;
-                
-                // Update product image
-                document.getElementById('product-image').src = product.image;
-                document.getElementById('product-image').alt = product.name;
-                
-                // Update pricing
-                const purchasePrice = Math.round(product.price * 0.8);
-                document.getElementById('purchase-price').textContent = `₹${purchasePrice}/${product.unit}`;
+                if (product.image) {
+                    document.getElementById('product-image').src = product.image;
+                    document.getElementById('product-image').alt = product.name;
+                }
+                document.getElementById('purchase-price').textContent = `₹${product.cost_price || 0}/${product.unit}`;
                 document.getElementById('selling-price').textContent = `₹${product.price}/${product.unit}`;
-                
-                // Update stock information
-                document.getElementById('available-stock').textContent = `${product.stock} ${product.stockUnit}`;
-                
-                // Update stock status with proper levels
+                document.getElementById('available-stock').textContent = `${product.stock} ${product.stockUnit || ''}`;
                 updateStockStatus(product);
-                
-                // Update unit price for calculations
                 unitPrice = product.price;
             }
         }

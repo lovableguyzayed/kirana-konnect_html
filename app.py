@@ -1422,6 +1422,46 @@ def api_get_bill(bill_number):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/bills', methods=['GET'])
+def list_bills():
+    """List recent bills, optionally filtered by payment status."""
+    query = Bill.query
+    status = request.args.get('status', '').strip()
+    if status:
+        query = query.filter(Bill.payment_status == status)
+    limit = min(request.args.get('limit', 20, type=int), 100)
+    bills = query.order_by(Bill.created_at.desc()).limit(limit).all()
+    return jsonify({'bills': [{
+        'id': b.id,
+        'bill_number': b.bill_number,
+        'customer_id': b.customer_id,
+        'customer_name': b.customer.name if b.customer else (b.customer_name or 'Walk-in Customer'),
+        'total_amount': b.total_amount,
+        'payment_mode': b.payment_mode,
+        'payment_status': b.payment_status,
+        'item_count': len(b.items),
+        'created_at': b.created_at.isoformat()
+    } for b in bills]})
+
+@app.route('/api/customers/with-balance')
+def customers_with_balance():
+    """Customers who currently owe money (for the pending credits screen)."""
+    result = []
+    for c in Customer.query.all():
+        balance = c.outstanding_balance
+        if balance > 0:
+            last_credit = Bill.query.filter_by(customer_id=c.id, payment_status='pending') \
+                .order_by(Bill.created_at.desc()).first()
+            result.append({
+                'id': c.id,
+                'name': c.name,
+                'phone': c.phone,
+                'outstanding_balance': balance,
+                'last_credit_at': last_credit.created_at.isoformat() if last_credit else None
+            })
+    result.sort(key=lambda x: x['outstanding_balance'], reverse=True)
+    return jsonify({'customers': result})
+
 @app.route('/api/bills/<bill_number>/pdf')
 def bill_pdf(bill_number):
     """Generate a printable A4 invoice PDF for a bill."""

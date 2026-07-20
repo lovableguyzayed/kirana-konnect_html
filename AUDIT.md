@@ -107,6 +107,17 @@ settings-aware creation; PDF export and receipt lookup work; the customer ledger
 | **Search + pagination + indexes (P2)** | `GET /api/products?q=&page=&per_page=` (default response unchanged); indexes on `Product.name/barcode/category` (apply to newly created databases). |
 | **PWA manifest (P3, partial)** | `static/manifest.json` + icons + `theme-color` linked from every page — installable via Add to Home Screen. (A service worker was deliberately not added; see below.) |
 
+### Implemented in the third pass ✅
+
+| Item | What was done |
+|---|---|
+| **Cart checkout was fake** | The cart's "Generate Bill" button was `alert('Bill generated successfully!')` — the POS never billed. Now: full checkout with payment mode tracking (new **Udhar** chip + cash/online/split), customer selection required for udhar, real `POST /api/bills`, cart cleared, redirect to the receipt. Verified end-to-end in a browser. |
+| **Customer selection/creation in cart were fakes** | `selectCustomer`/`saveNewCustomer` were alerts. Now: search picks a real customer (shown with phone + current udhar), creation posts to the API and auto-selects. |
+| **Product details pages showed fabricated data** | Both variants invented barcodes, cost prices and dates. Now they fetch the real product by `?id=` (localStorage fallback retained). |
+| **Dashboard identity & transactions were hardcoded** | Header/welcome now show the real shop/owner from the account; Recent Transactions renders live bills (clickable → receipt, udhar badge) via the new `GET /api/bills?limit=`. |
+| **New APIs** | `GET /api/bills` (recent, filter by status) and `GET /api/customers/with-balance` (udhar debtors, sorted). |
+| **Last CDN straggler** | `@zxing/library` was still loaded from unpkg on 3 pages — now vendored locally. |
+
 ### Remaining (deliberately not done, with reasons)
 
 | Priority | Item | Why deferred |
@@ -117,6 +128,8 @@ settings-aware creation; PDF export and receipt lookup work; the customer ledger
 | P2 | Multi-shop tenancy | The auth model is single-shop-per-instance (matches the Render deploy model). True multi-tenancy means scoping every query by shop — a schema migration project. |
 | P3 | Service worker | Offline caching of authenticated pages risks stale/broken states; needs a deliberate caching strategy and device QA. Manifest-only was the safe subset. |
 | P3 | Replacing all `alert()`/`confirm()` with in-app toasts | Cosmetic; touches nearly every template. |
+| P2 | Pending-credits & expiry-alert pages still render static demo lists | Backing APIs now exist (`/api/customers/with-balance`, `/api/expired-products`); the pages' markup has no list containers/ids, so binding them means rebuilding each page's list section. The same data is live on the customer ledger and low-stock screens meanwhile. |
+| P2 | Settings page toggles & staff page are static | Notification-settings API exists but the page isn't wired; staff needs a real model (bills already record `generated_by`). |
 
 ### Deployment notes for this pass
 

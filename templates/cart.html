@@ -110,14 +110,15 @@
                     <input type="text" placeholder="Search customer..." class="w-full p-2 border border-gray-200 rounded-lg pr-10 text-sm" onclick="openSearch()">
                     <i class="fa-solid fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 </div>
-                <div class="mt-2 space-y-2">
-                    <div class="p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100" onclick="selectCustomer('Rajesh Kumar')">
-                        <p class="font-medium text-dark text-sm">Rajesh Kumar</p>
-                        <p class="text-xs text-gray-600">+91 9876543210</p>
-                    </div>
-                    <div class="p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100" onclick="selectCustomer('Priya Sharma')">
-                        <p class="font-medium text-dark text-sm">Priya Sharma</p>
-                        <p class="text-xs text-gray-600">+91 9876543211</p>
+                <div id="selected-customer" class="mt-2 hidden">
+                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                        <div>
+                            <p id="selected-customer-name" class="font-medium text-dark text-sm"></p>
+                            <p id="selected-customer-info" class="text-xs text-gray-600"></p>
+                        </div>
+                        <button onclick="clearSelectedCustomer()" class="text-gray-400 hover:text-danger p-1">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -217,6 +218,9 @@
         <div class="bg-white rounded-xl shadow-sm p-3">
             <div class="flex justify-center mb-3">
                 <div class="flex bg-gray-100 rounded-full p-1 w-full max-w-xs">
+                    <button id="credit-payment" class="flex-1 py-2 px-2 rounded-full text-gray-600 font-medium text-xs" onclick="selectPayment('credit')">
+                        Udhar
+                    </button>
                     <button id="cash-payment" class="flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs" onclick="selectPayment('cash')">
                         Cash
                     </button>
@@ -601,10 +605,14 @@
         }
 
         // Payment functions
+        let selectedPaymentType = 'cash';
+
         function selectPayment(type) {
-            const buttons = ['cash-payment', 'online-payment', 'split-payment'];
+            selectedPaymentType = type;
+            const buttons = ['credit-payment', 'cash-payment', 'online-payment', 'split-payment'];
             buttons.forEach(btn => {
                 const element = document.getElementById(btn);
+                if (!element) return;
                 if (btn === `${type}-payment`) {
                     element.className = 'flex-1 py-2 px-2 rounded-full bg-primary text-white font-medium text-xs';
                 } else {
@@ -615,6 +623,12 @@
             // Show/hide payment sections
             document.getElementById('online-payment-section').classList.toggle('hidden', type !== 'online');
             document.getElementById('split-payment-section').classList.toggle('hidden', type !== 'split');
+
+            // Udhar needs a customer account to book the credit against
+            if (type === 'credit' && !selectedCustomer) {
+                showCustomerTab();
+                openSearch();
+            }
         }
 
         // Tax and offer functions
@@ -656,18 +670,51 @@
             renderCart();
         }
 
-        function selectCustomer(name) {
-            alert(`Selected customer: ${name}`);
+        let selectedCustomer = null;
+
+        function setSelectedCustomer(customer) {
+            selectedCustomer = customer;
+            const box = document.getElementById('selected-customer');
+            if (customer) {
+                document.getElementById('selected-customer-name').textContent = customer.name;
+                const balance = customer.outstanding_balance || 0;
+                document.getElementById('selected-customer-info').textContent =
+                    `+91 ${customer.phone}` + (balance > 0 ? ` • Udhar: ₹${balance.toFixed(2)}` : '');
+                box.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function clearSelectedCustomer() {
+            setSelectedCustomer(null);
+            if (selectedPaymentType === 'credit') selectPayment('cash');
         }
 
         function saveNewCustomer() {
-            const name = document.getElementById('new-customer-name').value;
-            const phone = document.getElementById('new-customer-phone').value;
-            if (name && phone) {
-                alert(`New customer saved: ${name} (${phone})`);
-                document.getElementById('new-customer-name').value = '';
-                document.getElementById('new-customer-phone').value = '';
+            const name = document.getElementById('new-customer-name').value.trim();
+            const phone = document.getElementById('new-customer-phone').value.trim();
+            if (!name || !phone) {
+                alert('Please enter the customer name and phone number.');
+                return;
             }
+            fetch('/api/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.id) {
+                    setSelectedCustomer({ id: data.id, name: data.name, phone: data.phone, outstanding_balance: 0 });
+                    document.getElementById('new-customer-name').value = '';
+                    document.getElementById('new-customer-phone').value = '';
+                    showCustomerTab();
+                } else {
+                    alert(data.error || 'Could not save the customer.');
+                }
+            })
+            .catch(() => alert('Network error - customer not saved.'));
         }
 
         function applySplit() {
@@ -692,7 +739,72 @@
         }
 
         function generateBill() {
-            alert('Bill generated successfully!');
+            if (cartItems.length === 0) {
+                alert('The cart is empty. Add items before generating a bill.');
+                return;
+            }
+            if (selectedPaymentType === 'credit' && !selectedCustomer) {
+                alert('Udhar sales need a customer. Please select one from the Customer tab.');
+                showCustomerTab();
+                openSearch();
+                return;
+            }
+
+            const items = cartItems.map(item => {
+                const unitLower = (item.unit || '').toLowerCase();
+                const isWeight = WEIGHT_UNITS.includes(unitLower) || !!item.isWeightBased;
+                const qtyInKg = isWeight ? (unitLower === 'gm' ? item.quantity / 1000 : item.quantity) : null;
+                const unitPrice = isWeight
+                    ? (item.unit_price_per_kg || (qtyInKg > 0 ? item.price / qtyInKg : item.price))
+                    : (item.unit_price || (item.quantity > 0 ? item.price / item.quantity : item.price));
+                return {
+                    product_id: item.product_id || null,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unit_price: parseFloat(unitPrice.toFixed(2)),
+                    total_price: item.price,
+                    weight: isWeight ? qtyInKg : null,
+                    price_per_kg: isWeight ? parseFloat(unitPrice.toFixed(2)) : null
+                };
+            });
+
+            const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+            const gst = taxEnabled ? subtotal * 0.18 : 0;
+            const generatorSelect = document.getElementById('bill-generator');
+            const billButton = document.querySelector('[onclick="generateBill()"]');
+            if (billButton) { billButton.disabled = true; billButton.textContent = 'Generating...'; }
+
+            fetch('/api/bills', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_id: selectedCustomer ? selectedCustomer.id : null,
+                    customer_name: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
+                    subtotal: parseFloat(subtotal.toFixed(2)),
+                    tax_amount: parseFloat(gst.toFixed(2)),
+                    discount_amount: 0,
+                    total_amount: parseFloat((subtotal + gst).toFixed(2)),
+                    payment_mode: selectedPaymentType,
+                    generated_by: generatorSelect ? generatorSelect.options[generatorSelect.selectedIndex].text : 'Owner',
+                    items: items
+                })
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok && data.bill_number) {
+                    // Clear the cart and show the receipt
+                    cartItems = [];
+                    saveCart();
+                    window.location.href = `/receipt?bill=${data.bill_number}`;
+                } else {
+                    alert(data.error || 'Could not generate the bill. Please try again.');
+                    if (billButton) { billButton.disabled = false; billButton.textContent = 'Generate Bill'; }
+                }
+            })
+            .catch(() => {
+                alert('Network error - the bill was not generated.');
+                if (billButton) { billButton.disabled = false; billButton.textContent = 'Generate Bill'; }
+            });
         }
 
         function calculateDiscount() {
@@ -963,8 +1075,10 @@
             fetch(`/api/customer/${customerId}`)
                 .then(response => response.json())
                 .then(customer => {
-                    selectCustomer(customer.name);
-                });
+                    setSelectedCustomer(customer);
+                    showCustomerTab();
+                })
+                .catch(() => alert('Could not load the customer.'));
         }
 
         function createNewCustomer() {

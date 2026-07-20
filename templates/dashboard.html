@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#4CAF50">
-    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script src="/static/vendor/js/zxing.min.js"></script>
     <style>::-webkit-scrollbar { display: none;}</style>
     
 <style>
@@ -352,9 +352,9 @@
         <div id="recent-transactions" class="px-4 mb-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-dark">Recent Transactions</h3>
-                <button class="text-secondary text-sm font-semibold">View All</button>
+                <button class="text-secondary text-sm font-semibold" onclick="window.location.href='/sales-report'">View All</button>
             </div>
-            <div class="space-y-3">
+            <div class="space-y-3" id="transactions-list">
                 <div class="bg-white p-4 rounded-xl shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
@@ -1476,5 +1476,58 @@
         });
     </script>
     <script src="{{ url_for('static', filename='js/universal-scanner.js') }}"></script>
+
+    <script>
+        // Personalize the header/welcome with the real shop account and load
+        // real recent transactions in place of the static demo entries.
+        (function () {
+            fetch('/api/auth/status')
+                .then(r => r.json())
+                .then(info => {
+                    if (!info.authenticated) return;
+                    const shopP = document.querySelector('#header p.text-xs.text-gray-600');
+                    if (shopP) shopP.textContent = info.shop_name;
+                    const meta = document.querySelectorAll('#header span.text-xs.text-gray-500');
+                    if (meta[0]) meta[0].textContent = info.gst_number ? `GST: ${info.gst_number}` : '';
+                    if (meta[1]) meta[1].textContent = '';
+                    const welcome = document.querySelector('#welcome-section h2');
+                    if (welcome) welcome.textContent = `Welcome back, ${info.owner_name.split(' ')[0]}!`;
+                })
+                .catch(() => {});
+
+            fetch('/api/bills?limit=5')
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('transactions-list');
+                    if (!list || !data.bills) return;
+                    if (data.bills.length === 0) {
+                        list.innerHTML = '<div class="bg-white p-6 rounded-xl shadow-sm text-center text-gray-500 text-sm">No transactions yet today</div>';
+                        return;
+                    }
+                    list.innerHTML = data.bills.map(b => {
+                        const t = new Date(b.created_at);
+                        const time = t.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
+                        const badge = b.payment_status === 'pending'
+                            ? '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full ml-2">Udhar</span>' : '';
+                        return `
+                        <div class="bg-white p-4 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-shadow" onclick="window.location.href='/receipt?bill=${b.bill_number}'">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                        <i class="fa-solid fa-user text-gray-500"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-dark">${b.customer_name}${badge}</p>
+                                        <p class="text-xs text-gray-500">${b.item_count} item${b.item_count === 1 ? '' : 's'} &bull; ${time}</p>
+                                    </div>
+                                </div>
+                                <p class="font-bold text-primary text-lg">₹${b.total_amount.toFixed(0)}</p>
+                            </div>
+                        </div>`;
+                    }).join('');
+                })
+                .catch(() => {});
+        })();
+    </script>
 </body>
 </html>
