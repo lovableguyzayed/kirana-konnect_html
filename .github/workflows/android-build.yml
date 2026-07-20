@@ -2,14 +2,12 @@ name: Build Android APK
 
 # Builds the Cordova Android app and uploads the APK as a downloadable artifact.
 
-# NOTE: Auto-run on push is intentionally disabled. GitHub's hosted Android
-# toolchain currently fails to compile AndroidX color resources
-# ("com.android.aaptcompiler ... Can not extract resource / Invalid <color>"),
-# a defect that reproduced across every cordova-android / AGP / AppCompat / JDK
-# combination and inside a Docker build image. Build the APK locally instead
-# (see mobile/MOBILE.md). This workflow is kept for manual runs so it can be
-# re-tried once the upstream toolchain issue is resolved.
 on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-build.yml"
   workflow_dispatch:
     inputs:
       app_url:
