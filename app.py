@@ -27,6 +27,11 @@ class Base(DeclarativeBase):
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-for-pricing-preview")
 
+# Render (and most hosts) terminate TLS at a reverse proxy; trust its headers
+# so Flask sees the real scheme/host for cookies and redirects.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 # Database configuration
 database_url = os.environ.get("DATABASE_URL")
 # SQLAlchemy 2.x requires the "postgresql://" scheme; some providers still hand
@@ -2653,6 +2658,20 @@ def api_expired_products():
             'success': False,
             'error': str(e)
         }), 500
+
+@app.after_request
+def no_cache_html(response):
+    """Never let browsers/WebViews cache app screens or API responses.
+
+    A cached pre-login page can fake a successful sign-in loop (the WebView
+    shows a stale page whose JS predates the auth flow). Static assets keep
+    their normal caching via Flask's static handler.
+    """
+    if not request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
 
 # Global error handlers: JSON for API calls, a redirect to the dashboard for
 # unknown pages so mistyped URLs don't dead-end users on a stack trace.

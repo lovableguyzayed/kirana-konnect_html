@@ -357,5 +357,15 @@
         });
     </script>
 
+
+    <script>
+        fetch('/api/auth/status', { cache: 'no-store' })
+            .then(r => r.json())
+            .then(info => {
+                if (info.authenticated) window.location.replace('/dashboard');
+                else if (info.account_exists) window.location.replace('/signin');
+            })
+            .catch(() => {});
+    </script>
 </body>
 </html>

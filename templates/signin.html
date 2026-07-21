@@ -669,5 +669,17 @@
         }
     </script>
 
+
+    <script>
+        // Self-healing: if this browser already holds a valid session, skip
+        // the sign-in form entirely (also rescues stale-cached page loops).
+        fetch('/api/auth/status', { cache: 'no-store' })
+            .then(r => r.json())
+            .then(info => {
+                if (info.authenticated) window.location.replace('/dashboard');
+                else if (!info.account_exists) window.location.replace('/signup');
+            })
+            .catch(() => {});
+    </script>
 </body>
 </html>
