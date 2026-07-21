@@ -693,8 +693,33 @@ def add_sample_sales_data():
 try:
     with app.app_context():
         db.create_all()
-        ensure_sample_products()
-        add_sample_sales_data()
+
+        # Heal duplicates left by older deployments where multiple gunicorn
+        # workers raced the startup seeding (fixed going forward by --preload):
+        # keep the first row of any staff name / duplicate demo product name.
+        try:
+            for model in (Staff, Product):
+                seen = {}
+                for row in model.query.order_by(model.id).all():
+                    key = row.name.strip().lower()
+                    if key in seen:
+                        db.session.delete(row)
+                    else:
+                        seen[key] = row.id
+            db.session.commit()
+        except Exception as dedupe_error:
+            db.session.rollback()
+            app.logger.warning(f"Dedupe skipped: {dedupe_error}")
+
+        # A store with fewer than 40 products is a fresh (or barely-touched)
+        # instance: give it the full demo catalog, customers, staff and sales
+        # history so every screen is alive out of the box. seed_demo is
+        # idempotent (matches products by name, customers by phone), so this
+        # never duplicates data on later restarts.
+        if db.session.query(Product.id).count() < 40:
+            from seed_data import seed_demo
+            added = seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=Staff)
+            app.logger.info(f"Auto-seeded demo data: {added}")
         app.logger.info("Database initialized successfully")
 except Exception as e:
     app.logger.error(f"Database initialization failed: {e}")
