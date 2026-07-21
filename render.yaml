@@ -12,9 +12,10 @@ services:
     runtime: python
     plan: free
     buildCommand: "pip install -r requirements.txt"
-    # --preload imports the app (and runs DB init/seeding) once in the master
-    # process before workers fork, so concurrent workers can't race the seed.
-    startCommand: "gunicorn app:app --preload --bind 0.0.0.0:$PORT"
+    # No --preload: gunicorn binds the port before forking workers, so the
+    # service comes up fast for Render's health check even if DB init is slow.
+    # (The multi-worker seed race is handled by the startup dedupe instead.)
+    startCommand: "gunicorn app:app --workers 2 --timeout 120 --bind 0.0.0.0:$PORT"
     envVars:
       # Connection string of the free Postgres database created above.
       # app.py normalizes the postgres:// scheme to postgresql:// automatically.

@@ -39,10 +39,16 @@ database_url = os.environ.get("DATABASE_URL")
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+_engine_options = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
 }
+# Fail fast (10s) instead of hanging the whole boot when the Postgres host is
+# unreachable/expired - a hung boot makes the Render deploy time out and keeps
+# the previous (old) build serving.
+if database_url and database_url.startswith("postgresql"):
+    _engine_options["connect_args"] = {"connect_timeout": 10}
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = _engine_options
 
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
@@ -80,7 +86,7 @@ def load_user(user_id):
 PUBLIC_ENDPOINTS = {
     'static', 'index', 'pricing', 'splash', 'signin', 'signup',
     'auth_login', 'auth_signup', 'auth_status', 'logout',
-    'form_login', 'form_signup'
+    'form_login', 'form_signup', 'healthz'
 }
 
 @app.before_request
@@ -92,6 +98,27 @@ def require_login():
     if request.path.startswith('/api/'):
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
     return redirect(url_for('signin'))
+
+APP_VERSION = "2026-07-21-formauth-migration"
+
+@app.route('/healthz')
+def healthz():
+    """Public diagnostic: which build is live and whether the DB works.
+
+    Visit /healthz to confirm the latest code is deployed and the database is
+    reachable - both without needing to log in.
+    """
+    info = {'version': APP_VERSION, 'login_type': 'form-post'}
+    try:
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
+        info['database'] = 'connected'
+        info['products'] = Product.query.count()
+        info['account_exists'] = db.session.query(User.id).first() is not None
+    except Exception as e:
+        info['database'] = 'ERROR'
+        info['database_error'] = str(e)[:200]
+    return jsonify(info)
 
 @app.route('/api/auth/status')
 def auth_status():
