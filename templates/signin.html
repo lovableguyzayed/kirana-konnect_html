@@ -66,25 +66,31 @@
             <p class="text-gray-600 text-sm">Sign in to your Kirana Konnect account</p>
         </div>
 
-        <!-- Sign In Form -->
-        <div id="signin-form" class="space-y-6">
-            
+        <!-- Sign In Form: a real form POST -> /signin -> 302 redirect. This is
+             the most reliable auth path across browsers and Android WebViews. -->
+        <form id="signin-form" class="space-y-6" method="POST" action="/signin">
+
+            <!-- Error banner (shown when redirected back with ?error) -->
+            <div id="signin-error" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+                Incorrect phone/email or password. Please try again.
+            </div>
+
             <!-- Login Credentials -->
             <div id="login-credentials" class="space-y-4">
-                
+
                 <div>
                     <label class="text-dark text-sm font-medium mb-2 block">Phone Number or Email</label>
                     <div class="relative">
                         <i class="fa-solid fa-phone absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
-                        <input type="text" placeholder="Enter phone number or email" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
+                        <input type="text" name="identifier" required placeholder="Enter phone number or email" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
                     </div>
                 </div>
-                
+
                 <div>
                     <label class="text-dark text-sm font-medium mb-2 block">Password</label>
                     <div class="relative">
                         <i class="fa-solid fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
-                        <input type="password" placeholder="Enter your password" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-12 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
+                        <input type="password" name="password" required placeholder="Enter your password" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-12 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
                         <i class="fa-solid fa-eye-slash absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 cursor-pointer"></i>
                     </div>
                 </div>
@@ -93,14 +99,14 @@
             <!-- Remember Me & Forgot Password -->
             <div id="login-options" class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                    <input type="checkbox" id="remember" class="w-4 h-4 text-primary bg-white border-gray-300 rounded focus:ring-primary">
+                    <input type="checkbox" id="remember" name="remember" checked class="w-4 h-4 text-primary bg-white border-gray-300 rounded focus:ring-primary">
                     <label for="remember" class="text-dark text-sm">Remember me</label>
                 </div>
                 <span class="text-secondary text-sm font-medium underline cursor-pointer" onclick="forgotPassword()">Forgot Password?</span>
             </div>
 
-            <!-- Sign In Button -->
-            <button id="signin-btn" class="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center space-x-3">
+            <!-- Sign In Button (submits the form) -->
+            <button id="signin-btn" type="submit" class="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center space-x-3">
                 <i class="fa-solid fa-sign-in-alt text-lg"></i>
                 <span class="text-lg">Sign In</span>
             </button>
@@ -139,7 +145,7 @@
             <div id="signup-link" class="text-center pt-4">
                 <p class="text-gray-600 text-sm">Don't have an account? <span class="text-secondary font-semibold underline cursor-pointer" onclick="goToSignup()">Create Account</span></p>
             </div>
-        </div>
+        </form>
     </div>
 
     <!-- Loading Overlay -->
@@ -495,43 +501,26 @@
         });
 
         // Sign in form submission
-        document.getElementById('signin-btn').addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            const loginField = document.querySelector('input[placeholder*="phone number or email"]');
-            const passwordField = document.querySelector('input[type="password"]');
-            
+        // The form now submits natively (POST /signin -> 302). We only show the
+        // loading overlay and let the browser handle the navigation + cookie,
+        // which is the reliable path in every browser and WebView.
+        document.getElementById('signin-form').addEventListener('submit', function(e) {
+            const loginField = this.querySelector('input[name="identifier"]');
+            const passwordField = this.querySelector('input[name="password"]');
             if (!loginField.value.trim() || !passwordField.value.trim()) {
+                e.preventDefault();
                 showNotification('Please fill in all required fields.', 'error');
                 return;
             }
-
             document.getElementById('loading-overlay').classList.remove('hidden');
-
-            fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    identifier: loginField.value.trim(),
-                    password: passwordField.value,
-                    remember: document.getElementById('remember').checked
-                })
-            })
-            .then(response => response.json().then(data => ({ ok: response.ok, data })))
-            .then(({ ok, data }) => {
-                document.getElementById('loading-overlay').classList.add('hidden');
-                if (ok && data.success) {
-                    showNotification('Login successful! Redirecting...', 'success');
-                    setTimeout(() => { window.location.href = '/dashboard'; }, 600);
-                } else {
-                    showNotification(data.error || 'Sign in failed. Please try again.', 'error');
-                }
-            })
-            .catch(() => {
-                document.getElementById('loading-overlay').classList.add('hidden');
-                showNotification('Network error. Please try again.', 'error');
-            });
+            // do not preventDefault: allow the native form POST to proceed
         });
+
+        // Show the error banner if the server redirected back with ?error
+        if (new URLSearchParams(location.search).has('error')) {
+            const banner = document.getElementById('signin-error');
+            if (banner) banner.classList.remove('hidden');
+        }
 
         // OTP Login
         document.getElementById('otp-btn').addEventListener('click', function() {

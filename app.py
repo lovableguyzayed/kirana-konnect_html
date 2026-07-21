@@ -79,7 +79,8 @@ def load_user(user_id):
 # pages redirect to /signin, API calls get a 401 JSON response.
 PUBLIC_ENDPOINTS = {
     'static', 'index', 'pricing', 'splash', 'signin', 'signup',
-    'auth_login', 'auth_signup', 'auth_status', 'logout'
+    'auth_login', 'auth_signup', 'auth_status', 'logout',
+    'form_login', 'form_signup'
 }
 
 @app.before_request
@@ -141,26 +142,76 @@ def auth_signup():
         app.logger.error(f"Signup error: {e}")
         return jsonify({'success': False, 'error': 'Could not create the account'}), 500
 
+def _find_user(identifier):
+    """Look up a user by email or 10-digit phone from a free-form identifier."""
+    identifier = (identifier or '').strip().lower()
+    if not identifier:
+        return None
+    if '@' in identifier:
+        u = User.query.filter(User.email == identifier).first()
+        if u:
+            return u
+    digits = ''.join(ch for ch in identifier if ch.isdigit())[-10:]
+    if len(digits) == 10:
+        return User.query.filter(User.phone == digits).first()
+    return None
+
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
-    """Sign in with phone number or email + password."""
+    """Sign in with phone number or email + password (JSON API)."""
     data = request.get_json() or {}
-    identifier = (data.get('identifier') or '').strip().lower()
+    identifier = (data.get('identifier') or '').strip()
     password = data.get('password') or ''
     if not identifier or not password:
         return jsonify({'success': False, 'error': 'Phone/email and password are required'}), 400
-
-    digits = ''.join(ch for ch in identifier if ch.isdigit())[-10:]
-    user = None
-    if '@' in identifier:
-        user = User.query.filter(User.email == identifier).first()
-    if user is None and len(digits) == 10:
-        user = User.query.filter(User.phone == digits).first()
+    user = _find_user(identifier)
     if user is None or not user.check_password(password):
         return jsonify({'success': False, 'error': 'Incorrect phone/email or password'}), 401
-
     login_user(user, remember=bool(data.get('remember', True)))
     return jsonify({'success': True, 'shop_name': user.shop_name})
+
+@app.route('/login', methods=['POST'])
+@app.route('/signin', methods=['POST'])
+def form_login():
+    """Sign in via a standard HTML form POST that redirects.
+
+    Unlike the fetch/XHR path, a form POST + 302 reliably persists the session
+    cookie in every browser and in Android WebViews, so the dashboard opens
+    instead of bouncing back to sign-in.
+    """
+    user = _find_user(request.form.get('identifier'))
+    password = request.form.get('password') or ''
+    if user is None or not user.check_password(password):
+        return redirect(url_for('signin', error='1'))
+    login_user(user, remember=True)
+    return redirect(url_for('dashboard'))
+
+@app.route('/signup', methods=['POST'])
+def form_signup():
+    """Create the shop owner account via an HTML form POST that redirects."""
+    if db.session.query(User.id).first() is not None:
+        return redirect(url_for('signin', error='exists'))
+    owner_name = (request.form.get('owner_name') or '').strip()
+    phone = ''.join(ch for ch in (request.form.get('phone') or '') if ch.isdigit())[-10:]
+    password = request.form.get('password') or ''
+    shop_name = (request.form.get('shop_name') or '').strip()
+    if not owner_name or not shop_name or len(phone) != 10 or len(password) < 6:
+        return redirect(url_for('signup', error='1'))
+    try:
+        user = User(owner_name=owner_name, phone=phone,
+                    email=(request.form.get('email') or '').strip().lower() or None,
+                    shop_name=shop_name,
+                    gst_number=(request.form.get('gst_number') or '').strip() or None,
+                    udyam_number=(request.form.get('udyam_number') or '').strip() or None)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        login_user(user, remember=True)
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Form signup error: {e}")
+        return redirect(url_for('signup', error='server'))
 
 @app.route('/logout')
 def logout():

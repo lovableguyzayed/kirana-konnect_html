@@ -67,7 +67,7 @@
         </div>
 
         <!-- Signup Form -->
-        <div id="signup-form" class="space-y-6">
+        <form id="signup-form" class="space-y-6" method="POST" action="/signup">
             
             <!-- Personal Information -->
             <div id="personal-info" class="space-y-4">
@@ -76,26 +76,26 @@
                 <div class="space-y-4">
                     <div>
                         <label class="text-dark text-sm font-medium mb-2 block">Full Name *</label>
-                        <input type="text" placeholder="Enter your full name" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
+                        <input type="text" name="owner_name" placeholder="Enter your full name" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
                     </div>
                     
                     <div>
                         <label class="text-dark text-sm font-medium mb-2 block">Phone Number *</label>
                         <div class="flex">
                             <div class="bg-gray-100 border border-gray-300 rounded-l-xl px-3 py-3 text-dark text-sm border-r-0">+91</div>
-                            <input type="tel" placeholder="Enter 10-digit mobile number" class="flex-1 bg-white border border-gray-300 rounded-r-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
+                            <input type="tel" name="phone" placeholder="Enter 10-digit mobile number" class="flex-1 bg-white border border-gray-300 rounded-r-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
                         </div>
                     </div>
                     
                     <div>
                         <label class="text-dark text-sm font-medium mb-2 block">Email (Optional)</label>
-                        <input type="email" placeholder="Enter your email address" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
+                        <input type="email" name="email" placeholder="Enter your email address" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
                     </div>
                     
                     <div>
                         <label class="text-dark text-sm font-medium mb-2 block">Password *</label>
                         <div class="relative">
-                            <input type="password" placeholder="Create a strong password" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none pr-12" required>
+                            <input type="password" name="password" placeholder="Create a strong password" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none pr-12" required>
                             <i class="fa-solid fa-eye-slash absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 cursor-pointer"></i>
                         </div>
                     </div>
@@ -109,17 +109,17 @@
                 <div class="space-y-4">
                     <div>
                         <label class="text-dark text-sm font-medium mb-2 block">Shop Name *</label>
-                        <input type="text" placeholder="Enter your shop name" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
+                        <input type="text" name="shop_name" placeholder="Enter your shop name" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
                     </div>
                     
                     <div>
                         <label class="text-dark text-sm font-medium mb-2 block">GST Number (Optional)</label>
-                        <input type="text" placeholder="Enter GST number (e.g., 24ABCDE1234F1Z5)" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
+                        <input type="text" name="gst_number" placeholder="Enter GST number (e.g., 24ABCDE1234F1Z5)" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
                     </div>
                     
                     <div>
                         <label class="text-dark text-sm font-medium mb-2 block">UDYAM Certificate (Optional)</label>
-                        <input type="text" placeholder="Enter UDYAM registration number" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
+                        <input type="text" name="udyam_number" placeholder="Enter UDYAM registration number" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
                     </div>
                     
                     <div>
@@ -160,7 +160,7 @@
             </div>
 
             <!-- Sign Up Button -->
-            <button id="signup-btn" class="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center space-x-3">
+            <button id="signup-btn" type="submit" class="w-full bg-primary text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:bg-green-600 transition-all duration-300 flex items-center justify-center space-x-3">
                 <i class="fa-solid fa-user-plus text-lg"></i>
                 <span class="text-lg">Create Account</span>
             </button>
@@ -175,7 +175,7 @@
             <div id="login-link" class="text-center pt-4">
                 <p class="text-gray-600 text-sm">Already have an account? <span class="text-secondary font-semibold underline cursor-pointer" onclick="goToLogin()">Sign In</span></p>
             </div>
-        </div>
+        </form>
     </div>
 
     <!-- Loading Overlay -->
@@ -266,64 +266,31 @@
         });
 
         // Form validation and submission
-        document.getElementById('signup-btn').addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Basic validation
-            const requiredFields = document.querySelectorAll('input[required], select[required]');
+        // The form submits natively (POST /signup -> 302). Validate on submit;
+        // only block the native POST when validation fails.
+        document.getElementById('signup-form').addEventListener('submit', function(e) {
             let isValid = true;
-            
-            requiredFields.forEach(field => {
-                if (!field.value.trim()) {
-                    field.classList.add('border-danger');
-                    isValid = false;
-                } else {
-                    field.classList.remove('border-danger');
-                }
+            this.querySelectorAll('input[required], select[required]').forEach(field => {
+                if (!field.value.trim()) { field.classList.add('border-danger'); isValid = false; }
+                else { field.classList.remove('border-danger'); }
             });
-            
+            const password = this.querySelector('input[name="password"]');
+            if (password && password.value.length < 6) {
+                isValid = false;
+                password.classList.add('border-danger');
+            }
             const termsCheckbox = document.getElementById('terms');
-            if (!termsCheckbox.checked) {
+            if (termsCheckbox && !termsCheckbox.checked) {
                 isValid = false;
                 termsCheckbox.parentElement.classList.add('text-danger');
-            } else {
-                termsCheckbox.parentElement.classList.remove('text-danger');
             }
-            
-            if (isValid) {
-                document.getElementById('loading-overlay').classList.remove('hidden');
-
-                const payload = {
-                    owner_name: document.querySelector('input[placeholder*="full name"]').value.trim(),
-                    phone: document.querySelector('input[type="tel"]').value.trim(),
-                    email: document.querySelector('input[type="email"]').value.trim(),
-                    password: document.querySelector('input[type="password"]').value,
-                    shop_name: document.querySelector('input[placeholder*="shop name"]').value.trim(),
-                    gst_number: (document.querySelector('input[placeholder*="GST"]') || {value: ''}).value.trim(),
-                    udyam_number: (document.querySelector('input[placeholder*="UDYAM"]') || {value: ''}).value.trim()
-                };
-
-                fetch('/api/auth/signup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(response => response.json().then(data => ({ ok: response.ok, data })))
-                .then(({ ok, data }) => {
-                    document.getElementById('loading-overlay').classList.add('hidden');
-                    if (ok && data.success) {
-                        window.location.href = '/dashboard';
-                    } else {
-                        alert(data.error || 'Could not create the account. Please try again.');
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('loading-overlay').classList.add('hidden');
-                    alert('Network error. Please try again.');
-                });
-            } else {
-                alert('Please fill all required fields and accept terms & conditions.');
+            if (!isValid) {
+                e.preventDefault();
+                alert('Please fill all required fields (password min 6 chars) and accept terms & conditions.');
+                return;
             }
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            // allow native POST to proceed
         });
 
         // Phone number formatting
