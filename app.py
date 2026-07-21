@@ -1503,6 +1503,8 @@ def customers_with_balance():
                 'id': c.id,
                 'name': c.name,
                 'phone': c.phone,
+                'address': c.address,
+                'created_at': c.created_at.strftime('%Y-%m-%d') if c.created_at else None,
                 'outstanding_balance': balance,
                 'last_credit_at': last_credit.created_at.isoformat() if last_credit else None
             })
