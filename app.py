@@ -740,10 +740,53 @@ def add_sample_sales_data():
         db.session.rollback()
         app.logger.error(f"Error adding sample sales data: {e}")
 
+def _ensure_schema_columns():
+    """Add any model columns that are missing from already-existing tables.
+
+    db.create_all() only creates missing *tables*; it never alters an existing
+    table. When new columns were added to the models across releases (e.g.
+    bill.include_dates, product.cost_price), a database created by an older
+    release keeps the old shape and every query on that table fails with
+    "column does not exist" - the production 'data error'. This lightweight
+    migration reconciles the columns for both Postgres and SQLite.
+    """
+    from sqlalchemy import inspect as sa_inspect, text
+    inspector = sa_inspect(db.engine)
+    dialect = db.engine.dialect
+    for table_name, table in db.metadata.tables.items():
+        if not inspector.has_table(table_name):
+            continue
+        existing = {c['name'] for c in inspector.get_columns(table_name)}
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            try:
+                coltype = col.type.compile(dialect=dialect)
+                clause = ""
+                default = getattr(col, 'default', None)
+                if default is not None and getattr(default, 'arg', None) is not None and not callable(default.arg):
+                    d = default.arg
+                    if isinstance(d, bool):
+                        clause = f" DEFAULT {'true' if d else 'false'}" if dialect.name == 'postgresql' else f" DEFAULT {int(d)}"
+                    elif isinstance(d, (int, float)):
+                        clause = f" DEFAULT {d}"
+                    elif isinstance(d, str):
+                        clause = " DEFAULT '" + d.replace("'", "''") + "'"
+                db.session.execute(text(
+                    f'ALTER TABLE "{table_name}" ADD COLUMN {col.name} {coltype}{clause}'
+                ))
+                db.session.commit()
+                app.logger.info(f"Schema migration: added {table_name}.{col.name}")
+            except Exception as col_error:
+                db.session.rollback()
+                app.logger.warning(f"Schema migration skipped {table_name}.{col.name}: {col_error}")
+
+
 # Initialize database tables once at startup
 try:
     with app.app_context():
         db.create_all()
+        _ensure_schema_columns()
 
         # Heal duplicates left by older deployments where multiple gunicorn
         # workers raced the startup seeding (fixed going forward by --preload):
