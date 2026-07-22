@@ -196,22 +196,31 @@
                     <i class="fa-solid fa-key text-white text-2xl"></i>
                 </div>
                 <h3 class="text-dark text-xl font-bold mb-2">Reset Password</h3>
-                <p class="text-gray-600 text-sm">Enter your phone number or email to receive reset instructions</p>
+                <p class="text-gray-600 text-sm">Enter your registered phone number and choose a new password.</p>
             </div>
-            
+
+            <div id="reset-error" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-3"></div>
+
             <form id="forgotPasswordForm" class="space-y-4">
                 <div>
-                    <label class="text-dark text-sm font-medium mb-2 block">Phone Number or Email</label>
+                    <label class="text-dark text-sm font-medium mb-2 block">Registered Phone or Email</label>
                     <div class="relative">
-                        <i class="fa-solid fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
-                        <input type="text" id="resetContact" placeholder="Enter phone number or email" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-secondary focus:outline-none" required>
+                        <i class="fa-solid fa-phone absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                        <input type="text" id="resetContact" placeholder="Enter your phone number or email" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-secondary focus:outline-none" required>
                     </div>
                 </div>
-                
+                <div>
+                    <label class="text-dark text-sm font-medium mb-2 block">New Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                        <input type="password" id="resetNewPassword" placeholder="At least 6 characters" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-secondary focus:outline-none" required minlength="6">
+                    </div>
+                </div>
+
                 <div class="space-y-3">
                     <button type="submit" class="w-full bg-secondary text-white font-bold py-3 px-6 rounded-xl hover:bg-blue-600 transition-all duration-300">
-                        <i class="fa-solid fa-paper-plane mr-2"></i>
-                        Send Reset Instructions
+                        <i class="fa-solid fa-key mr-2"></i>
+                        Reset &amp; Sign In
                     </button>
                     <button type="button" onclick="closeForgotPasswordModal()" class="w-full bg-gray-200 text-dark font-medium py-3 px-6 rounded-xl hover:bg-gray-300 transition-all duration-300">
                         Cancel
@@ -342,118 +351,61 @@
 
         // Handle forgot password form submission
         document.addEventListener('DOMContentLoaded', function() {
-            // Forgot Password Form
+            // Forgot Password Form -> real password reset keyed on registered phone/email
             document.getElementById('forgotPasswordForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                
+
+                const errorEl = document.getElementById('reset-error');
+                const showResetError = function(msg) {
+                    if (errorEl) {
+                        errorEl.textContent = msg;
+                        errorEl.classList.remove('hidden');
+                    } else {
+                        showNotification(msg, 'error');
+                    }
+                };
+                if (errorEl) errorEl.classList.add('hidden');
+
                 const contact = document.getElementById('resetContact').value.trim();
-                
+                const newPassword = document.getElementById('resetNewPassword').value;
+
                 if (!contact) {
-                    showNotification('Please enter your phone number or email.', 'error');
+                    showResetError('Please enter your registered phone number or email.');
                     return;
                 }
-
-                // Validate email or phone format
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                const phoneRegex = /^[+]?[0-9\s\-()]{10,}$/;
-                
-                if (!emailRegex.test(contact) && !phoneRegex.test(contact)) {
-                    showNotification('Please enter a valid email or phone number.', 'error');
+                if (!newPassword || newPassword.length < 6) {
+                    showResetError('New password must be at least 6 characters.');
                     return;
                 }
 
                 // Show loading state
                 const submitBtn = this.querySelector('button[type="submit"]');
                 const originalText = submitBtn.innerHTML;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Sending...';
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Resetting...';
                 submitBtn.disabled = true;
 
-                // Simulate API call
-                setTimeout(() => {
-                    // Hide forgot password modal and show code verification modal
-                    closeForgotPasswordModal();
-                    document.getElementById('resetCodeModal').classList.remove('hidden');
-                    document.getElementById('sentToContact').textContent = contact;
-                    
-                    // Reset button
+                fetch('/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ identifier: contact, new_password: newPassword })
+                })
+                .then(function(res) { return res.json().then(function(body) { return { ok: res.ok, body: body }; }); })
+                .then(function(result) {
+                    if (result.ok && result.body && result.body.success) {
+                        showNotification('Password reset! Opening your dashboard...', 'success');
+                        window.location.href = '/dashboard';
+                        return;
+                    }
                     submitBtn.innerHTML = originalText;
                     submitBtn.disabled = false;
-                    
-                    showNotification('Reset code sent successfully!', 'success');
-                }, 2000);
-            });
-
-            // Reset Code Form
-            document.getElementById('resetCodeForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const codeInputs = document.querySelectorAll('.reset-code-input');
-                const code = Array.from(codeInputs).map(input => input.value).join('');
-                
-                if (code.length !== 6) {
-                    showNotification('Please enter the complete 6-digit code.', 'error');
-                    return;
-                }
-
-                // Show loading state
-                const submitBtn = this.querySelector('button[type="submit"]');
-                const originalText = submitBtn.innerHTML;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Verifying...';
-                submitBtn.disabled = true;
-
-                // Simulate API call
-                setTimeout(() => {
-                    // Hide code modal and show new password modal
-                    closeResetCodeModal();
-                    document.getElementById('newPasswordModal').classList.remove('hidden');
-                    
-                    // Reset button
+                    showResetError((result.body && result.body.error) || 'Could not reset the password. Please try again.');
+                })
+                .catch(function() {
                     submitBtn.innerHTML = originalText;
                     submitBtn.disabled = false;
-                    
-                    showNotification('Code verified successfully!', 'success');
-                }, 1500);
-            });
-
-            // New Password Form
-            document.getElementById('newPasswordForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const newPassword = document.getElementById('newPassword').value;
-                const confirmPassword = document.getElementById('confirmNewPassword').value;
-                
-                if (!newPassword || !confirmPassword) {
-                    showNotification('Please fill in all password fields.', 'error');
-                    return;
-                }
-
-                if (newPassword.length < 8) {
-                    showNotification('Password must be at least 8 characters long.', 'error');
-                    return;
-                }
-
-                if (newPassword !== confirmPassword) {
-                    showNotification('Passwords do not match.', 'error');
-                    return;
-                }
-
-                // Show loading state
-                const submitBtn = this.querySelector('button[type="submit"]');
-                const originalText = submitBtn.innerHTML;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Updating...';
-                submitBtn.disabled = true;
-
-                // Simulate API call
-                setTimeout(() => {
-                    // Close modal and show success
-                    closeNewPasswordModal();
-                    
-                    // Reset button
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                    
-                    showNotification('Password reset successfully! Please sign in with your new password.', 'success');
-                }, 2000);
+                    showResetError('Network error. Please check your connection and try again.');
+                });
             });
 
             // Auto-focus next input for reset code
