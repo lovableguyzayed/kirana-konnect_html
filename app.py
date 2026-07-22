@@ -86,7 +86,7 @@ def load_user(user_id):
 PUBLIC_ENDPOINTS = {
     'static', 'index', 'pricing', 'splash', 'signin', 'signup',
     'auth_login', 'auth_signup', 'auth_status', 'logout',
-    'form_login', 'form_signup', 'healthz'
+    'form_login', 'form_signup', 'healthz', 'auth_reset_password'
 }
 
 @app.before_request
@@ -239,6 +239,32 @@ def form_signup():
         db.session.rollback()
         app.logger.error(f"Form signup error: {e}")
         return redirect(url_for('signup', error='server'))
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def auth_reset_password():
+    """Reset the owner's password by registered phone/email, then sign in.
+
+    Single-shop instance: the registered phone number is the recovery factor.
+    Lets a locked-out owner regain access without email/SMS infrastructure.
+    """
+    data = request.get_json() or {}
+    user = _find_user(data.get('identifier'))
+    new_password = data.get('new_password') or ''
+    if user is None:
+        return jsonify({'success': False,
+                        'error': 'No account found for that phone/email'}), 404
+    if len(new_password) < 6:
+        return jsonify({'success': False,
+                        'error': 'New password must be at least 6 characters'}), 400
+    try:
+        user.set_password(new_password)
+        db.session.commit()
+        login_user(user, remember=True)
+        return jsonify({'success': True, 'shop_name': user.shop_name})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Password reset error: {e}")
+        return jsonify({'success': False, 'error': 'Could not reset the password'}), 500
 
 @app.route('/logout')
 def logout():
