@@ -1800,24 +1800,20 @@
             window.location.href = '/profile';
         }
 
-        function viewProductDetails(itemId) {
-            // Get product data to determine routing
-            const product = productData[itemId];
-            
-            if (product) {
-                // Store product data in localStorage for the detail page
-                localStorage.setItem('currentProduct', JSON.stringify(product));
-                localStorage.setItem('currentProductId', itemId);
-                
-                // Route to appropriate product details page based on product type
-                if (product.type === 'weight-based') {
-                    window.location.href = '/product-details-weight';
-                } else {
-                    window.location.href = '/product-details';
-                }
+        function viewProductDetails(productId) {
+            // Look up the real product loaded from /api/products.
+            const product = (products || []).find(p => String(p.id) === String(productId));
+            if (!product) {
+                showNotification('Product not found', 'error');
+                return;
+            }
+
+            // Pass the database id so the details page can fetch live data.
+            const params = new URLSearchParams({ id: product.id });
+            if (product.is_weight_based) {
+                window.location.href = `/product-details-weight?${params.toString()}`;
             } else {
-                alert('Product data not found');
-                window.location.href = '/product-details';
+                window.location.href = `/product-details?${params.toString()}`;
             }
         }
 
