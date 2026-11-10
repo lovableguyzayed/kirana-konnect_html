@@ -70,7 +70,7 @@
         <div class="text-center">
             <h2 class="text-base font-bold text-dark">Kirana Konnect</h2>
             <h3 class="text-sm font-semibold text-dark mt-1">Sharma Kirana Store</h3>
-            <p class="text-xs text-gray-600 mt-1">GST: 24ABCDE1234F1Z5</p>
+            <p class="text-xs text-gray-600 mt-1"></p>
             <p class="text-xs text-gray-600">UDYAM: UDYAM-UP-12-0012345</p>
         </div>
     </div>
@@ -155,7 +155,7 @@
     <div id="tax-offer-section" class="px-4 mb-3">
         <div class="bg-white rounded-xl shadow-sm p-3">
             <div class="grid grid-cols-2 gap-3">
-                <button id="tax-btn" class="p-3 border-2 border-primary bg-primary/10 rounded-xl text-center" onclick="toggleTax()">
+                <button id="tax-btn" class="p-3 border-2 border-gray-200 rounded-xl text-center hover:border-primary hover:bg-primary/10" onclick="toggleTax()">
                     <i class="fa-solid fa-percentage text-primary text-lg mb-1"></i>
                     <p class="text-xs font-medium text-primary">Add Tax</p>
                 </button>
@@ -172,9 +172,15 @@
                         <span class="text-gray-600 text-sm">Subtotal</span>
                         <span class="font-medium text-sm" id="subtotal">₹955</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 text-sm">GST (18%)</span>
-                        <span class="font-medium text-sm" id="gst">₹171.90</span>
+                    <div id="gst-row" class="flex justify-between items-center hidden">
+                        <label for="gst-rate" class="text-gray-600 text-sm">GST
+                            <select id="gst-rate" onchange="calculateTotals()" class="ml-1 border border-gray-300 rounded-md px-2 py-1 text-sm">
+                                <option value="5">5%</option>
+                                <option value="12">12%</option>
+                                <option value="18">18%</option>
+                            </select>
+                        </label>
+                        <span class="font-medium text-sm" id="gst">₹0.00</span>
                     </div>
                 </div>
             </div>
@@ -385,7 +391,15 @@
         let cartItems = [];
 
         let currentTab = 'billing';
-        let taxEnabled = true;
+        // GST is OFF by default and can only be switched on when the shop has
+        // saved a GSTIN: unregistered shops must not charge GST, and most
+        // kirana goods are 0/5/12% - not a flat 18%.
+        let taxEnabled = false;
+        let shopGstin = null;
+        function gstRate() {
+            const el = document.getElementById('gst-rate');
+            return el ? (parseFloat(el.value) || 0) / 100 : 0;
+        }
         let offerEnabled = false;
         let editingItemIndex = -1;
 
@@ -513,7 +527,7 @@
         // Calculate totals
         function calculateTotals() {
             const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-            const gst = taxEnabled ? subtotal * 0.18 : 0;
+            const gst = taxEnabled ? subtotal * gstRate() : 0;
             const total = subtotal + gst;
 
             document.getElementById('subtotal').textContent = `₹${subtotal.toFixed(2)}`;
@@ -587,7 +601,13 @@
 
         // Tax and offer functions
         function toggleTax() {
+            if (!taxEnabled && !shopGstin) {
+                alert('GST can only be added after you save your GSTIN in Profile. Shops without GST registration should not charge GST.');
+                return;
+            }
             taxEnabled = !taxEnabled;
+            const gstRow = document.getElementById('gst-row');
+            if (gstRow) gstRow.classList.toggle('hidden', !taxEnabled);
             const btn = document.getElementById('tax-btn');
             if (taxEnabled) {
                 btn.className = 'p-3 border-2 border-primary bg-primary/10 rounded-xl text-center';
@@ -723,7 +743,7 @@
             });
 
             const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-            const gst = taxEnabled ? subtotal * 0.18 : 0;
+            const gst = taxEnabled ? Math.round(subtotal * gstRate() * 100) / 100 : 0;
             const generatorSelect = document.getElementById('bill-generator');
             const billButton = document.querySelector('[onclick="generateBill()"]');
             if (billButton) { billButton.disabled = true; billButton.textContent = 'Generating...'; }
@@ -1096,7 +1116,8 @@
                     const h3 = shopInfo.querySelector('h3');
                     if (h3) h3.textContent = info.shop_name;
                     const ps = shopInfo.querySelectorAll('p');
-                    if (ps[0]) ps[0].textContent = info.gst_number ? `GST: ${info.gst_number}` : '';
+                    if (ps[0]) ps[0].textContent = info.gst_number ? `GSTIN: ${info.gst_number}` : '';
+                    shopGstin = info.gst_number || null;
                     if (ps[1]) ps[1].textContent = '';
                 }
             }

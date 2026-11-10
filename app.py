@@ -1214,8 +1214,10 @@ def receipt():
 
 @app.route('/bill-generate')
 def bill_generate():
-    """Serve the bill generation page"""
-    return render_template('bill_generate.html')
+    """Old duplicate checkout page with hard-coded demo items, a fake shop
+    name and GSTIN that could be billed for real. The cart (/cart) is the
+    real checkout, so send people there."""
+    return redirect(url_for('cart'))
 
 @app.route('/low-stock')
 def low_stock():
