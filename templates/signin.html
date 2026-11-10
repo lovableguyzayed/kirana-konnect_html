@@ -196,7 +196,7 @@
                     <i class="fa-solid fa-key text-white text-2xl"></i>
                 </div>
                 <h3 class="text-dark text-xl font-bold mb-2">Reset Password</h3>
-                <p class="text-gray-600 text-sm">Enter your registered phone number and choose a new password.</p>
+                <p class="text-gray-600 text-sm">Enter your registered phone number, your shop's recovery code and a new password.</p>
             </div>
 
             <div id="reset-error" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-3"></div>
@@ -207,6 +207,13 @@
                     <div class="relative">
                         <i class="fa-solid fa-phone absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
                         <input type="text" id="resetContact" placeholder="Enter your phone number or email" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-secondary focus:outline-none" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="resetCode" class="text-dark text-sm font-medium mb-2 block">Recovery Code</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-shield-halved absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                        <input type="text" id="resetCode" autocomplete="one-time-code" autocapitalize="off" placeholder="Recovery code from your setup" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-secondary focus:outline-none" required>
                     </div>
                 </div>
                 <div>
@@ -368,9 +375,14 @@
 
                 const contact = document.getElementById('resetContact').value.trim();
                 const newPassword = document.getElementById('resetNewPassword').value;
+                const recoveryCode = document.getElementById('resetCode').value.trim();
 
                 if (!contact) {
                     showResetError('Please enter your registered phone number or email.');
+                    return;
+                }
+                if (!recoveryCode) {
+                    showResetError('Please enter your recovery code.');
                     return;
                 }
                 if (!newPassword || newPassword.length < 6) {
@@ -388,7 +400,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
-                    body: JSON.stringify({ identifier: contact, new_password: newPassword })
+                    body: JSON.stringify({ identifier: contact, new_password: newPassword, recovery_code: recoveryCode })
                 })
                 .then(function(res) { return res.json().then(function(body) { return { ok: res.ok, body: body }; }); })
                 .then(function(result) {
@@ -471,6 +483,12 @@
         // Show the error banner if the server redirected back with ?error
         if (new URLSearchParams(location.search).has('error')) {
             const banner = document.getElementById('signin-error');
+            const code = new URLSearchParams(location.search).get('error');
+            if (banner && code === 'locked') {
+                banner.textContent = 'Too many wrong attempts. Please wait 15 minutes and try again.';
+            } else if (banner && code === 'exists') {
+                banner.textContent = 'This shop is already set up. Please sign in.';
+            }
             if (banner) banner.classList.remove('hidden');
         }
 

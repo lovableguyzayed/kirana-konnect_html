@@ -194,6 +194,25 @@ def auth_signup():
         app.logger.error(f"Signup error: {e}")
         return jsonify({'success': False, 'error': 'Could not create the account'}), 500
 
+# --- Simple brute-force protection -------------------------------------------
+# Counts failed attempts per (action, key) in memory. Per worker process, so
+# with 2 gunicorn workers the effective limit is up to 2x; good enough to stop
+# password guessing without adding Redis or a new table.
+import time as _time
+_RATE_BUCKETS = {}
+
+def _rate_hit(action, key):
+    now = _time.time()
+    _RATE_BUCKETS.setdefault((action, key), []).append(now)
+
+def _rate_limited(action, key, limit, window):
+    now = _time.time()
+    hits = [t for t in _RATE_BUCKETS.get((action, key), []) if now - t < window]
+    _RATE_BUCKETS[(action, key)] = hits
+    if len(_RATE_BUCKETS) > 10000:  # bound memory
+        _RATE_BUCKETS.clear()
+    return len(hits) >= limit
+
 def _find_user(identifier):
     """Look up a user by email or 10-digit phone from a free-form identifier."""
     identifier = (identifier or '').strip().lower()
@@ -216,8 +235,12 @@ def auth_login():
     password = data.get('password') or ''
     if not identifier or not password:
         return jsonify({'success': False, 'error': 'Phone/email and password are required'}), 400
+    if _rate_limited('login', request.remote_addr, limit=10, window=900):
+        return jsonify({'success': False,
+                        'error': 'Too many wrong attempts. Please wait 15 minutes.'}), 429
     user = _find_user(identifier)
     if user is None or not user.check_password(password):
+        _rate_hit('login', request.remote_addr)
         return jsonify({'success': False, 'error': 'Incorrect phone/email or password'}), 401
     login_user(user, remember=bool(data.get('remember', True)))
     return jsonify({'success': True, 'shop_name': user.shop_name})
@@ -231,9 +254,12 @@ def form_login():
     cookie in every browser and in Android WebViews, so the dashboard opens
     instead of bouncing back to sign-in.
     """
+    if _rate_limited('login', request.remote_addr, limit=10, window=900):
+        return redirect(url_for('signin', error='locked'))
     user = _find_user(request.form.get('identifier'))
     password = request.form.get('password') or ''
     if user is None or not user.check_password(password):
+        _rate_hit('login', request.remote_addr)
         return redirect(url_for('signin', error='1'))
     login_user(user, remember=True)
     return redirect(url_for('dashboard'))
@@ -267,17 +293,31 @@ def form_signup():
 
 @app.route('/api/auth/reset-password', methods=['POST'])
 def auth_reset_password():
-    """Reset the owner's password by registered phone/email, then sign in.
+    """Reset the owner's password with a secret recovery code, then sign in.
 
-    Single-shop instance: the registered phone number is the recovery factor.
-    Lets a locked-out owner regain access without email/SMS infrastructure.
+    Knowing the shop's phone number is NOT enough: phone numbers are printed
+    on every bill. The owner must also enter the recovery code stored in the
+    OWNER_RESET_CODE environment variable on the server (Render dashboard ->
+    Environment). Until SMS OTP is added, this is the only safe way to let a
+    locked-out owner back in without email/SMS infrastructure.
     """
+    import hmac
     data = request.get_json() or {}
+    if _rate_limited('reset', request.remote_addr, limit=5, window=900):
+        return jsonify({'success': False,
+                        'error': 'Too many attempts. Please wait 15 minutes and try again.'}), 429
+    expected = os.environ.get('OWNER_RESET_CODE', '').strip()
+    if len(expected) < 6:
+        return jsonify({'success': False,
+                        'error': 'Password reset is not set up for this shop yet. '
+                                 'Please contact Kirana Konnect support.'}), 403
+    code = str(data.get('recovery_code') or '').strip()
     user = _find_user(data.get('identifier'))
     new_password = data.get('new_password') or ''
-    if user is None:
+    if user is None or not hmac.compare_digest(code.encode(), expected.encode()):
+        _rate_hit('reset', request.remote_addr)
         return jsonify({'success': False,
-                        'error': 'No account found for that phone/email'}), 404
+                        'error': 'Phone number or recovery code is wrong'}), 401
     if len(new_password) < 6:
         return jsonify({'success': False,
                         'error': 'New password must be at least 6 characters'}), 400
