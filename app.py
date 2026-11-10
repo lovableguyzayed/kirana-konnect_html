@@ -17,15 +17,38 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.units import inch
 from io import BytesIO
 
-# Configure logging for debugging
-logging.basicConfig(level=logging.DEBUG)
+# INFO in production; set LOG_LEVEL=DEBUG locally when needed. DEBUG logs can
+# leak customer names, phone numbers and amounts into the host's log store.
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 
 class Base(DeclarativeBase):
     pass
 
 # Create the Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-for-pricing-preview")
+# The session secret signs the login cookie. A well-known fallback would let
+# anyone forge a logged-in session, so if SESSION_SECRET is missing we use a
+# random per-boot key instead (users simply have to sign in again after a
+# restart) and log a loud warning.
+_session_secret = os.environ.get("SESSION_SECRET")
+if not _session_secret:
+    import secrets as _secrets
+    _session_secret = _secrets.token_hex(32)
+    logging.warning("SESSION_SECRET is not set - using a random key; "
+                    "everyone will be signed out on every restart.")
+app.secret_key = _session_secret
+# Cookie hardening: not readable by JS, not sent on cross-site POSTs, and
+# HTTPS-only when the app is served over HTTPS (Render). Locally over plain
+# HTTP set COOKIE_SECURE=0.
+_cookie_secure = os.environ.get("COOKIE_SECURE", "1" if os.environ.get("RENDER") else "0") == "1"
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=_cookie_secure,
+    REMEMBER_COOKIE_HTTPONLY=True,
+    REMEMBER_COOKIE_SAMESITE="Lax",
+    REMEMBER_COOKIE_SECURE=_cookie_secure,
+)
 
 # Render (and most hosts) terminate TLS at a reverse proxy; trust its headers
 # so Flask sees the real scheme/host for cookies and redirects.
@@ -116,8 +139,10 @@ def healthz():
         info['products'] = Product.query.count()
         info['account_exists'] = db.session.query(User.id).first() is not None
     except Exception as e:
+        # Don't echo raw DB errors (they can include host names) publicly.
+        app.logger.error(f"healthz DB check failed: {e}")
         info['database'] = 'ERROR'
-        info['database_error'] = str(e)[:200]
+
     return jsonify(info)
 
 @app.route('/api/auth/status')
