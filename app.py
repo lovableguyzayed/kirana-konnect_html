@@ -17,6 +17,71 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.units import inch
 from io import BytesIO
 
+# --- India time helpers -------------------------------------------------------
+# The database stores naive UTC timestamps (datetime.utcnow). Shop owners live
+# in IST (UTC+5:30), so "today", report ranges and printed dates must be
+# computed in IST - otherwise sales between 12:00 AM and 5:30 AM IST land on
+# the previous day.
+IST_OFFSET = timedelta(hours=5, minutes=30)
+
+def ist_now():
+    """Current India time as a naive datetime."""
+    return datetime.utcnow() + IST_OFFSET
+
+def ist_today():
+    return ist_now().date()
+
+def to_ist(dt_utc):
+    return dt_utc + IST_OFFSET if dt_utc else None
+
+def ist_day_start_utc(day):
+    """Naive-UTC instant at which the given IST calendar day begins."""
+    return datetime(day.year, day.month, day.day) - IST_OFFSET
+
+def utc_iso(dt_utc):
+    """ISO string marked as UTC so browsers convert it to local (IST) time."""
+    return dt_utc.isoformat() + 'Z' if dt_utc else None
+
+def ist_str(dt_utc, fmt='%d/%m/%Y %I:%M %p'):
+    return to_ist(dt_utc).strftime(fmt) if dt_utc else ''
+
+def inr(amount, decimals=2):
+    """Format rupees with Indian digit grouping: 125000 -> '₹1,25,000.00'."""
+    amount = float(amount or 0)
+    sign = '-' if amount < 0 else ''
+    whole, _, frac = f"{abs(amount):.{decimals}f}".partition('.')
+    if len(whole) > 3:
+        head, tail = whole[:-3], whole[-3:]
+        groups = []
+        while len(head) > 2:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            groups.insert(0, head)
+        whole = ','.join(groups + [tail])
+    return f"{sign}₹{whole}" + (f".{frac}" if decimals else '')
+
+def pdf_text(value):
+    """Escape user-entered text for ReportLab Paragraph markup (&, <, >)."""
+    from xml.sax.saxutils import escape
+    return escape(str(value or ''))
+
+def register_pdf_fonts():
+    """Register DejaVu (has the ₹ glyph); Helvetica prints ₹ as a black box."""
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    font_dir = os.path.join(app.root_path, 'static', 'vendor', 'fonts')
+    if 'DejaVu' not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf')))
+        pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf')))
+        registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
+                           italic='DejaVu', boldItalic='DejaVu-Bold')
+
+def sold_quantity(item):
+    """Quantity in stock units (kg for weight items, pieces otherwise)."""
+    return item.weight if item.weight else item.quantity
+
 # INFO in production; set LOG_LEVEL=DEBUG locally when needed. DEBUG logs can
 # leak customer names, phone numbers and amounts into the host's log store.
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
@@ -641,7 +706,7 @@ def check_expiring_products():
     """Check for products expiring soon and create summary notification"""
     try:
         from datetime import date, timedelta
-        expiry_threshold = date.today() + timedelta(days=7)
+        expiry_threshold = ist_today() + timedelta(days=7)
         
         expiring_products = Product.query.filter(
             Product.expiry_date.isnot(None),
@@ -657,7 +722,7 @@ def check_expiring_products():
             
             if not existing:
                 count = len(expiring_products)
-                expired_count = len([p for p in expiring_products if p.expiry_date <= date.today()])
+                expired_count = len([p for p in expiring_products if p.expiry_date <= ist_today()])
                 
                 if expired_count > 0:
                     create_notification(
@@ -1112,7 +1177,7 @@ def _parse_date(value):
 
 def _product_to_dict(product):
     is_low_stock = product.stock_quantity <= product.reorder_level
-    is_expired = bool(product.expiry_date and product.expiry_date < datetime.utcnow().date())
+    is_expired = bool(product.expiry_date and product.expiry_date < ist_today())
     return {
         'id': str(product.id),
         'name': product.name,
@@ -1322,11 +1387,13 @@ def search_customers_wrapped():
 @app.route('/api/dashboard/stats')
 def get_dashboard_stats():
     """Get dashboard statistics including today's profit"""
-    today = datetime.utcnow().date()
+    today = ist_today()
+    today_start = ist_day_start_utc(today)
     
-    # Calculate today's sales
+    # Calculate today's sales (IST calendar day)
     today_bills = Bill.query.filter(
-        db.func.date(Bill.created_at) == today,
+        Bill.created_at >= today_start,
+        Bill.created_at < today_start + timedelta(days=1),
         Bill.payment_status == 'paid'
     ).all()
     
@@ -1346,7 +1413,7 @@ def get_dashboard_stats():
                 # Use actual cost price from database
                 if product.is_weight_based and item.weight:
                     # For weight-based items, calculate based on weight
-                    item_cost = (product.cost_price / 1000) * item.weight if product.price_per_kg else product.cost_price * item.quantity
+                    item_cost = product.cost_price * item.weight
                 else:
                     # For regular items
                     item_cost = product.cost_price * item.quantity
@@ -1354,7 +1421,7 @@ def get_dashboard_stats():
                 total_revenue += item.total_price
             elif product:
                 # Fallback if cost price not set
-                item_cost = item.unit_price * 0.65 * item.quantity
+                item_cost = item.total_price * 0.65
                 actual_cost += item_cost
                 total_revenue += item.total_price
     
@@ -1363,7 +1430,8 @@ def get_dashboard_stats():
     # Get yesterday's sales for comparison
     yesterday = today - timedelta(days=1)
     yesterday_bills = Bill.query.filter(
-        db.func.date(Bill.created_at) == yesterday,
+        Bill.created_at >= today_start - timedelta(days=1),
+        Bill.created_at < today_start,
         Bill.payment_status == 'paid'
     ).all()
     
@@ -1379,13 +1447,13 @@ def get_dashboard_stats():
             product = Product.query.filter_by(name=item.item_name).first()
             if product and product.cost_price > 0:
                 if product.is_weight_based and item.weight:
-                    item_cost = (product.cost_price / 1000) * item.weight if product.price_per_kg else product.cost_price * item.quantity
+                    item_cost = product.cost_price * item.weight
                 else:
                     item_cost = product.cost_price * item.quantity
                 yesterday_cost += item_cost
                 yesterday_revenue += item.total_price
             elif product:
-                item_cost = item.unit_price * 0.65 * item.quantity
+                item_cost = item.total_price * 0.65
                 yesterday_cost += item_cost
                 yesterday_revenue += item.total_price
     
@@ -1500,19 +1568,53 @@ def create_bill():
             fields = missing + ([] if payment_mode else ['payment_mode'])
             return jsonify({'error': f"Missing required field(s): {', '.join(fields)}"}), 400
 
-        # Generate bill number
-        import random
-        bill_number = f"KK-{datetime.now().year}-{random.randint(1000, 9999)}"
+        # Validate money fields on the server - never trust the client blindly.
+        def _money(v):
+            v = float(v)
+            if v != v or v < 0 or v > 1e9:  # NaN / negative / absurd
+                raise ValueError
+            return round(v, 2)
+        try:
+            subtotal = _money(data['subtotal'])
+            tax_amount = _money(data.get('tax_amount') or 0)
+            discount_amount = _money(data.get('discount_amount') or 0)
+            total_amount = _money(data['total_amount'])
+            items_in = data.get('items') or []
+            if not isinstance(items_in, list):
+                raise ValueError
+            items_sum = 0.0
+            for it in items_in:
+                if not (it.get('name') or '').strip():
+                    raise ValueError
+                if float(it['quantity']) <= 0:
+                    raise ValueError
+                _money(it['unit_price'])
+                items_sum += _money(it['total_price'])
+        except (TypeError, ValueError, KeyError):
+            return jsonify({'error': 'Bill amounts or items are not valid'}), 400
+        if not items_in:
+            return jsonify({'error': 'Add at least one item to the bill'}), 400
+        # Totals must add up (1 rupee tolerance for rounding).
+        if abs(items_sum - subtotal) > 1 or abs(subtotal + tax_amount - discount_amount - total_amount) > 1:
+            return jsonify({'error': 'Bill totals do not add up. Please refresh the cart and try again.'}), 400
+        if payment_mode not in ('cash', 'online', 'upi', 'card', 'split', 'credit'):
+            return jsonify({'error': 'Unknown payment mode'}), 400
+        if data.get('customer_id') and not db.session.get(Customer, int(data['customer_id'])):
+            return jsonify({'error': 'Customer not found'}), 400
+
+        # Temporary unique number; replaced by a sequential one after flush.
+        import uuid
+        bill_number = 'TMP-' + uuid.uuid4().hex[:12]
 
         # Create the bill
         bill = Bill(
             bill_number=bill_number,
             customer_id=data.get('customer_id'),
             customer_name=data.get('customer_name'),
-            subtotal=data['subtotal'],
-            tax_amount=data.get('tax_amount', 0),
-            discount_amount=data.get('discount_amount', 0),
-            total_amount=data['total_amount'],
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            discount_amount=discount_amount,
+            total_amount=total_amount,
             payment_mode=payment_mode,
             payment_status='pending' if payment_mode == 'credit' else 'paid',
             generated_by=data.get('generated_by', 'System'),
@@ -1521,12 +1623,15 @@ def create_bill():
 
         db.session.add(bill)
         db.session.flush()  # Get the bill ID
+        # Sequential, collision-free bill number (the old random 4-digit
+        # number collided after ~100 bills a year and the sale was lost).
+        bill.bill_number = f"KK-{ist_now().year}-{bill.id:06d}"
 
         # Add bill items and decrement inventory for each sold product.
         # Items are matched to products by product_id when the client sends
         # one, falling back to an exact name match (the cart UI does not carry
         # product ids through to the bill payload).
-        for item_data in data.get('items', []):
+        for item_data in items_in:
             bill_item = BillItem(
                 bill_id=bill.id,
                 item_name=item_data['name'],
@@ -1558,7 +1663,7 @@ def create_bill():
             payment = Payment(
                 customer_id=data['customer_id'],
                 bill_id=bill.id,
-                amount=data['total_amount'],
+                amount=total_amount,
                 payment_mode=payment_mode,
                 reference_number=data.get('reference_number')
             )
@@ -1567,14 +1672,14 @@ def create_bill():
             # Send bill payment SMS if enabled
             customer = Customer.query.get(data['customer_id'])
             if customer and customer.phone:
-                send_bill_payment_sms(customer.phone, customer.name, data['total_amount'], bill.bill_number)
+                send_bill_payment_sms(customer.phone, customer.name, total_amount, bill.bill_number)
 
         # If credit purchase, send credit purchase SMS
         elif payment_mode == 'credit' and data.get('customer_id'):
             customer = Customer.query.get(data['customer_id'])
             if customer and customer.phone:
-                new_balance = customer.outstanding_balance + data['total_amount']
-                send_credit_purchase_sms(customer.phone, customer.name, data['total_amount'], new_balance)
+                new_balance = customer.outstanding_balance + total_amount
+                send_credit_purchase_sms(customer.phone, customer.name, total_amount, new_balance)
 
         db.session.commit()
 
@@ -1609,7 +1714,7 @@ def api_customer_ledger(customer_id):
             'bill_number': bill.bill_number,
             'amount': bill.total_amount,
             'payment_status': bill.payment_status,
-            'created_at': bill.created_at.strftime('%Y-%m-%d %H:%M'),
+            'created_at': ist_str(bill.created_at, '%Y-%m-%d %H:%M'),
             'items': [{'name': item.item_name, 'quantity': item.quantity, 'total': item.total_price} 
                      for item in bill.items]
         })
@@ -1620,7 +1725,7 @@ def api_customer_ledger(customer_id):
             'id': payment.id,
             'amount': payment.amount,
             'payment_mode': payment.payment_mode,
-            'created_at': payment.created_at.strftime('%Y-%m-%d %H:%M'),
+            'created_at': ist_str(payment.created_at, '%Y-%m-%d %H:%M'),
             'reference_number': payment.reference_number
         })
     
@@ -1658,7 +1763,7 @@ def api_get_bill(bill_number):
             'payment_mode': bill.payment_mode,
             'payment_status': bill.payment_status,
             'generated_by': bill.generated_by,
-            'created_at': bill.created_at.isoformat(),
+            'created_at': utc_iso(bill.created_at),
             'include_dates': bill.include_dates,
             'items': [{
                 'item_name': item.item_name,
@@ -1690,7 +1795,7 @@ def list_bills():
         'payment_mode': b.payment_mode,
         'payment_status': b.payment_status,
         'item_count': len(b.items),
-        'created_at': b.created_at.isoformat()
+        'created_at': utc_iso(b.created_at)
     } for b in bills]})
 
 @app.route('/api/staff', methods=['GET', 'POST'])
@@ -1743,7 +1848,7 @@ def customers_with_balance():
                 'address': c.address,
                 'created_at': c.created_at.strftime('%Y-%m-%d') if c.created_at else None,
                 'outstanding_balance': balance,
-                'last_credit_at': last_credit.created_at.isoformat() if last_credit else None
+                'last_credit_at': utc_iso(last_credit.created_at) if last_credit else None
             })
     result.sort(key=lambda x: x['outstanding_balance'], reverse=True)
     return jsonify({'customers': result})
@@ -1760,16 +1865,8 @@ def bill_pdf(bill_number):
     owner_phone = shop.phone if shop else ''
     gst = shop.gst_number if shop else None
 
-    # Register a bundled Unicode font so the rupee sign renders on any host.
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.pdfbase.pdfmetrics import registerFontFamily
-    font_dir = os.path.join(app.root_path, 'static', 'vendor', 'fonts')
-    if 'DejaVu' not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf')))
-        pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf')))
-        registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
-                           italic='DejaVu', boldItalic='DejaVu-Bold')
+    # Bundled Unicode font so the rupee sign renders on any host.
+    register_pdf_fonts()
 
     GREEN = colors.HexColor('#4CAF50')
     DARK = colors.HexColor('#333333')
@@ -1791,9 +1888,9 @@ def bill_pdf(bill_number):
     inv_style = ParagraphStyle('Inv', parent=styles['Normal'], fontSize=12, fontName='DejaVu',
                                textColor=colors.white, alignment=2)
     header_inner = Table([
-        [Paragraph(f"<b>{shop_name}</b>", shop_style),
+        [Paragraph(f"<b>{pdf_text(shop_name)}</b>", shop_style),
          Paragraph("<b>TAX INVOICE</b>" if gst else "<b>INVOICE</b>", inv_style)],
-        [Paragraph((f"GSTIN: {gst} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
+        [Paragraph((f"GSTIN: {pdf_text(gst)} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
          Paragraph(f"# {bill.bill_number}", inv_style)],
     ], colWidths=[4.5 * inch, 2.6 * inch])
     header_inner.setStyle(TableStyle([
@@ -1813,8 +1910,8 @@ def bill_pdf(bill_number):
     customer_phone = f"+91 {bill.customer.phone}" if bill.customer else ''
     meta = Table([
         [Paragraph('BILLED TO', label), Paragraph('DATE', label), Paragraph('PAYMENT', label)],
-        [Paragraph(f"<b>{customer_name}</b><br/>{customer_phone}", value),
-         Paragraph(bill.created_at.strftime('%d %b %Y, %I:%M %p'), value),
+        [Paragraph(f"<b>{pdf_text(customer_name)}</b><br/>{pdf_text(customer_phone)}", value),
+         Paragraph(ist_str(bill.created_at, '%d/%m/%Y, %I:%M %p'), value),
          Paragraph(f"{bill.payment_mode.title()} &bull; "
                    f"<font color='{'#4CAF50' if bill.payment_status == 'paid' else '#F44336'}'>"
                    f"<b>{bill.payment_status.upper()}</b></font>", value)],
@@ -1833,9 +1930,9 @@ def bill_pdf(bill_number):
     rows = [[Paragraph(h, head) for h in ('#', 'ITEM', 'QTY', 'RATE', 'AMOUNT')]]
     for i, item in enumerate(bill.items, 1):
         qty = f"{item.quantity:g} kg" if item.weight else f"{item.quantity:g}"
-        rows.append([Paragraph(str(i), cell), Paragraph(item.item_name, cell),
-                     Paragraph(qty, cell_r), Paragraph(f"₹{item.unit_price:,.2f}", cell_r),
-                     Paragraph(f"₹{item.total_price:,.2f}", cell_r)])
+        rows.append([Paragraph(str(i), cell), Paragraph(pdf_text(item.item_name), cell),
+                     Paragraph(qty, cell_r), Paragraph(inr(item.unit_price), cell_r),
+                     Paragraph(inr(item.total_price), cell_r)])
     items_table = Table(rows, colWidths=[0.4 * inch, 3.5 * inch, 0.9 * inch, 1.15 * inch, 1.15 * inch],
                         repeatRows=1)
     items_table.setStyle(TableStyle([
@@ -1854,13 +1951,13 @@ def bill_pdf(bill_number):
     tot_val = ParagraphStyle('TotV', parent=styles['Normal'], fontSize=10, textColor=DARK, alignment=2, fontName='DejaVu')
     grand_l = ParagraphStyle('GrL', parent=styles['Normal'], fontSize=13, alignment=2,
                              textColor=colors.white, fontName='DejaVu-Bold')
-    totals_rows = [[Paragraph('Subtotal', tot_lbl), Paragraph(f"₹{bill.subtotal:,.2f}", tot_val)]]
+    totals_rows = [[Paragraph('Subtotal', tot_lbl), Paragraph(inr(bill.subtotal), tot_val)]]
     if bill.tax_amount:
-        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(f"₹{bill.tax_amount:,.2f}", tot_val)])
+        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(inr(bill.tax_amount), tot_val)])
     if bill.discount_amount:
-        totals_rows.append([Paragraph('Discount', tot_lbl), Paragraph(f"- ₹{bill.discount_amount:,.2f}", tot_val)])
-    totals_rows.append([Paragraph('TOTAL', grand_l), Paragraph(f"₹{bill.total_amount:,.2f}", grand_l)])
-    totals = Table(totals_rows, colWidths=[1.6 * inch, 1.5 * inch], hAlign='RIGHT')
+        totals_rows.append([Paragraph('Discount', tot_lbl), Paragraph(f"- {inr(bill.discount_amount)}", tot_val)])
+    totals_rows.append([Paragraph('TOTAL', grand_l), Paragraph(inr(bill.total_amount), grand_l)])
+    totals = Table(totals_rows, colWidths=[1.4 * inch, 2.0 * inch], hAlign='RIGHT')
     totals.setStyle(TableStyle([
         ('BACKGROUND', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), GREEN),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
@@ -1875,7 +1972,7 @@ def bill_pdf(bill_number):
     foot = ParagraphStyle('Foot', parent=styles['Normal'], fontSize=9,
                           textColor=GREY, alignment=1, fontName='DejaVu')
     if bill.generated_by:
-        story.append(Paragraph(f"Billed by: {bill.generated_by}", foot))
+        story.append(Paragraph(f"Billed by: {pdf_text(bill.generated_by)}", foot))
     story.append(Spacer(1, 4))
     story.append(Paragraph("Thank you for shopping with us! &nbsp;&bull;&nbsp; "
                            "Goods once sold are not returnable.", foot))
@@ -1883,7 +1980,7 @@ def bill_pdf(bill_number):
     doc.build(story)
     buffer.seek(0)
     return send_file(buffer, mimetype='application/pdf', as_attachment=False,
-                     download_name=f"{bill.bill_number}.pdf")
+                     download_name=f"Invoice_{bill.bill_number}_{ist_str(bill.created_at, '%d-%b-%Y')}.pdf")
 
 @app.route('/api/payments', methods=['POST'])
 def create_payment():
@@ -1899,6 +1996,16 @@ def create_payment():
         
         if not customer_id or not amount:
             return jsonify({'error': 'Customer ID and amount are required'}), 400
+        try:
+            amount = round(float(amount), 2)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Amount must be a number'}), 400
+        if not (0 < amount <= 1e9):
+            return jsonify({'error': 'Amount must be more than ₹0'}), 400
+        if payment_mode not in ('cash', 'online', 'upi', 'card'):
+            payment_mode = 'cash'
+        if not db.session.get(Customer, int(customer_id)):
+            return jsonify({'error': 'Customer not found'}), 404
         
         # Create new payment record
         payment = Payment(
@@ -1922,6 +2029,7 @@ def create_payment():
         return jsonify({'message': 'Payment recorded successfully', 'payment_id': payment.id}), 201
         
     except Exception as e:
+        db.session.rollback()
         logging.error(f"Error creating payment: {str(e)}")
         return jsonify({'error': 'Failed to record payment'}), 500
 
@@ -1955,7 +2063,7 @@ def get_notifications():
                     'message': notif.message,
                     'type': notif.type,
                     'priority': notif.priority,
-                    'created_at': notif.created_at.isoformat(),
+                    'created_at': utc_iso(notif.created_at),
                     'time_ago': get_time_ago(notif.created_at)
                 })
             except Exception as item_error:
@@ -2203,8 +2311,8 @@ def api_sales_data():
         period = request.args.get('period', 'weekly')  # daily, weekly, monthly
         from datetime import datetime, timedelta
         
-        # Calculate date range based on period
-        today = datetime.now()
+        # Calculate date range based on period, in India time
+        today = ist_now()
         if period == 'daily':
             from_datetime = today.replace(hour=0, minute=0, second=0, microsecond=0)
             to_datetime = today.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -2222,11 +2330,11 @@ def api_sales_data():
             from_datetime = from_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
             to_datetime = today.replace(hour=23, minute=59, second=59, microsecond=999999)
         
-        # Build query for the period
+        # Build query for the period (DB stores UTC)
         query = Bill.query.filter(
             Bill.payment_status == 'paid',
-            Bill.created_at >= from_datetime,
-            Bill.created_at <= to_datetime
+            Bill.created_at >= from_datetime - IST_OFFSET,
+            Bill.created_at <= to_datetime - IST_OFFSET
         )
         
         bills = query.all()
@@ -2282,7 +2390,7 @@ def api_sales_data():
                 
                 if product:
                     # Calculate investment and profit for this item
-                    item_investment = (product.cost_price or 0) * item.quantity
+                    item_investment = (product.cost_price or 0) * sold_quantity(item)
                     item_profit = item.total_price - item_investment
                     
                     bill_investment += item_investment
@@ -2308,13 +2416,15 @@ def api_sales_data():
                             'product_id': product.id
                         }
                     top_selling_items[item_name]['amount'] += item.total_price
-                    top_selling_items[item_name]['quantity'] += item.quantity
+                    top_selling_items[item_name]['quantity'] += sold_quantity(item)
                     top_selling_items[item_name]['investment'] += item_investment
                     top_selling_items[item_name]['profit'] += item_profit
             
             # Add daily data for chart
+            local_dt = to_ist(bill.created_at)
             daily_data.append({
-                'date': bill.created_at.strftime('%Y-%m-%d'),
+                'date': local_dt.strftime('%Y-%m-%d'),
+                'hour_bucket': local_dt.strftime('%Y-%m-%d ') + f"{local_dt.hour // 4 * 4:02d}:00",
                 'investment': bill_investment,
                 'profit': bill_profit,
                 'revenue': bill.total_amount
@@ -2356,7 +2466,11 @@ def api_sales_data():
         
         # Fill with real data
         for data in daily_data:
-            date_key = data['date']
+            date_key = data['hour_bucket'] if period == 'daily' else data['date']
+            if period == 'monthly':
+                # Bucket into the latest weekly chart date on/before the sale
+                earlier = [d for d in chart_dates if d <= data['date']]
+                date_key = earlier[-1] if earlier else chart_dates[0]
             if date_key in chart_data:
                 chart_data[date_key]['investment'] += data['investment']
                 chart_data[date_key]['profit'] += data['profit']
@@ -2399,7 +2513,7 @@ def api_sales_data():
                 'amount': bill.total_amount,
                 'payment_mode': bill.payment_mode,
                 'payment_status': bill.payment_status,
-                'created_at': bill.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'created_at': ist_str(bill.created_at, '%Y-%m-%d %H:%M:%S')
             })
         
         # Calculate dynamic total combined investment 
@@ -2467,6 +2581,7 @@ def api_sales_data():
 def export_business_data():
     """Export comprehensive business data as PDF"""
     try:
+        register_pdf_fonts()
         # Create PDF buffer
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=0.75*inch, leftMargin=0.75*inch,
@@ -2483,7 +2598,7 @@ def export_business_data():
             spaceAfter=5,
             alignment=1,
             textColor=colors.HexColor('#2563eb'),
-            fontName='Helvetica-Bold'
+            fontName='DejaVu-Bold'
         )
         
         # Simple title style
@@ -2494,7 +2609,7 @@ def export_business_data():
             spaceAfter=15,
             alignment=1,
             textColor=colors.HexColor('#1f2937'),
-            fontName='Helvetica'
+            fontName='DejaVu'
         )
         
         # Clean section heading
@@ -2505,7 +2620,7 @@ def export_business_data():
             spaceAfter=10,
             spaceBefore=20,
             textColor=colors.HexColor('#1f2937'),
-            fontName='Helvetica-Bold',
+            fontName='DejaVu-Bold',
             backColor=colors.HexColor('#f8fafc'),
             borderWidth=1,
             borderColor=colors.HexColor('#e2e8f0'),
@@ -2521,7 +2636,7 @@ def export_business_data():
             parent=styles['Normal'],
             fontSize=10,
             textColor=colors.HexColor('#374151'),
-            fontName='Helvetica'
+            fontName='DejaVu'
         )
         
         # Simple summary style
@@ -2530,7 +2645,7 @@ def export_business_data():
             parent=styles['Normal'],
             fontSize=9,
             textColor=colors.HexColor('#6b7280'),
-            fontName='Helvetica',
+            fontName='DejaVu',
             alignment=1
         )
         
@@ -2539,17 +2654,18 @@ def export_business_data():
         
         # Professional Header with branding
         header_table = Table([
-            ['🏪 KIRANA KONNECT', 'Business Report'],
-            ['Your Store Management Solution', f'Generated: {datetime.now().strftime("%d-%m-%Y")}']
+            [((User.query.first().shop_name if User.query.first() else None) or 'Kirana Konnect').upper(), 'Business Report'],
+            ['Your Store Management Solution', f'Generated: {ist_now().strftime("%d/%m/%Y")}']
         ], colWidths=[3*inch, 3*inch])
         header_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2563eb')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (0, 0), 'DejaVu-Bold'),
             ('FONTSIZE', (0, 0), (0, 0), 16),
-            ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, 0), 'DejaVu-Bold'),
             ('FONTSIZE', (1, 0), (1, 0), 14),
-            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
+            ('FONTNAME', (0, 1), (-1, 1), 'DejaVu'),
             ('FONTSIZE', (0, 1), (-1, 1), 10),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -2579,16 +2695,17 @@ def export_business_data():
         
         summary_data = [
             ['Total Products in Store', str(total_products)],
-            ['Money Invested', f'₹{total_investment:,.0f}'],
-            ['Total Sales Made', f'₹{total_sales:,.0f}'],
+            ['Money Invested', inr(total_investment, 0)],
+            ['Total Sales Made', inr(total_sales, 0)],
             ['Number of Customers', str(total_customers)],
-            ['Money to Collect', f'₹{total_outstanding:,.0f}']
+            ['Money to Collect', inr(total_outstanding, 0)]
         ]
         
         summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
         summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -2611,22 +2728,23 @@ def export_business_data():
             
             for product in products[:20]:  # Show only first 20 products for simplicity
                 product_name = product.name[:25] + '...' if len(product.name) > 25 else product.name
-                buy_price = product.price if product.price else 0
+                buy_price = product.cost_price or 0
                 sell_price = product.price if product.price else 0
                 
                 inventory_data.append([
                     product_name,
-                    f"₹{buy_price:.0f}",
-                    f"₹{sell_price:.0f}",
+                    inr(buy_price, 0),
+                    inr(sell_price, 0),
                     str(product.stock_quantity)
                 ])
             
             inventory_table = Table(inventory_data, colWidths=[3*inch, 1.2*inch, 1.2*inch, 1*inch])
             inventory_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTSIZE', (0, 1), (-1, -1), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -2660,16 +2778,17 @@ def export_business_data():
                 bills_data.append([
                     bill.bill_number,
                     customer_name,
-                    f"₹{bill.total_amount:,.0f}",
-                    bill.created_at.strftime('%d-%m-%Y')
+                    inr(bill.total_amount, 0),
+                    ist_str(bill.created_at, '%d/%m/%Y')
                 ])
             
             bills_table = Table(bills_data, colWidths=[1.8*inch, 2*inch, 1.2*inch, 1.4*inch])
             bills_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTSIZE', (0, 1), (-1, -1), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -2686,7 +2805,7 @@ def export_business_data():
                 story.append(Paragraph(f"Showing recent 15 out of {len(bills)} total sales", summary_style))
                 
             story.append(Spacer(1, 15))
-            story.append(Paragraph(f"Total Sales Made: ₹{sum([b.total_amount for b in bills]):,.0f}", normal_style))
+            story.append(Paragraph("Total Sales Made: " + inr(sum([b.total_amount for b in bills]), 0), normal_style))
         else:
             story.append(Paragraph("No sales found", normal_style))
         
@@ -2705,15 +2824,16 @@ def export_business_data():
                 customer_data.append([
                     customer_name,
                     customer.phone,
-                    f"₹{outstanding:,.0f}" if outstanding > 0 else "Paid"
+                    inr(outstanding, 0) if outstanding > 0 else "Paid"
                 ])
             
             customer_table = Table(customer_data, colWidths=[2.5*inch, 1.8*inch, 1.5*inch])
             customer_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTSIZE', (0, 1), (-1, -1), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -2730,7 +2850,7 @@ def export_business_data():
                 story.append(Paragraph(f"Showing 15 out of {len(customers)} customers", summary_style))
                 
             story.append(Spacer(1, 15))
-            story.append(Paragraph(f"Total Money to Collect: ₹{sum([c.outstanding_balance for c in customers]):,.0f}", normal_style))
+            story.append(Paragraph("Total Money to Collect: " + inr(sum([c.outstanding_balance for c in customers]), 0), normal_style))
         else:
             story.append(Paragraph("No customers found", normal_style))
         
@@ -2740,14 +2860,15 @@ def export_business_data():
         # Footer with company branding
         footer_table = Table([
             ['Thank you for using Kirana Konnect', 'Report End'],
-            ['© 2024 Kirana Konnect Inc.', f'Page Generated: {datetime.now().strftime("%d-%m-%Y")}']
+            ['© 2024 Kirana Konnect Inc.', f'Page Generated: {ist_now().strftime("%d/%m/%Y")}']
         ], colWidths=[3*inch, 3*inch])
         footer_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 11),
-            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
+            ('FONTNAME', (0, 1), (-1, 1), 'DejaVu'),
             ('FONTSIZE', (0, 1), (-1, 1), 8),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -2767,7 +2888,7 @@ def export_business_data():
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f'kirana_business_data_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf',
+            download_name=f'Business_Report_{ist_now().strftime("%d-%b-%Y")}.pdf',
             mimetype='application/pdf'
         )
         
@@ -2841,7 +2962,7 @@ def api_expired_products():
     try:
         from datetime import date, timedelta
         
-        today = date.today()
+        today = ist_today()
         next_week = today + timedelta(days=7)
         
         # Get expired products
@@ -2863,7 +2984,7 @@ def api_expired_products():
                 'id': product.id,
                 'name': product.name,
                 'price': product.price,
-                'expiry_date': product.expiry_date.strftime('%d-%m-%Y'),
+                'expiry_date': product.expiry_date.strftime('%d/%m/%Y'),
                 'status': 'expired',
                 'days_info': f"Expired {days_expired} days ago",
                 'level': 'critical',
@@ -2878,7 +2999,7 @@ def api_expired_products():
                 'id': product.id,
                 'name': product.name,
                 'price': product.price,
-                'expiry_date': product.expiry_date.strftime('%d-%m-%Y'),
+                'expiry_date': product.expiry_date.strftime('%d/%m/%Y'),
                 'status': 'expiring',
                 'days_info': f"Expires in {days_to_expire} days",
                 'level': 'low',
