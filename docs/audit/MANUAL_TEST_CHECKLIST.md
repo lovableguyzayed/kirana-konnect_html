@@ -11,6 +11,16 @@ Tick each on a real phone after deploying this branch.
 - [ ] Sign in works; after **10 wrong passwords** you see "Too many wrong attempts" (wait 15 min).
 - [ ] Forgot password: wrong code → refused; right code → you are signed in.
 
+## SMS OTP (after MSG91 + DLT are ready)
+- [ ] Render: `SMS_PROVIDER=msg91`, `MSG91_AUTHKEY`, `MSG91_OTP_TEMPLATE_ID` set. Sign-in shows "Login with OTP".
+- [ ] OTP arrives on Jio, Airtel, Vi and BSNL within 30-90 s; wrong OTP 3 times shows "tries left"; Resend unlocks after 30 s.
+- [ ] Forgot Password → "Get OTP on my mobile" → new password works.
+- [ ] Never leave `SMS_PROVIDER=console` on the live server (it writes codes to the log).
+
+## Staff mode & Hindi
+- [ ] Profile → Turn on staff mode → set PIN → profit shows 🔒, Profile/Reports are blocked, billing still works; badge → PIN unlocks.
+- [ ] Sign-in → Preferred Language → हिंदी: menus, buttons and messages in Hindi at max font size.
+
 ## Core shop flows (on a budget Android, e.g. Redmi 3 GB)
 - [ ] Empty cart shows "Cart is empty" (no ready-made items).
 - [ ] Scan → add → Generate Bill → receipt shows bill number like `KK-2026-000123` and today's IST date/time.

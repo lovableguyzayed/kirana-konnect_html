@@ -25,8 +25,9 @@ Local run: `DATABASE_URL=sqlite:///kk.db SESSION_SECRET=x gunicorn app:app --bin
 - [x] KK-013..018 fake OTP/receipt/alarms/profile/password/dashboard links
 - [x] KK-019 Android target API 36 + CI fix (APK build passed, run #15)
 - [x] Round 2 ("do it now"): D1, D3, D4, D5, D7, D8, D9, D10 + KK-022, KK-037–040 done
-- [ ] Still open: D2 SMS OTP, D6 Hindi UI, D11 staff PINs, D12 schema migration, KK-023/025/027/028
+- [x] Round 3 ("do it"): D2 SMS OTP (off until keys), D6 Hindi, D11 staff mode, D12 additive schema, KK-023/025/028/041-046
+- [ ] Still open: per-product GST rate, KK-027 escape all innerHTML, KK-032 N+1 queries, real-device checks
 - [x] KK-022, KK-029 built (owner said go ahead); KK-028 toasts still open
 ## Phase 4
 - [x] MANUAL_TEST_CHECKLIST.md
-- [x] tests: `pytest tests` (14 passing); PDFs: `python docs/audit/tools/check_pdfs.py`
+- [x] tests: `pytest tests` (18 passing); PDFs: `python docs/audit/tools/check_pdfs.py`

@@ -259,7 +259,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-07-21-formauth-migration"
+APP_VERSION = "2026-11-10-audit-round3"
 
 @app.route('/healthz')
 def healthz():
