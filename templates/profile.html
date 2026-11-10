@@ -502,6 +502,9 @@
                 <i class="fa-solid fa-sign-out-alt mr-2"></i>
                 Logout
             </button>
+            <a href="/account-deletion" class="block w-full text-center text-red-600 py-3 mt-3 font-medium underline">
+                Delete my shop account
+            </a>
         </div>
     </main>
 
@@ -678,18 +681,11 @@
                         <div class="bg-blue-50 rounded-lg p-4">
                             <h3 class="font-semibold text-dark mb-2">Contact Support</h3>
                             <div class="space-y-2 text-sm">
-                                <div class="flex items-center space-x-2">
-                                    <i class="fa-solid fa-phone text-blue-600"></i>
-                                    <span>+91 9876543210</span>
-                                </div>
-                                <div class="flex items-center space-x-2">
-                                    <i class="fa-solid fa-envelope text-blue-600"></i>
-                                    <span>support@kiranakonnect.com</span>
-                                </div>
-                                <div class="flex items-center space-x-2">
+                                <!-- Was a dummy number/email; real contacts live on /contact (SUPPORT_* env vars). -->
+                                <a href="/contact" class="flex items-center space-x-2 py-2">
                                     <i class="fa-brands fa-whatsapp text-green-600"></i>
-                                    <span>WhatsApp Support</span>
-                                </div>
+                                    <span class="font-medium">Call / WhatsApp / Email support</span>
+                                </a>
                             </div>
                         </div>
                         
@@ -765,8 +761,8 @@
                     <div class="space-y-2 text-xs text-gray-500">
                         <p>© 2024 Kirana Konnect. All rights reserved.</p>
                         <div class="flex justify-center space-x-4">
-                            <a href="#" class="hover:text-primary">Privacy Policy</a>
-                            <a href="#" class="hover:text-primary">Terms of Service</a>
+                            <a href="/privacy" class="hover:text-primary">Privacy Policy</a>
+                            <a href="/terms" class="hover:text-primary">Terms of Service</a>
                         </div>
                     </div>
                 </div>

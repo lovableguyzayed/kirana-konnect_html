@@ -1,0 +1,10 @@
+{% if support.phone or support.whatsapp or support.email %}
+<ul style="list-style:none;padding:0">
+    {% if support.name %}<li>{{ support.name }}</li>{% endif %}
+    {% if support.whatsapp %}<li>WhatsApp: <a href="https://wa.me/91{{ support.whatsapp }}">+91 {{ support.whatsapp }}</a></li>{% endif %}
+    {% if support.phone %}<li>Call: <a href="tel:+91{{ support.phone }}">+91 {{ support.phone }}</a></li>{% endif %}
+    {% if support.email %}<li>Email: <a href="mailto:{{ support.email }}">{{ support.email }}</a></li>{% endif %}
+</ul>
+{% else %}
+<p class="muted">Support contact details are being set up.</p>
+{% endif %}

@@ -78,3 +78,38 @@ def test_change_password_and_profile(flask_app):  # KK-016 / KK-017
     st = c.get('/api/auth/status').get_json()
     assert st['owner_name'] == 'R. K. Sharma' and st['gst_number'] == '27ABCDE1234F1Z5'
     assert c.put('/api/auth/profile', json={'owner_name': 'x', 'phone': '12345', 'shop_name': 'y'}).status_code == 400
+
+
+def test_public_pages(client):  # D7
+    for url in ('/privacy', '/terms', '/contact', '/account-deletion'):
+        r = client.get(url)
+        assert r.status_code == 200, url
+    assert b'Aadhaar' in client.get('/privacy').data
+
+
+def test_account_deletion_wipes_everything(tmp_path):  # D1 - run on its own DB
+    import subprocess, sys, os, textwrap
+    code = textwrap.dedent('''
+        import os, sys
+        os.environ['DATABASE_URL'] = 'sqlite:///' + sys.argv[1]
+        os.environ['SESSION_SECRET'] = 'x'
+        sys.path.insert(0, sys.argv[2])
+        import app as A
+        c = A.app.test_client()
+        c.post('/signup', data={'owner_name': 'Del', 'phone': '9000000001', 'password': 'secret123', 'shop_name': 'S'})
+        with A.app.app_context():
+            assert A.Product.query.count() > 0
+        assert c.post('/account-deletion', data={'identifier': '9000000001', 'password': 'bad', 'confirm': 'DELETE'}).status_code == 401
+        assert c.post('/account-deletion', data={'identifier': '9000000001', 'password': 'secret123', 'confirm': 'no'}).status_code == 400
+        r = c.post('/account-deletion', data={'identifier': '9000000001', 'password': 'secret123', 'confirm': 'delete'})
+        assert r.status_code == 200 and b'have been deleted' in r.data
+        with A.app.app_context():
+            for m in (A.User, A.Product, A.Bill, A.Customer, A.Payment, A.Staff):
+                assert m.query.count() == 0, m
+        assert c.get('/dashboard').status_code == 302
+        print('OK')
+    ''')
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    out = subprocess.run([sys.executable, '-c', code, str(tmp_path / 'd.db'), root],
+                         capture_output=True, text=True)
+    assert out.stdout.strip().endswith('OK'), out.stderr[-2000:]

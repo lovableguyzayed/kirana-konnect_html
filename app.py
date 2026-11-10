@@ -174,7 +174,8 @@ def load_user(user_id):
 PUBLIC_ENDPOINTS = {
     'static', 'index', 'pricing', 'splash', 'signin', 'signup',
     'auth_login', 'auth_signup', 'auth_status', 'logout',
-    'form_login', 'form_signup', 'healthz', 'auth_reset_password'
+    'form_login', 'form_signup', 'healthz', 'auth_reset_password',
+    'privacy', 'terms', 'contact', 'account_deletion'
 }
 
 @app.before_request
@@ -444,6 +445,74 @@ def auth_change_password():
     current_user.set_password(new_password)
     db.session.commit()
     return jsonify({'success': True})
+
+# --- Public policy, help and account-deletion pages ----------------------------
+# Google Play needs a public privacy policy URL and an account-deletion page
+# that works without installing the app. Support contacts come from env vars
+# so the owner can fill them in on Render without a code change.
+POLICY_UPDATED = '10/11/2026'
+
+def _support():
+    digits = lambda v: ''.join(ch for ch in (v or '') if ch.isdigit())[-10:]
+    return {'name': os.environ.get('SUPPORT_NAME', '').strip(),
+            'phone': digits(os.environ.get('SUPPORT_PHONE')),
+            'whatsapp': digits(os.environ.get('SUPPORT_WHATSAPP')),
+            'email': os.environ.get('SUPPORT_EMAIL', '').strip()}
+
+@app.route('/privacy')
+def privacy():
+    return render_template('public_page.html', page='privacy', title='Privacy Policy',
+                           updated=POLICY_UPDATED, support=_support())
+
+@app.route('/terms')
+def terms():
+    return render_template('public_page.html', page='terms', title='Terms of Use',
+                           updated=POLICY_UPDATED, support=_support())
+
+@app.route('/contact')
+def contact():
+    return render_template('public_page.html', page='contact', title='Help & Contact',
+                           support=_support())
+
+def delete_all_shop_data():
+    """Erase the shop: this is a single-shop instance, so every table goes."""
+    for model in (Notification, Payment, BillItem, Bill, Customer, Product,
+                  Staff, NotificationSettings, User):
+        model.query.delete(synchronize_session=False)
+    db.session.commit()
+
+@app.route('/account-deletion', methods=['GET', 'POST'])
+def account_deletion():
+    """Delete the account and all shop data after password + 'DELETE'."""
+    ctx = dict(page='deletion', title='Delete Account', support=_support(),
+               signed_in=current_user.is_authenticated)
+    if request.method == 'GET':
+        if current_user.is_authenticated:
+            ctx['identifier'] = current_user.phone
+        return render_template('public_page.html', **ctx)
+    identifier = request.form.get('identifier', '')
+    ctx['identifier'] = identifier
+    if _rate_limited('delete', request.remote_addr, limit=5, window=900):
+        ctx['error'] = 'Too many attempts. Please wait 15 minutes and try again.'
+        return render_template('public_page.html', **ctx), 429
+    user = _find_user(identifier)
+    if user is None or not user.check_password(request.form.get('password') or ''):
+        _rate_hit('delete', request.remote_addr)
+        ctx['error'] = 'Mobile number/email or password is wrong.'
+        return render_template('public_page.html', **ctx), 401
+    if (request.form.get('confirm') or '').strip().upper() != 'DELETE':
+        ctx['error'] = 'Please type DELETE in the last box to confirm.'
+        return render_template('public_page.html', **ctx), 400
+    try:
+        logout_user()
+        delete_all_shop_data()
+        app.logger.info("Shop account and data deleted on owner request")
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Account deletion failed: {e}")
+        ctx['error'] = 'Could not delete right now. Please try again or contact us.'
+        return render_template('public_page.html', **ctx), 500
+    return render_template('public_page.html', **dict(ctx, done=True, signed_in=False))
 
 @app.route('/logout')
 def logout():
