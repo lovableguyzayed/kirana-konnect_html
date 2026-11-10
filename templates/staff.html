@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance - Kirana Konnect</title>
+    <title>My Team - Kirana Konnect</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
@@ -34,10 +34,10 @@
                 <i class="fa-solid fa-arrow-left text-gray-600 text-lg"></i>
             </button>
             <div class="text-center">
-                <h1 class="text-lg font-semibold text-dark">Attendance</h1>
+                <h1 class="text-lg font-semibold text-dark">My Team</h1>
                 <p class="text-xs text-gray-500">Kirana Konnect</p>
             </div>
-            <button onclick="showFilterModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+            <button onclick="showFilterModal()" class="p-2 hover:bg-gray-100 rounded-lg" hidden style="display:none">
                 <i class="fa-solid fa-filter text-primary text-lg"></i>
             </button>
         </div>
@@ -70,6 +70,10 @@
             </div>
         </div>
 
+        <!-- Attendance (date, summary, present/absent lists, clock-in) was a
+             static demo with made-up staff and buttons that only said "would be
+             implemented". Hidden until real attendance exists (audit KK-025). -->
+        <div id="attendance-demo" hidden aria-hidden="true" style="display:none">
         <!-- Date Selector -->
         <div class="bg-white px-4 py-3 border-b border-gray-100">
             <div class="flex items-center justify-between">
@@ -269,6 +273,7 @@
                     </button>
                 </div>
             </div>
+        </div>
         </div>
     </main>
 

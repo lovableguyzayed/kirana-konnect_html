@@ -1277,8 +1277,10 @@ def sales_report():
 
 @app.route('/settings')
 def settings():
-    """Serve the settings page"""
-    return render_template('settings.html')
+    """The old Settings page was not linked from anywhere and almost every
+    control on it was fake (buttons only logged to the console). Profile is
+    the real settings screen (notifications, language, password, account)."""
+    return redirect(url_for('profile'))
 
 @app.route('/refill-stock')
 def refill_stock():
