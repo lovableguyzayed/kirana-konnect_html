@@ -176,3 +176,20 @@ def test_sms_otp_login_and_reset(flask_app, owner, monkeypatch):  # D2
     r = c2.post('/api/auth/otp/verify', json={'phone': owner['phone'], 'purpose': 'reset', 'code': sent['code'],
                                               'new_password': owner['password']})
     assert r.status_code == 200
+
+
+def test_staff_mode_locks_owner_screens(flask_app, owner):  # D11
+    c = flask_app.test_client()
+    c.post('/signin', data={'identifier': owner['phone'], 'password': owner['password']})
+    assert c.post('/api/staff-mode/lock', json={}).get_json().get('need_pin')
+    assert c.post('/api/staff-mode/lock', json={'pin': '4321'}).status_code == 200
+    assert c.get('/profile').status_code == 302 and 'locked=1' in c.get('/profile').location
+    assert c.get('/api/sales-data').status_code == 403
+    assert c.get('/export-business-data').status_code == 302
+    assert c.delete('/api/products/1').status_code == 403
+    stats = c.get('/api/dashboard/stats').get_json()
+    assert stats['today_profit'] is None and stats['actual_cost'] is None
+    assert _bill(c).status_code == 201            # billing still works
+    assert c.post('/api/staff-mode/unlock', json={'pin': '0000'}).status_code == 400
+    assert c.post('/api/staff-mode/unlock', json={'pin': '4321'}).status_code == 200
+    assert c.get('/profile').status_code == 200

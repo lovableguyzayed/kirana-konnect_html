@@ -497,6 +497,23 @@
             </div>
         </div>
 
+        <!-- Staff mode: lock owner-only screens before handing the phone to staff -->
+        <div id="staff-mode-section" class="bg-white mt-2 px-4 py-4">
+            <h3 class="text-lg font-semibold text-dark mb-1">Staff mode</h3>
+            <p class="text-sm text-gray-600 mb-3">Giving the phone to a worker? Lock profit, reports, prices and settings with your PIN. Billing, refill and udhar still work.</p>
+            <button type="button" onclick="KK.lockStaffMode(window.KK_OWNER_PIN_SET)" class="w-full bg-gray-800 text-white py-3 rounded-lg font-medium">
+                <i class="fa-solid fa-lock mr-2"></i>Turn on staff mode
+            </button>
+            <button type="button" onclick="document.getElementById('pin-reset-form').classList.toggle('hidden')" class="w-full text-primary py-3 mt-1 font-medium underline">Change / forgot owner PIN</button>
+            <form id="pin-reset-form" class="hidden space-y-2" onsubmit="resetOwnerPin(event)">
+                <label for="pin-reset-password" class="block text-sm font-medium text-dark">Account password</label>
+                <input id="pin-reset-password" type="password" autocomplete="current-password" required class="w-full px-3 py-3 border border-gray-300 rounded-lg">
+                <label for="pin-reset-pin" class="block text-sm font-medium text-dark">New owner PIN (4-6 digits)</label>
+                <input id="pin-reset-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" required class="w-full px-3 py-3 border border-gray-300 rounded-lg">
+                <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-medium">Save PIN</button>
+            </form>
+        </div>
+
         <!-- Logout Button -->
         <div id="logout-section" class="px-4 py-4">
             <button class="w-full bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors" onclick="logout()">
@@ -1703,6 +1720,7 @@
                 .then(r => r.json())
                 .then(u => {
                     if (!u.authenticated) return;
+                    window.KK_OWNER_PIN_SET = !!u.owner_pin_set;
                     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
                     set('editName', u.owner_name); set('editPhone', u.phone); set('editEmail', u.email);
                     set('editShopName', u.shop_name); set('editGST', u.gst_number); set('editUdyam', u.udyam_number);
@@ -2665,6 +2683,24 @@
         function closeLanguageModal() {
             document.getElementById('languageModal').classList.add('hidden');
             document.body.style.overflow = 'auto';
+        }
+
+        function resetOwnerPin(e) {
+            e.preventDefault();
+            const password = document.getElementById('pin-reset-password').value;
+            const pin = document.getElementById('pin-reset-pin').value.replace(/\D/g, '');
+            fetch('/api/staff-mode/reset-pin', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                 body: JSON.stringify({ password, pin }) })
+                .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                .then(({ ok, d }) => {
+                    if (ok && d.success) {
+                        window.KK_OWNER_PIN_SET = true;
+                        document.getElementById('pin-reset-form').reset();
+                        document.getElementById('pin-reset-form').classList.add('hidden');
+                        alert('Owner PIN saved.');
+                    } else alert(d.error || 'Could not save the PIN.');
+                })
+                .catch(() => alert('No internet. PIN was NOT changed.'));
         }
 
         function selectLanguage(language) {

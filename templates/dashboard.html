@@ -1074,6 +1074,20 @@
             return '₹' + v.toLocaleString('en-IN', frac ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
         };
 
+        // Big amounts (₹1,24,830 / ₹10,00,00,000) shrink instead of running into
+        // the card icon on small phones.
+        window.fitAmount = function (id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.fontSize = '';
+            el.style.overflow = 'hidden';
+            let size = parseFloat(getComputedStyle(el).fontSize) || 24;
+            while (el.scrollWidth > el.clientWidth && size > 13) {
+                size -= 1;
+                el.style.fontSize = size + 'px';
+            }
+        };
+
         // Report and ledger button handlers
         // These buttons used to pop "feature coming soon!" even though the
         // screens exist (and then navigated anyway). Route them directly.
@@ -1322,9 +1336,10 @@
                 const stats = await response.json();
                 
                 // Update Today's Profit
-                document.getElementById('today-profit').textContent = inrAmount(stats.today_profit);
+                document.getElementById('today-profit').textContent = stats.today_profit === null ? '🔒' : inrAmount(stats.today_profit); fitAmount('today-profit');
                 const profitGrowthElement = document.getElementById('profit-growth');
-                const growth = parseFloat(stats.profit_growth);
+                window.KK_STAFF_MODE = !!stats.staff_mode;
+                const growth = stats.staff_mode ? 0 : parseFloat(stats.profit_growth);
                 
                 if (growth > 0) {
                     profitGrowthElement.textContent = `+${growth.toFixed(1)}% from yesterday`;
@@ -1339,14 +1354,18 @@
                     profitGrowthElement.className = 'text-xs text-gray-600 mt-1 flex items-center';
                     profitGrowthElement.innerHTML = `<i class="fa-solid fa-minus mr-1"></i>No change from yesterday`;
                 }
+                if (stats.staff_mode) {
+                    profitGrowthElement.className = 'text-xs text-gray-600 mt-1';
+                    profitGrowthElement.textContent = 'Owner only';
+                }
                 
                 // Update Total Sales
-                document.getElementById('total-sales').textContent = inrAmount(stats.total_sales);
+                document.getElementById('total-sales').textContent = inrAmount(stats.total_sales); fitAmount('total-sales');
                 document.getElementById('transaction-count').textContent = `${stats.transaction_count} transactions`;
                 
                 // Update Udhar Ledger
                 document.getElementById('customers-with-credit').textContent = `${stats.customers_with_credit} Customers`;
-                document.getElementById('outstanding-amount').textContent = inrAmount(stats.outstanding_amount);
+                document.getElementById('outstanding-amount').textContent = inrAmount(stats.outstanding_amount); fitAmount('outstanding-amount');
                 
                 // Update Inventory
                 document.getElementById('total-products').textContent = `${stats.total_products} Items`;
@@ -1363,6 +1382,7 @@
 
         // Today's Profit click handler
         function showTodaysProfit() {
+            if (window.KK_STAFF_MODE) { KK.unlockStaffMode(); return; }
             const modal = document.createElement('div');
             modal.id = 'profit-modal';
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';

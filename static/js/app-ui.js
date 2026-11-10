@@ -78,6 +78,11 @@
         // messages
         'No internet. Changes may not be saved.': 'इंटरनेट नहीं है। बदलाव सेव नहीं होंगे।',
         'Back online': 'इंटरनेट वापस आ गया',
+        'OK': 'ठीक है', 'Staff mode · Unlock': 'स्टाफ़ मोड · खोलें',
+        'Enter owner PIN to unlock': 'खोलने के लिए मालिक का PIN डालें',
+        'Choose a 4-6 digit owner PIN': '4-6 अंकों का मालिक PIN चुनें', 'Wrong PIN': 'PIN गलत है',
+        'Owner PIN needed for that screen.': 'इस स्क्रीन के लिए मालिक का PIN चाहिए।',
+        'Staff mode': 'स्टाफ़ मोड',
         'Profile saved.': 'प्रोफ़ाइल सेव हो गई।',
         'The cart is empty. Add items before generating a bill.': 'कार्ट ख़ाली है। बिल बनाने से पहले सामान जोड़ें।',
         'Network error - the bill was not generated.': 'इंटरनेट नहीं है - बिल नहीं बना।',
@@ -163,6 +168,67 @@
     window.alert = function (message) { toast(message); };
     window.KK = { toast: toast, setLang: setLang, lang: getLang, t: t };
 
+
+    // ---------------------------------------------------------------- staff mode
+    function pinSheet(title, onSubmit) {
+        var wrap = document.createElement('div');
+        wrap.setAttribute('role', 'dialog');
+        wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483002;display:flex;align-items:flex-end';
+        wrap.innerHTML = '<form style="background:#fff;width:100%;border-radius:16px 16px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px));font:16px Inter,system-ui,sans-serif">' +
+            '<h3 style="margin:0 0 12px;font-size:18px"></h3>' +
+            '<input type="password" inputmode="numeric" autocomplete="off" maxlength="6" aria-label="PIN" style="width:100%;box-sizing:border-box;font-size:26px;letter-spacing:.5em;text-align:center;padding:12px;border:1px solid #9AA5B1;border-radius:12px">' +
+            '<p class="kk-pin-err" role="alert" style="color:#B71C1C;min-height:20px;margin:8px 0"></p>' +
+            '<button type="submit" style="width:100%;min-height:52px;border:0;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700;font-size:17px">' + t('OK') + '</button>' +
+            '<button type="button" class="kk-pin-cancel" style="width:100%;min-height:48px;margin-top:8px;border:0;background:none;font-size:16px">' + t('Cancel') + '</button></form>';
+        wrap.querySelector('h3').textContent = t(title);
+        var input = wrap.querySelector('input'), err = wrap.querySelector('.kk-pin-err');
+        wrap.querySelector('.kk-pin-cancel').onclick = function () { wrap.remove(); };
+        wrap.querySelector('form').onsubmit = function (e) {
+            e.preventDefault();
+            onSubmit(input.value.replace(/\D/g, ''), function (msg) { err.textContent = t(msg || ''); input.value = ''; input.focus(); },
+                     function () { wrap.remove(); });
+        };
+        document.body.appendChild(wrap);
+        input.focus();
+    }
+    function postJSON(url, body) {
+        return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+                            body: JSON.stringify(body || {}) })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { d._ok = r.ok; return d; }); });
+    }
+    function unlockStaffMode() {
+        pinSheet('Enter owner PIN to unlock', function (pin, fail, done) {
+            postJSON('/api/staff-mode/unlock', { pin: pin }).then(function (d) {
+                if (d._ok && d.success) { done(); location.reload(); } else fail(d.error || 'Wrong PIN');
+            }).catch(function () { fail('No internet. Please try again.'); });
+        });
+    }
+    function lockStaffMode(pinAlreadySet) {
+        function go(pin, fail, done) {
+            postJSON('/api/staff-mode/lock', pin ? { pin: pin } : {}).then(function (d) {
+                if (d._ok && d.success) { if (done) done(); location.href = '/dashboard'; }
+                else if (d.need_pin) { pinSheet('Choose a 4-6 digit owner PIN', go); }
+                else if (fail) fail(d.error); else toast(d.error || 'Could not turn on staff mode', 'error');
+            });
+        }
+        if (pinAlreadySet) go(null); else pinSheet('Choose a 4-6 digit owner PIN', function (pin, fail, done) {
+            if (pin.length < 4) { fail('PIN must be 4 to 6 digits'); return; }
+            go(pin, fail, done);
+        });
+    }
+    function staffBanner() {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.id = 'kk-staff-banner';
+        b.style.cssText = 'position:fixed;left:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:2147482999;white-space:nowrap;' +
+            'background:#263238;color:#fff;border:0;border-radius:999px;padding:8px 14px;min-height:40px;font:600 14px Inter,system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+        b.textContent = '🔒 ' + t('Staff mode · Unlock');
+        b.onclick = unlockStaffMode;
+        document.body.appendChild(b);
+    }
+    window.KK.lockStaffMode = lockStaffMode;
+    window.KK.unlockStaffMode = unlockStaffMode;
+
     // ---------------------------------------------------------------- offline
     function offlineBanner(show) {
         var b = document.getElementById('kk-offline');
@@ -211,6 +277,14 @@
             picker.addEventListener('change', function () { setLang(picker.value); });
         }
         if (navigator.onLine === false) offlineBanner(true);
+        if (!/^\/(signin|signup|login|privacy|terms|contact|account-deletion|splash)?$/.test(location.pathname)) {
+            fetch('/api/auth/status', { cache: 'no-store', credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (st) {
+                    if (st.staff_mode) staffBanner();
+                    if (st.staff_mode && /[?&]locked=1/.test(location.search)) toast('Owner PIN needed for that screen.', 'error');
+                }).catch(function () {});
+        }
         window.addEventListener('offline', function () { offlineBanner(true); });
         window.addEventListener('online', function () { offlineBanner(false); });
     });

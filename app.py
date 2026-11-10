@@ -195,6 +195,7 @@ class User(UserMixin, db.Model):
     udyam_number = db.Column(db.String(30))
     # Added Nov 2026; created on existing databases by _ensure_schema_columns.
     shop_address = db.Column(db.Text)
+    owner_pin_hash = db.Column(db.String(256))  # staff-mode unlock PIN
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -222,10 +223,41 @@ def require_login():
     if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
         return None
     if current_user.is_authenticated:
-        return None
+        return _enforce_staff_mode()
     if request.path.startswith('/api/'):
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
     return redirect(url_for('signin'))
+
+# --- Staff mode ---------------------------------------------------------------
+# Owner and staff share one login on the shop phone. In staff mode (turned on
+# by the owner, unlocked only with the owner PIN) the server refuses
+# owner-only screens and actions: profit and reports, profile/password,
+# account deletion, data export, team changes, deleting products and editing
+# prices. Billing, stock refill and collecting udhar keep working.
+STAFF_BLOCKED_PAGES = {'profile', 'sales_report', 'staff', 'settings', 'export_business_data',
+                       'account_deletion'}
+STAFF_BLOCKED_API = {
+    ('api_sales_data', 'GET'), ('auth_update_profile', 'PUT'), ('auth_change_password', 'POST'),
+    ('staff_api', 'POST'), ('staff_delete', 'DELETE'), ('delete_product', 'DELETE'),
+    ('update_product', 'PUT'), ('update_product', 'PATCH'), ('seed_demo_data', 'POST'),
+    ('seed_demo_data', 'GET'), ('update_notification_settings_api', 'POST'),
+}
+
+def staff_mode_on():
+    from flask import session
+    return bool(session.get('staff_mode'))
+
+def _enforce_staff_mode():
+    if not staff_mode_on():
+        return None
+    if (request.endpoint, request.method) in STAFF_BLOCKED_API:
+        return jsonify({'success': False, 'staff_mode': True,
+                        'error': 'Owner PIN needed. Ask the shop owner to unlock.'}), 403
+    if request.endpoint in STAFF_BLOCKED_PAGES:
+        if request.path.startswith('/api/'):
+            return jsonify({'success': False, 'staff_mode': True, 'error': 'Owner PIN needed.'}), 403
+        return redirect(url_for('dashboard', locked=1))
+    return None
 
 APP_VERSION = "2026-07-21-formauth-migration"
 
@@ -257,6 +289,8 @@ def auth_status():
         'account_exists': db.session.query(User.id).first() is not None,
         'authenticated': current_user.is_authenticated,
         'otp_enabled': otp_enabled(),
+        'staff_mode': current_user.is_authenticated and staff_mode_on(),
+        'owner_pin_set': bool(current_user.is_authenticated and current_user.owner_pin_hash),
         'shop_name': current_user.shop_name if current_user.is_authenticated else None,
         'owner_name': current_user.owner_name if current_user.is_authenticated else None
     }
@@ -687,6 +721,49 @@ def account_deletion():
         ctx['error'] = 'Could not delete right now. Please try again or contact us.'
         return render_template('public_page.html', **ctx), 500
     return render_template('public_page.html', **dict(ctx, done=True, signed_in=False))
+
+@app.route('/api/staff-mode/lock', methods=['POST'])
+def staff_mode_lock():
+    """Turn staff mode on. First time, the owner chooses a 4-6 digit PIN."""
+    from flask import session
+    data = request.get_json() or {}
+    pin = str(data.get('pin') or '').strip()
+    user = current_user
+    if not user.owner_pin_hash:
+        if not (pin.isdigit() and 4 <= len(pin) <= 6):
+            return jsonify({'success': False, 'need_pin': True,
+                            'error': 'Choose a 4 to 6 digit owner PIN first.'}), 400
+        user.owner_pin_hash = generate_password_hash(pin)
+        db.session.commit()
+    session['staff_mode'] = True
+    return jsonify({'success': True})
+
+@app.route('/api/staff-mode/unlock', methods=['POST'])
+def staff_mode_unlock():
+    from flask import session
+    if _rate_limited('pin', current_user.id, limit=5, window=900):
+        return jsonify({'success': False, 'error': 'Too many wrong PINs. Please wait 15 minutes.'}), 429
+    pin = str((request.get_json() or {}).get('pin') or '').strip()
+    if not current_user.owner_pin_hash or not check_password_hash(current_user.owner_pin_hash, pin):
+        _rate_hit('pin', current_user.id)
+        return jsonify({'success': False, 'error': 'Wrong PIN'}), 400
+    session.pop('staff_mode', None)
+    return jsonify({'success': True})
+
+@app.route('/api/staff-mode/reset-pin', methods=['POST'])
+def staff_mode_reset_pin():
+    """Forgot the PIN: the account password sets a new one (owner only)."""
+    data = request.get_json() or {}
+    if staff_mode_on():
+        return jsonify({'success': False, 'error': 'Unlock first, or sign out and sign in again.'}), 403
+    if not current_user.check_password(data.get('password') or ''):
+        return jsonify({'success': False, 'error': 'Password is wrong'}), 400
+    pin = str(data.get('pin') or '').strip()
+    if not (pin.isdigit() and 4 <= len(pin) <= 6):
+        return jsonify({'success': False, 'error': 'PIN must be 4 to 6 digits'}), 400
+    current_user.owner_pin_hash = generate_password_hash(pin)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/logout')
 def logout():
@@ -1786,10 +1863,11 @@ def get_dashboard_stats():
     low_stock_products = len([p for p in all_products if p.stock_quantity <= p.reorder_level])
     
     return jsonify({
-        'today_profit': round(today_profit, 2),
-        'profit_growth': round(profit_growth, 1),
+        'today_profit': None if staff_mode_on() else round(today_profit, 2),
+        'profit_growth': None if staff_mode_on() else round(profit_growth, 1),
+        'staff_mode': staff_mode_on(),
         'total_sales': round(total_sales, 2),
-        'actual_cost': round(actual_cost, 2),
+        'actual_cost': None if staff_mode_on() else round(actual_cost, 2),
         'total_revenue': round(total_revenue, 2),
         'transaction_count': transaction_count,
         'outstanding_amount': round(total_outstanding, 2),
