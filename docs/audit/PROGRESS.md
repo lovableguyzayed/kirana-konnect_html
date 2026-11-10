@@ -23,7 +23,7 @@ Local run: `DATABASE_URL=sqlite:///kk.db SESSION_SECRET=x gunicorn app:app --bin
 - [x] KK-011 login rate limiting
 - [x] KK-012 .replit runs insecure mock app (main.py)
 - [x] KK-013..018 fake OTP/receipt/alarms/profile/password/dashboard links
-- [x] KK-019 Android target API 36 + CI fix (check GitHub Actions result)
+- [x] KK-019 Android target API 36 + CI fix (APK build passed, run #15)
 - [ ] Waiting on decisions D1–D12 (see report §5)
 - [ ] Visual batch 1 previews (KK-022 ledger payment, KK-028 toasts, KK-029 FAB overlap)
 ## Phase 4

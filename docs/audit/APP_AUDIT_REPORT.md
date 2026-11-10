@@ -31,7 +31,7 @@
 | 7 | "Change password" and "Edit profile" said *success* but saved nothing; profile showed a stranger's details and fake GSTIN (KK-016/017) | P1 | Fixed, Verified |
 | 8 | Business-report PDF printed every ₹ as ■ and showed sell price as buy price; invoice PDF crashed on names with `<` (KK-007/008) | P1 | Fixed, Verified |
 | 9 | Dates/"today" computed in UTC → sales 12:00–5:30 AM IST counted on the wrong day; profit for loose (kg) items wrong (KK-009/010) | P1 | Fixed |
-| 10 | No in-app **account deletion**, no privacy policy URL; Android shell targeted API 35 (Play needs 36 since 31 Aug 2026) | P0 for store | Target API fixed (CI check pending); deletion **needs your decision** |
+| 10 | No in-app **account deletion**, no privacy policy URL; Android shell targeted API 35 (Play needs 36 since 31 Aug 2026) | P0 for store | Target API fixed (APK builds in CI); deletion **needs your decision** |
 
 ---
 
@@ -139,7 +139,7 @@ Severity: P0 Blocker · P1 Critical · P2 Major · P3 Minor · P4 Polish. Person
 | KK-016 | Profile | `profile.html:1725` | Change password: fake success | All | P1 | `/api/auth/change-password` (needs current pw) | S | ✅ Fixed, test |
 | KK-017 | Profile | `profile.html:1733`, 551-582 | Edit profile not saved; page shows "Rajesh"/fake GSTIN, so GSTIN never reaches invoices | A | P1 | Load real data; `PUT /api/auth/profile` | S | ✅ Fixed, test |
 | KK-018 | Dashboard | `dashboard.html:1070` | Report buttons "coming soon"; fixed counts "10 items", "5 items" | R | P2 | Real links & counts | S | ✅ Fixed |
-| KK-019 | Android | `mobile/config.xml`, CI | Target API 35 (Play needs 36 since 31 Aug 2026); `loglevel DEBUG`; CI `setup-android@v3` broken | — | P0 store | cordova-android 15.1, SDK 36, CI uses runner SDK | S | ✅ Done, **CI result pending** |
+| KK-019 | Android | `mobile/config.xml`, CI | Target API 35 (Play needs 36 since 31 Aug 2026); `loglevel DEBUG`; CI `setup-android@v3` broken | — | P0 store | cordova-android 15.1, SDK 36, CI uses runner SDK | S | ✅ Done; APK builds in CI (run #15) |
 | KK-020 | Compliance | — | **No account deletion** (in-app or web link): Play requirement for apps with sign-up | All | P0 store | Add "Delete my shop account" + public web form | M | ⏳ D1 |
 | KK-021 | Compliance | `profile.html:767`, signup modals | Privacy Policy link is `#`; Terms/Privacy only in signup pop-ups; no public URL for Play listing; no grievance contact (DPDP) | All | P1 | Public `/privacy`, `/terms`, contact page | M | ⏳ D7 (needs your text) |
 | KK-022 | Ledger | `customer_ledger.html:390, 501` | "Add payment" / "Add customer with credit" = coming soon (Pending Credits → Collect works) | R | P2 | Wire to `/api/payments`, `/api/customers` | S | Open (needs preview) |
