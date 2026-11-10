@@ -130,3 +130,22 @@ def test_hindi_names_use_devanagari_font(auth):  # D8
                               'total_price': 100}]).get_json()['bill_number']
     data = auth.get(f'/api/bills/{num}/pdf').data
     assert data[:4] == b'%PDF' and b'NotoSansDevanagari' in data
+
+
+def test_customer_phone_validation(auth):  # D12
+    assert auth.post('/api/customers', json={'name': 'A', 'phone': '12345'}).status_code == 400
+    r = auth.post('/api/customers', json={'name': 'Sita Devi', 'phone': '+91 93333-33333'})
+    assert r.status_code == 200
+    dup = auth.post('/api/customers', json={'name': 'Sita D', 'phone': '09333333333'})
+    assert dup.status_code == 409 and dup.get_json()['existing_name'] == 'Sita Devi'
+
+
+def test_shop_address_saved_and_on_invoice(auth):  # D12
+    auth.put('/api/auth/profile', json={'owner_name': 'Ramesh', 'phone': '9876543210', 'shop_name': 'Ramesh General Store',
+                                        'shop_address': 'Near Hanuman Mandir, Sitapur'})
+    assert auth.get('/api/auth/status').get_json()['shop_address'] == 'Near Hanuman Mandir, Sitapur'
+    num = _bill(auth).get_json()['bill_number']
+    from pypdf import PdfReader
+    import io
+    text = PdfReader(io.BytesIO(auth.get(f'/api/bills/{num}/pdf').data)).pages[0].extract_text()
+    assert 'Hanuman Mandir' in text

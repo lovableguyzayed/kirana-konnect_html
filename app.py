@@ -193,6 +193,8 @@ class User(UserMixin, db.Model):
     shop_name = db.Column(db.String(150), nullable=False)
     gst_number = db.Column(db.String(20))
     udyam_number = db.Column(db.String(30))
+    # Added Nov 2026; created on existing databases by _ensure_schema_columns.
+    shop_address = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -261,6 +263,7 @@ def auth_status():
         payload['gst_number'] = current_user.gst_number
         payload['email'] = current_user.email
         payload['udyam_number'] = current_user.udyam_number
+        payload['shop_address'] = current_user.shop_address
     return jsonify(payload)
 
 @app.route('/api/auth/signup', methods=['POST'])
@@ -459,6 +462,8 @@ def auth_update_profile():
         user.owner_name, user.shop_name, user.phone, user.email = owner_name, shop_name, phone, email
         user.gst_number = gst
         user.udyam_number = (data.get('udyam_number') or '').strip() or None
+        if 'shop_address' in data:
+            user.shop_address = (data.get('shop_address') or '').strip()[:300] or None
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -1695,12 +1700,24 @@ def create_customer():
     try:
         data = request.get_json()
         
-        if not data or not data.get('name') or not data.get('phone'):
+        if not data or not (data.get('name') or '').strip() or not data.get('phone'):
             return jsonify({'error': 'Name and phone are required'}), 400
+        # Accept +91 / 0 / spaces / dashes; store the 10-digit mobile.
+        phone = ''.join(ch for ch in str(data['phone']) if ch.isdigit())
+        if len(phone) == 12 and phone.startswith('91'):
+            phone = phone[2:]
+        elif len(phone) == 11 and phone.startswith('0'):
+            phone = phone[1:]
+        if len(phone) != 10 or phone[0] not in '6789':
+            return jsonify({'error': 'Enter a valid 10-digit mobile number'}), 400
+        existing = Customer.query.filter(Customer.phone.in_([phone, '+91 ' + phone, '+91' + phone])).first()
+        if existing:
+            return jsonify({'error': f'{existing.name} already uses this number',
+                            'existing_id': existing.id, 'existing_name': existing.name}), 409
         
         customer = Customer(
-            name=data['name'],
-            phone=data['phone'],
+            name=data['name'].strip(),
+            phone=phone,
             address=data.get('address', ''),
             # Aadhaar is not needed for udhar and is sensitive personal data
             # under the DPDP Act - no longer stored (audit D10).
@@ -2060,7 +2077,8 @@ def bill_pdf(bill_number):
     header_inner = Table([
         [Paragraph(f"<b>{pdf_text(shop_name)}</b>", shop_style),
          Paragraph("<b>TAX INVOICE</b>" if gst else "<b>INVOICE</b>", inv_style)],
-        [Paragraph((f"GSTIN: {pdf_text(gst)} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
+        [Paragraph((f"{pdf_text(shop.shop_address)}<br/>" if shop and shop.shop_address else "")
+                   + (f"GSTIN: {pdf_text(gst)} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
          Paragraph(f"# {bill.bill_number}", inv_style)],
     ], colWidths=[4.5 * inch, 2.6 * inch])
     header_inner.setStyle(TableStyle([
