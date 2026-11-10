@@ -17,7 +17,7 @@
 ### Release-readiness verdict
 **Before this audit: not safe to release.** Anyone who knew the owner's phone number (printed on every bill) could take over the shop account. The empty cart billed fake items. Refill could add stock to the wrong product.
 
-**After the fixes on this branch (rounds 2–3, 10 Nov 2026):** SMS OTP (switched off until configured), Hindi, staff mode and offline messages are also in. core shop flows are trustworthy, and the Play-Store blockers in the code are done (account deletion, privacy/terms pages, target API 36). **Before publishing, you still need to:** fill in support contacts on Render, check the policy text, decide on SMS OTP, and run the real-phone checks in `MANUAL_TEST_CHECKLIST.md`.
+**After the fixes on this branch (rounds 1–3, 10 Nov 2026):** core shop flows are trustworthy, and the Play Store blockers in the code are done (account deletion, privacy/terms pages, target API 36). SMS OTP, Hindi, staff mode and offline messages are also built; SMS OTP stays switched off until you add MSG91 details. **Before publishing, you still need to:** fill in support contacts and MSG91 details on Render, check the policy text, and run the real-phone checks in `MANUAL_TEST_CHECKLIST.md`.
 
 ### Top 10 issues (all fixed on this branch unless marked)
 | # | Issue | Severity | Status |
@@ -60,14 +60,14 @@
 | Screen | Route | File | Status (after fixes) |
 |---|---|---|---|
 | Splash | `/`, `/splash` | splash.html | Working |
-| Pricing plans | `/pricing` (public) | index.html | **Placeholder**: prices blank, "Choose" buttons do nothing, "Save 90%" vs "Save ₹149" contradict |
-| Sign in | `/signin` | signin.html | Working (OTP + language picker hidden: they were fake) |
-| Forgot password (modal) | in signin | signin.html | Working (now needs recovery code) |
+| Pricing plans | `/pricing` (public) | index.html | Hidden: redirects to sign-in (prices were blank, buttons dead) |
+| Sign in | `/signin` | signin.html | Working: password; Login with OTP once SMS is set up; English/हिंदी picker |
+| Forgot password (modal) | in signin | signin.html | Working: OTP (when SMS set up) or recovery code |
 | Sign up | `/signup` | signup.html | Working (first account only: single-shop design) |
-| Dashboard | `/dashboard` | dashboard.html | Working (links fixed) |
+| Dashboard | `/dashboard` | dashboard.html | Working (links, counts, Indian number format; profit locked in staff mode) |
 | Cart / POS | `/cart` | cart.html | Working (demo items removed) |
 | Receipt | `/receipt?bill=` | receipt.html | Working |
-| Bill generate | `/bill-generate` | bill_generate.html | Partly: scrapes cart from page HTML (older flow; cart → receipt is the main path) |
+| Bill generate | `/bill-generate` | (deleted) | Removed: old fake checkout; now opens the cart |
 | Inventory | `/inventory` | inventory.html | Working |
 | Add item | `/add-item` | add_item.html | Working |
 | Product details (unit / weight) | `/product-details`, `/product-details-weight` | product_details*.html | Working |
@@ -75,33 +75,35 @@
 | Low stock | `/low-stock` | low_stock.html | Working |
 | Expiry alert | `/expiry-alert` | expiry_alert.html | Working |
 | Pending credits (udhar) | `/pending-credits` | pending_credits.html | Working |
-| Customer ledger | `/customer-ledger?id=` | customer_ledger.html | Partly: "Add customer with credit" and "Add Payment" say *coming soon* (`customer_ledger.html:390, 501`) |
+| Customer ledger | `/customer-ledger` | customer_ledger.html | Working: history sheet, Collect payment |
 | Sales report | `/sales-report` | sales_report.html | Working (only counts *paid* bills; see KK-024) |
 | Notifications | `/notifications` | notifications.html | Working (fake alerts removed) |
-| Profile | `/profile` | profile.html | Working (now real data, saves); address not stored (no DB column) |
-| Settings | `/settings` | settings.html | Partly: several toggles visual-only; "Privacy settings" only logs to console (`settings.html:488`) |
-| Staff | `/staff` | staff.html | Partly: team list real; attendance/date buttons say "would be implemented" (`staff.html:309-321`) |
+| Profile | `/profile` | profile.html | Working: real data, saves (incl. shop address), language, staff mode, delete account |
+| Settings | `/settings` | (deleted) | Removed: was unreachable and fake; opens Profile |
+| Staff | `/staff` | staff.html | Working: "My Team" list; fake attendance hidden |
 
 ### 2.3 Action inventory (main actions; ✔ works · ✖ broken/fake before · ⚠ still open)
 | Screen | Action | Before | Now |
 |---|---|---|---|
 | Sign in | Sign In | ✔ | ✔ + lockout after 10 wrong tries |
-| Sign in | Login with OTP | ✖ no SMS; any 6 digits "verified" | Hidden (decision D2) |
-| Sign in | Preferred language | ✖ did nothing | Hidden (decision D6) |
-| Sign in | Forgot password | ✖ takeover with phone only | ✔ needs recovery code |
+| Sign in | Login with OTP | ✖ no SMS; any 6 digits "verified" | ✔ real SMS OTP (shows once MSG91 is set up) |
+| Sign in | Preferred language | ✖ did nothing | ✔ English / हिंदी |
+| Sign in | Forgot password | ✖ takeover with phone only | ✔ OTP or recovery code |
 | Dashboard | Daily Reports | ✖ "coming soon" | ✔ opens Sales report |
 | Dashboard | Udhar / Low stock / Expiring | ✖ alert then navigate | ✔ navigate |
 | Cart | Generate Bill | ✔ (but fake items possible) | ✔ |
-| Cart | Add Tax | ⚠ adds **18% GST on everything**, even without GSTIN | ⚠ decision D4 |
+| Cart | Add Tax | ⚠ adds **18% GST on everything**, even without GSTIN | ✔ off by default; needs GSTIN; 5/12/18% per bill |
 | Receipt | Download PDF / Share / Print | ✔ | ✔ |
 | Refill | Add Stock | ✖ could hit wrong product | ✔ |
 | Profile | Edit profile / Change password | ✖ fake success | ✔ saved |
 | Profile | Export business data (PDF) | ✖ ₹ boxes, wrong buy price | ✔ |
-| Profile | Privacy Policy link | ✖ `href="#"` (`profile.html:767`) | ⚠ needs a real page (D7) |
-| Customer ledger | Add payment / add customer with credit | ✖ "coming soon" | ⚠ open (KK-022) |
-| Settings | Privacy settings, several toggles | ✖ do nothing | ⚠ open (KK-023) |
-| Staff | Attendance prev/next/monthly | ✖ "would be implemented" | ⚠ open (KK-025) |
-| Pricing | Choose Monthly/Yearly | ✖ nothing | ⚠ decision D3 |
+| Profile | Privacy Policy link | ✖ `href="#"` | ✔ opens /privacy |
+| Customer ledger | View details / Add payment | ✖ "Not found" / "coming soon" | ✔ history sheet + Collect |
+| Settings | Privacy settings, several toggles | ✖ do nothing | ✔ page removed; Profile switches save |
+| Staff | Attendance prev/next/monthly | ✖ "would be implemented" | ✔ hidden (not built) |
+| Pricing | Choose Monthly/Yearly | ✖ nothing | ✔ page hidden |
+| Profile | Turn on staff mode | — (new) | ✔ owner PIN locks owner-only screens |
+| Profile | Delete my shop account | — (missing) | ✔ /account-deletion |
 
 ### 2.4 PDF inventory
 | PDF | Source | Used from | Status |
