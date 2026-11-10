@@ -96,7 +96,7 @@
             <div id="bill-section" class="mt-3">
                 <div class="text-center mb-3">
                     <p class="text-xs text-gray-600">Bill No:</p>
-                    <p class="text-lg font-bold text-primary">#KK-2025-001</p>
+                    <p class="text-sm font-medium text-gray-500">Given after the bill is saved</p>
                 </div>
                 <div class="border-t pt-3">
                     <p class="text-xs text-gray-600 mb-2">Add name to bill (optional):</p>
@@ -380,64 +380,9 @@
 
     <script>
         // Cart items storage
-        let cartItems = [
-            {
-                id: 1,
-                name: 'Aashirvaad Atta',
-                quantity: 10,
-                unit: 'Kg',
-                price: 450,
-                mfgDate: '01/05/2025',
-                expDate: '01/09/2025',
-                showDates: true
-            },
-            {
-                id: 2,
-                name: 'Real Fruit Juice',
-                quantity: 2,
-                unit: 'Bottles',
-                price: 120,
-                mfgDate: '12/05/2025',
-                expDate: '25/07/2025',
-                showDates: true
-            },
-            {
-                id: 3,
-                name: 'Colgate Paste',
-                quantity: 3,
-                unit: 'Pieces',
-                price: 90,
-                showDates: false
-            },
-            {
-                id: 4,
-                name: 'Good Day Biscuits',
-                quantity: 5,
-                unit: 'Packets',
-                price: 60,
-                mfgDate: '10/04/2025',
-                expDate: '10/08/2025',
-                showDates: true
-            },
-            {
-                id: 5,
-                name: 'Surf Excel (500gm)',
-                quantity: 1,
-                unit: 'Packet',
-                price: 55,
-                showDates: false
-            },
-            {
-                id: 6,
-                name: 'Dabur Honey',
-                quantity: 1,
-                unit: 'Bottle',
-                price: 180,
-                mfgDate: '05/03/2025',
-                expDate: '05/01/2026',
-                showDates: true
-            }
-        ];
+        // Cart starts EMPTY. (It used to start with 6 hard-coded demo items, which
+        // reappeared every time the cart was emptied and could be billed for real.)
+        let cartItems = [];
 
         let currentTab = 'billing';
         let taxEnabled = true;
@@ -450,7 +395,7 @@
                 const saved = localStorage.getItem('kiranakonnect_persistent_cart');
                 if (saved) {
                     const items = JSON.parse(saved);
-                    if (items.length > 0) {
+                    if (Array.isArray(items)) {
                         cartItems = items;
                     }
                 }
@@ -503,6 +448,15 @@
         function renderCart() {
             const container = document.getElementById('cart-items');
             container.innerHTML = '';
+
+            if (cartItems.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-sm p-6 text-center">
+                        <i class="fa-solid fa-cart-shopping text-gray-300 text-4xl mb-3"></i>
+                        <p class="font-semibold text-dark">Cart is empty</p>
+                        <p class="text-sm text-gray-600 mt-1">Tap "Add More Items to Cart" below or scan a barcode.</p>
+                    </div>`;
+            }
 
             cartItems.forEach((item, index) => {
                 const itemDiv = document.createElement('div');
