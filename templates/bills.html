@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Bills - Kirana Konnect</title>
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
+    <style>
+        :root { --brand: #2E7D32; --ink: #1F2933; --muted: #52606D; --line: #E4E7EB; --bg: #F5F7F5; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.4 Inter, system-ui, sans-serif; }
+        header { position: sticky; top: 0; z-index: 20; background: #fff; border-bottom: 1px solid var(--line); }
+        .top { display: flex; align-items: center; gap: 4px; padding: 8px 8px 4px; }
+        .top h1 { font-size: 19px; margin: 0; flex: 1; }
+        .icon-btn { min-width: 48px; min-height: 48px; border: 0; background: none; font-size: 20px; color: var(--ink); border-radius: 24px; }
+        .search { margin: 0 12px 8px; position: relative; }
+        .search input { width: 100%; font-size: 16px; padding: 12px 12px 12px 40px; border: 1px solid #CBD2D9; border-radius: 12px; background: #fff; }
+        .search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+        .chips { display: flex; gap: 8px; padding: 0 12px 10px; overflow-x: auto; scrollbar-width: none; }
+        .chip { flex: 0 0 auto; min-height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #CBD2D9; background: #fff; font-weight: 600; font-size: 14px; color: var(--ink); }
+        .chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+        main { padding: 12px; }
+        .summary { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; margin: 0 4px 8px; }
+        .bill { display: flex; gap: 12px; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 10px; text-decoration: none; color: inherit; }
+        .bill .ic { width: 44px; height: 44px; border-radius: 12px; background: #E8F5E9; color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .bill .mid { flex: 1; min-width: 0; }
+        .bill .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bill .meta { color: var(--muted); font-size: 13px; }
+        .bill .amt { text-align: right; font-weight: 800; white-space: nowrap; }
+        .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-top: 4px; }
+        .b-paid { background: #E8F5E9; color: #1B5E20; } .b-pending, .b-partial { background: #FDECEA; color: #B71C1C; }
+        .b-cancelled { background: #ECEFF1; color: #546E7A; text-decoration: line-through; }
+        .skeleton { height: 70px; border-radius: 14px; margin-bottom: 10px; background: linear-gradient(90deg,#eceff1 25%,#f5f7f8 37%,#eceff1 63%); background-size: 400% 100%; animation: sk 1.2s ease infinite; }
+        @keyframes sk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+        .empty { text-align: center; padding: 40px 16px; color: var(--muted); }
+        .empty i { font-size: 40px; color: #CFD8DC; display: block; margin-bottom: 10px; }
+        .more { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid #CBD2D9; background: #fff; font-weight: 700; }
+    </style>
+</head>
+<body>
+<header>
+    <div class="top">
+        <a class="icon-btn" href="/dashboard" aria-label="Back" style="display:inline-flex;align-items:center;justify-content:center"><i class="fa-solid fa-arrow-left"></i></a>
+        <h1>All Bills</h1>
+        <a class="icon-btn" href="/export/bills.csv" aria-label="Download bills (Excel)" title="Download (Excel)" style="display:inline-flex;align-items:center;justify-content:center"><i class="fa-solid fa-file-csv"></i></a>
+    </div>
+    <div class="search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input id="q" type="search" placeholder="Bill no., customer name or phone" aria-label="Search bills" autocomplete="off">
+    </div>
+    <div class="chips" role="group" aria-label="Filter">
+        <button class="chip" data-f="today" aria-pressed="true">Today</button>
+        <button class="chip" data-f="all" aria-pressed="false">All</button>
+        <button class="chip" data-f="udhar" aria-pressed="false">Udhar</button>
+        <button class="chip" data-f="paid" aria-pressed="false">Paid</button>
+        <button class="chip" data-f="cancelled" aria-pressed="false">Cancelled</button>
+    </div>
+</header>
+<main>
+    <div class="summary"><span id="count"></span><span id="sum"></span></div>
+    <div id="list"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    <button id="more" class="more" hidden>Load more</button>
+</main>
+{% include '_nav.html' %}
+<script>
+(function () {
+    const state = { f: 'today', q: '', page: 1, pages: 1, total: 0, sum: 0, loading: false };
+    const list = document.getElementById('list');
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const when = iso => new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' });
+    const LABEL = { paid: 'Paid', pending: 'Udhar', partial: 'Part paid', cancelled: 'Cancelled' };
+    try { const saved = sessionStorage.getItem('kk_bills_filter'); if (saved) state.f = saved; } catch (e) {}
+
+    function params() {
+        const p = new URLSearchParams({ page: state.page, per_page: 30 });
+        if (state.q) p.set('q', state.q);
+        if (state.f === 'today') p.set('day', 'today');
+        else if (state.f !== 'all') p.set('status', state.f);
+        return p;
+    }
+    function row(b) {
+        const icon = b.payment_status === 'pending' || b.payment_status === 'partial' ? 'fa-book' : (b.payment_mode === 'cash' ? 'fa-money-bill-wave' : 'fa-mobile-screen');
+        return `<a class="bill" href="/receipt?bill=${encodeURIComponent(b.bill_number)}">
+            <span class="ic"><i class="fa-solid ${icon}" aria-hidden="true"></i></span>
+            <span class="mid"><span class="name">${esc(b.customer_name)}</span>
+                <span class="meta">${esc(b.bill_number)} · ${esc(when(b.created_at))} · ${b.item_count} item${b.item_count === 1 ? '' : 's'}</span></span>
+            <span class="amt">${inr(b.total_amount)}<br><span class="badge b-${esc(b.payment_status)}">${esc(KK.t(LABEL[b.payment_status] || b.payment_status))}</span></span>
+        </a>`;
+    }
+    async function load(reset) {
+        if (state.loading) return;
+        state.loading = true;
+        if (reset) { state.page = 1; state.sum = 0; list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>'; }
+        try {
+            const r = await fetch('/api/bills?' + params(), { credentials: 'same-origin' });
+            if (r.status === 401) { location.href = '/signin'; return; }
+            const d = await r.json();
+            if (reset) list.innerHTML = '';
+            state.pages = d.pages || 1; state.total = d.total || 0;
+            d.bills.forEach(b => { if (b.payment_status !== 'cancelled') state.sum += b.total_amount; });
+            list.insertAdjacentHTML('beforeend', d.bills.map(row).join(''));
+            if (!state.total) list.innerHTML = `<div class="empty"><i class="fa-solid fa-receipt"></i>${esc(KK.t(state.q ? 'No bills match your search' : 'No bills here yet'))}</div>`;
+            document.getElementById('count').textContent = state.total ? `${state.total} ${KK.t('bills')}` : '';
+            document.getElementById('sum').textContent = state.total && state.pages === 1 ? `${KK.t('Total')}: ${inr(state.sum)}` : '';
+            document.getElementById('more').hidden = state.page >= state.pages;
+        } catch (e) {
+            if (reset) list.innerHTML = `<div class="empty"><i class="fa-solid fa-wifi"></i>${esc(KK.t('No internet. Please try again.'))}<br><button class="more" style="margin-top:12px" onclick="location.reload()">${esc(KK.t('Retry'))}</button></div>`;
+        } finally { state.loading = false; }
+    }
+    document.querySelectorAll('.chip').forEach(c => {
+        c.setAttribute('aria-pressed', String(c.dataset.f === state.f));
+        c.addEventListener('click', () => {
+            state.f = c.dataset.f;
+            try { sessionStorage.setItem('kk_bills_filter', state.f); } catch (e) {}
+            document.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', String(x === c)));
+            load(true);
+        });
+    });
+    let timer;
+    document.getElementById('q').addEventListener('input', e => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { state.q = e.target.value.trim(); if (state.q && state.f === 'today') { state.f = 'all'; document.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.f === 'all'))); } load(true); }, 300);
+    });
+    document.getElementById('more').addEventListener('click', () => { state.page += 1; load(false); });
+    load(true);
+})();
+</script>
+</body>
+</html>

@@ -411,6 +411,13 @@
             const el = document.getElementById('customer-sheet');
             if (el) el.remove();
         }
+        const KK_LEDGER = {};
+        let KK_SHOPINFO = {};
+        fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).then(st => { KK_SHOPINFO = st; }).catch(() => {});
+        function KK_remind(id) {
+            const c = KK_LEDGER[id];
+            if (c) KK.whatsapp(c.phone, KK.udharReminder(KK_SHOPINFO.shop_name, c.name, c.outstanding_balance, KK_SHOPINFO.upi_id));
+        }
         async function viewCustomerDetails(customerId) {
             closeCustomerSheet();
             const sheet = document.createElement('div');
@@ -429,6 +436,7 @@
                 if (!r.ok) throw new Error('bad');
                 const d = await r.json();
                 const c = d.customer;
+                KK_LEDGER[c.id] = c;
                 document.getElementById('cs-title').textContent = c.name;
                 const rows = [
                     ...d.bills.map(b => ({ when: b.created_at, text: `Bill ${escHtml(b.bill_number)}${b.payment_status === 'paid' ? ' (paid)' : ' (udhar)'}`, amt: '+ ' + inrFmt(b.amount), color: b.payment_status === 'paid' ? '#374151' : '#C62828' })),
@@ -438,6 +446,7 @@
                 document.getElementById('cs-body').innerHTML = `
                     <p style="margin:4px 0 2px">📞 <a href="tel:${escHtml(c.phone)}" style="color:#2E7D32;font-weight:600">${escHtml(c.phone)}</a></p>
                     <p style="margin:0 0 12px">Udhar due: <b style="color:${c.outstanding_balance > 0 ? '#C62828' : '#2E7D32'}">${inrFmt(c.outstanding_balance)}</b></p>
+                    ${c.outstanding_balance > 0 ? `<button onclick='KK_remind(${c.id})' style="width:100%;min-height:48px;background:#25D366;color:#fff;border-radius:12px;font-weight:700;margin-bottom:8px"><i class="fa-brands fa-whatsapp"></i> WhatsApp reminder</button>` : ''}
                     ${c.outstanding_balance > 0 ? `<button onclick='closeCustomerSheet(); collectPayment(${c.id}, ${JSON.stringify(c.name).replace(/'/g, "&#39;")}, ${c.outstanding_balance})' style="width:100%;min-height:48px;background:#2E7D32;color:#fff;border-radius:12px;font-weight:700;margin-bottom:12px">Collect payment</button>` : ''}
                     <h4 style="font-weight:700;margin:8px 0">History</h4>
                     ${rows.length ? rows.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid #eee">

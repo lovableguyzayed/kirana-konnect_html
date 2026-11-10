@@ -193,3 +193,32 @@ def test_staff_mode_locks_owner_screens(flask_app, owner):  # D11
     assert c.post('/api/staff-mode/unlock', json={'pin': '0000'}).status_code == 400
     assert c.post('/api/staff-mode/unlock', json={'pin': '4321'}).status_code == 200
     assert c.get('/profile').status_code == 200
+
+
+def test_bills_search_cancel_and_csv(auth):  # round 5
+    cid = auth.post('/api/customers', json={'name': 'Cancel Test', 'phone': '9844444444'}).get_json()['id']
+    prod = auth.post('/api/products', json={'name': 'Test Biscuit Zeta', 'price': 10, 'stock_quantity': 50}).get_json()['product']
+    r = _bill(auth, payment_mode='credit', customer_id=cid, subtotal=30, total_amount=30,
+              items=[{'product_id': prod['id'], 'name': 'Test Biscuit Zeta', 'quantity': 3, 'unit_price': 10, 'total_price': 30}])
+    num = r.get_json()['bill_number']
+    assert auth.get(f'/api/products/{prod["id"]}').get_json()['product']['stock_quantity'] == 47
+    assert auth.get(f'/api/customer/{cid}').get_json()['outstanding_balance'] == 30
+    found = auth.get('/api/bills?q=Cancel Test&page=1').get_json()
+    assert found['total'] == 1 and found['bills'][0]['customer_phone'] == '9844444444'
+    assert any(b['bill_number'] == num for b in auth.get('/api/bills?status=udhar&page=1&per_page=100').get_json()['bills'])
+    assert auth.post(f'/api/bills/{num}/cancel').status_code == 200
+    assert auth.post(f'/api/bills/{num}/cancel').status_code == 400          # only once
+    assert auth.get(f'/api/products/{prod["id"]}').get_json()['product']['stock_quantity'] == 50  # stock back
+    assert auth.get(f'/api/customer/{cid}').get_json()['outstanding_balance'] == 0                # udhar gone
+    assert auth.get('/api/bills?status=cancelled&page=1').get_json()['total'] >= 1
+    for kind in ('products', 'bills', 'udhar'):
+        csv = auth.get(f'/export/{kind}.csv')
+        assert csv.status_code == 200 and csv.data.startswith('﻿'.encode()) and b',' in csv.data
+    assert auth.get('/bills').status_code == 200
+
+
+def test_upi_id_validation(auth):  # round 5
+    base = {'owner_name': 'Ramesh', 'phone': '9876543210', 'shop_name': 'Ramesh General Store'}
+    assert auth.put('/api/auth/profile', json=dict(base, upi_id='not a upi')).status_code == 400
+    assert auth.put('/api/auth/profile', json=dict(base, upi_id='9876543210@ybl')).status_code == 200
+    assert auth.get('/api/auth/status').get_json()['upi_id'] == '9876543210@ybl'

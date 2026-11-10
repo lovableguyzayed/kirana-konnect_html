@@ -196,6 +196,7 @@ class User(UserMixin, db.Model):
     # Added Nov 2026; created on existing databases by _ensure_schema_columns.
     shop_address = db.Column(db.Text)
     owner_pin_hash = db.Column(db.String(256))  # staff-mode unlock PIN
+    upi_id = db.Column(db.String(100))  # shop's UPI ID for "Scan to pay" QR
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -241,6 +242,7 @@ STAFF_BLOCKED_API = {
     ('staff_api', 'POST'), ('staff_delete', 'DELETE'), ('delete_product', 'DELETE'),
     ('update_product', 'PUT'), ('update_product', 'PATCH'), ('seed_demo_data', 'POST'),
     ('seed_demo_data', 'GET'), ('update_notification_settings_api', 'POST'),
+    ('cancel_bill', 'POST'), ('export_csv', 'GET'),
 }
 
 def staff_mode_on():
@@ -313,6 +315,7 @@ def auth_status():
         payload['email'] = current_user.email
         payload['udyam_number'] = current_user.udyam_number
         payload['shop_address'] = current_user.shop_address
+        payload['upi_id'] = current_user.upi_id
     return jsonify(payload)
 
 @app.route('/api/auth/signup', methods=['POST'])
@@ -642,6 +645,11 @@ def auth_update_profile():
         user.owner_name, user.shop_name, user.phone, user.email = owner_name, shop_name, phone, email
         user.gst_number = gst
         user.udyam_number = (data.get('udyam_number') or '').strip() or None
+        if 'upi_id' in data:
+            upi = (data.get('upi_id') or '').strip().lower()
+            if upi and not _re.match(r'^[a-z0-9.\-_]{2,256}@[a-z][a-z0-9.\-]{1,64}$', upi):
+                return jsonify({'success': False, 'error': 'UPI ID looks wrong (example: 9876543210@ybl)'}), 400
+            user.upi_id = upi or None
         if 'shop_address' in data:
             user.shop_address = (data.get('shop_address') or '').strip()[:300] or None
         db.session.commit()
@@ -802,7 +810,7 @@ class Customer(db.Model):
         from sqlalchemy import func
         total_bills = db.session.query(func.sum(Bill.total_amount)).filter(
             Bill.customer_id == self.id,
-            Bill.payment_status != 'paid'
+            Bill.payment_status.in_(('pending', 'partial'))
         ).scalar() or 0
 
         # Only count payments against outstanding credit. Payments that were
@@ -815,7 +823,7 @@ class Customer(db.Model):
                 Payment.bill_id.in_(
                     db.session.query(Bill.id).filter(
                         Bill.customer_id == self.id,
-                        Bill.payment_status != 'paid'
+                        Bill.payment_status.in_(('pending', 'partial'))
                     )
                 )
             )
@@ -1791,7 +1799,8 @@ def get_dashboard_stats():
     # Calculate today's sales (IST calendar day)
     today_bills = Bill.query.filter(
         Bill.created_at >= today_start,
-        Bill.created_at < today_start + timedelta(days=1)
+        Bill.created_at < today_start + timedelta(days=1),
+        Bill.payment_status != 'cancelled'
     ).all()  # includes udhar sales (sales made, not only cash collected)
     
     total_sales = sum(bill.total_amount for bill in today_bills)
@@ -1828,7 +1837,8 @@ def get_dashboard_stats():
     yesterday = today - timedelta(days=1)
     yesterday_bills = Bill.query.filter(
         Bill.created_at >= today_start - timedelta(days=1),
-        Bill.created_at < today_start
+        Bill.created_at < today_start,
+        Bill.payment_status != 'cancelled'
     ).all()
     
     yesterday_sales = sum(bill.total_amount for bill in yesterday_bills)
@@ -2190,24 +2200,113 @@ def api_get_bill(bill_number):
 
 @app.route('/api/bills', methods=['GET'])
 def list_bills():
-    """List recent bills, optionally filtered by payment status."""
-    query = Bill.query
+    """Bills, newest first. Filters: status (paid | pending | cancelled |
+    udhar), q (bill number, customer name or phone), day=today|YYYY-MM-DD,
+    page/per_page (or limit for the old callers)."""
+    query = Bill.query.outerjoin(Customer, Bill.customer_id == Customer.id)
     status = request.args.get('status', '').strip()
-    if status:
+    if status == 'udhar':
+        query = query.filter(Bill.payment_status.in_(('pending', 'partial')))
+    elif status:
         query = query.filter(Bill.payment_status == status)
-    limit = min(request.args.get('limit', 20, type=int), 100)
-    bills = query.order_by(Bill.created_at.desc()).limit(limit).all()
-    return jsonify({'bills': [{
+    q = request.args.get('q', '').strip()
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(Bill.bill_number.ilike(like), Bill.customer_name.ilike(like),
+                                    Customer.name.ilike(like), Customer.phone.ilike(like)))
+    day = request.args.get('day', '').strip()
+    if day:
+        d = ist_today() if day == 'today' else _parse_date(day)
+        if d:
+            start = ist_day_start_utc(d)
+            query = query.filter(Bill.created_at >= start, Bill.created_at < start + timedelta(days=1))
+    query = query.order_by(Bill.created_at.desc(), Bill.id.desc())
+    page = request.args.get('page', type=int)
+    if page:
+        per_page = min(request.args.get('per_page', 30, type=int), 100)
+        pg = query.paginate(page=page, per_page=per_page, error_out=False)
+        rows, extra = pg.items, {'page': pg.page, 'pages': pg.pages, 'total': pg.total}
+    else:
+        rows, extra = query.limit(min(request.args.get('limit', 20, type=int), 100)).all(), {}
+    return jsonify(dict(extra, bills=[{
         'id': b.id,
         'bill_number': b.bill_number,
         'customer_id': b.customer_id,
         'customer_name': b.customer.name if b.customer else (b.customer_name or 'Walk-in Customer'),
+        'customer_phone': b.customer.phone if b.customer else None,
         'total_amount': b.total_amount,
         'payment_mode': b.payment_mode,
         'payment_status': b.payment_status,
         'item_count': len(b.items),
         'created_at': utc_iso(b.created_at)
-    } for b in bills]})
+    } for b in rows]))
+
+@app.route('/api/bills/<bill_number>/cancel', methods=['POST'])
+def cancel_bill(bill_number):
+    """Cancel a wrong bill: stock goes back, it leaves sales and udhar.
+    The bill is kept (marked CANCELLED) so the record stays honest."""
+    bill = Bill.query.filter_by(bill_number=bill_number).first()
+    if not bill:
+        return jsonify({'success': False, 'error': 'Bill not found'}), 404
+    if bill.payment_status == 'cancelled':
+        return jsonify({'success': False, 'error': 'This bill is already cancelled'}), 400
+    try:
+        for item in bill.items:
+            product = Product.query.filter(Product.name.ilike(item.item_name.strip())).first()
+            if product is not None:
+                product.stock_quantity = (product.stock_quantity or 0) + float(sold_quantity(item) or 0)
+                product.updated_at = datetime.utcnow()
+        bill.payment_status = 'cancelled'
+        db.session.commit()
+        return jsonify({'success': True, 'bill_number': bill.bill_number})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Cancel bill failed: {e}")
+        return jsonify({'success': False, 'error': 'Could not cancel the bill'}), 500
+
+@app.route('/bills')
+def bills_page():
+    return render_template('bills.html')
+
+# --- Excel-friendly CSV exports (open in Excel / Google Sheets) -----------------
+def _csv_response(filename, header, rows):
+    import csv, io
+    from flask import Response
+    buf = io.StringIO()
+    buf.write('﻿')  # BOM so Excel shows ₹ and Hindi correctly
+    w = csv.writer(buf)
+    w.writerow(header)
+    w.writerows(rows)
+    return Response(buf.getvalue(), mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+
+@app.route('/export/<kind>.csv')
+def export_csv(kind):
+    stamp = ist_now().strftime('%d-%b-%Y')
+    if kind == 'products':
+        rows = [[p.name, p.category or '', p.barcode or '', 'kg' if p.is_weight_based else 'piece',
+                 p.cost_price or 0, (p.price_per_kg or p.price) if p.is_weight_based else p.price,
+                 p.stock_quantity, p.reorder_level, p.expiry_date.strftime('%d/%m/%Y') if p.expiry_date else '']
+                for p in Product.query.order_by(Product.name).all()]
+        return _csv_response(f'Stock_{stamp}.csv', ['Product', 'Category', 'Barcode', 'Unit', 'Buy price (Rs)',
+                             'Sell price (Rs)', 'Stock', 'Reorder level', 'Expiry (DD/MM/YYYY)'], rows)
+    if kind == 'bills':
+        rows = [[b.bill_number, ist_str(b.created_at, '%d/%m/%Y'), ist_str(b.created_at, '%I:%M %p'),
+                 b.customer.name if b.customer else (b.customer_name or 'Walk-in Customer'),
+                 b.customer.phone if b.customer else '', b.payment_mode, b.payment_status,
+                 b.subtotal, b.tax_amount or 0, b.discount_amount or 0, b.total_amount, len(b.items)]
+                for b in Bill.query.order_by(Bill.created_at.desc()).all()]
+        return _csv_response(f'Bills_{stamp}.csv', ['Bill No', 'Date', 'Time', 'Customer', 'Phone', 'Payment mode',
+                             'Status', 'Subtotal (Rs)', 'GST (Rs)', 'Discount (Rs)', 'Total (Rs)', 'Items'], rows)
+    if kind == 'udhar':
+        rows = []
+        for c in Customer.query.order_by(Customer.name).all():
+            bal = c.outstanding_balance
+            if bal > 0:
+                rows.append([c.name, c.phone, c.address or '', round(bal, 2)])
+        rows.sort(key=lambda r: -r[3])
+        return _csv_response(f'Udhar_{stamp}.csv', ['Customer', 'Phone', 'Address', 'Udhar due (Rs)'], rows)
+    return jsonify({'success': False, 'error': 'Unknown export'}), 404
 
 @app.route('/api/staff', methods=['GET', 'POST'])
 def staff_api():
@@ -2749,6 +2848,7 @@ def api_sales_data():
         # those used to be left out entirely (audit D5). Money actually
         # received is reported separately as cashReceived.
         query = Bill.query.filter(
+            Bill.payment_status != 'cancelled',
             Bill.created_at >= from_datetime - IST_OFFSET,
             Bill.created_at <= to_datetime - IST_OFFSET
         )
@@ -3103,7 +3203,7 @@ def export_business_data():
         
         # Calculate summary metrics first
         products = Product.query.all()
-        bills = Bill.query.all()
+        bills = Bill.query.filter(Bill.payment_status != 'cancelled').all()
         customers = Customer.query.all()
         payments = Payment.query.all()
         

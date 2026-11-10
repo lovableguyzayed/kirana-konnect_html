@@ -288,11 +288,11 @@
             <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
                 <h3 class="font-semibold text-dark mb-3">Quick Actions</h3>
                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="bulkDiscount()" class="bg-orange-500 text-white p-3 rounded-lg font-medium">
+                    <button onclick="bulkDiscount()" hidden class="bg-orange-500 text-white p-3 rounded-lg font-medium">
                         <i class="fa-solid fa-percent mr-2"></i>Bulk Discount
                     </button>
                     <button onclick="generateReport()" class="bg-blue-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-file-lines mr-2"></i>Expiry Report
+                        <i class="fa-solid fa-file-csv mr-2"></i>Expiry Report
                     </button>
                 </div>
                 <button onclick="setupAlerts()" class="w-full mt-3 bg-green-500 text-white p-3 rounded-lg font-medium">
@@ -353,13 +353,11 @@
         }
 
         function generateReport() {
-            // Generate and download expiry report
-            console.log('Generating expiry report');
+            window.location.href = '/export/products.csv';
         }
 
         function setupAlerts() {
-            // Open notification settings for expiry alerts
-            console.log('Opening expiry alert configuration');
+            window.location.href = '/profile?highlight=notifications';
         }
 
         // Filter functionality

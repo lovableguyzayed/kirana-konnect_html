@@ -27,6 +27,8 @@ def route_ok(url, method='GET'):
     return False
 
 problems, dead = [], []
+SHARED = ''.join(open(f, encoding='utf-8').read() for f in glob.glob(os.path.join(ROOT, 'static', 'js', '*.js')))
+SHARED_DEFS = set(re.findall(r'function\s+(\w+)\s*\(', SHARED)) | set(re.findall(r'window\.(\w+)\s*=', SHARED))
 for f in sorted(glob.glob(os.path.join(ROOT, 'templates', '*.html'))):
     name = os.path.basename(f)
     src = open(f, encoding='utf-8').read()
@@ -35,6 +37,8 @@ for f in sorted(glob.glob(os.path.join(ROOT, 'templates', '*.html'))):
         url = m.group(1)
         meth = re.search(r"method:\s*['\"](\w+)['\"]", m.group(3) or '')
         meth = meth.group(1).upper() if meth else 'GET'
+        if url.endswith('/') and url.count('/') > 2:
+            continue  # built by string concatenation, e.g. '/api/notifications/' + id + '/mark-read'
         if url.startswith('/') and not route_ok(url, meth):
             problems.append(f'{name}: {meth} {url} -> NO ROUTE')
     for m in re.finditer(r"(?:location\.href\s*=|location\.replace\(|href=)\s*[`'\"](/[^`'\"]*)[`'\"]", src):
@@ -44,7 +48,7 @@ for f in sorted(glob.glob(os.path.join(ROOT, 'templates', '*.html'))):
         if not route_ok(url):
             problems.append(f'{name}: link {url} -> NO ROUTE')
     js = ''.join(re.findall(r'<script[^>]*>(.*?)</script>', src, re.S))
-    defined = set(re.findall(r'function\s+(\w+)\s*\(', js)) | set(re.findall(r'(?:window\.)?(\w+)\s*=\s*(?:async\s*)?(?:function|\()', js))
+    defined = SHARED_DEFS | set(re.findall(r'function\s+(\w+)\s*\(', js)) | set(re.findall(r'(?:window\.)?(\w+)\s*=\s*(?:async\s*)?(?:function|\()', js))
     for fn in sorted(set(re.findall(r'on(?:click|change|submit|input)="\s*(?:return\s+)?(\w+)\(', src))):
         if fn not in defined and fn not in ('KK', 'history', 'window', 'document', 'event', 'alert', 'confirm', 'location', 'this'):
             problems.append(f'{name}: onclick {fn}() is NOT DEFINED')

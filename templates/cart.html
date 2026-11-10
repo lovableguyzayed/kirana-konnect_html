@@ -244,11 +244,13 @@
             <!-- Online Payment Section -->
             <div id="online-payment-section" class="hidden">
                 <div class="space-y-2">
-                    <div class="grid grid-cols-2 gap-2">
-                        <button class="p-2 border border-gray-200 rounded-lg text-sm bg-blue-50 text-blue-600">UPI</button>
-                        <button class="p-2 border border-gray-200 rounded-lg text-sm bg-green-50 text-green-600">Card</button>
+                    <!-- Customer scans this with GPay / PhonePe / Paytm; amount is filled in. -->
+                    <div id="cart-upi" style="text-align:center">
+                        <div id="cart-upi-qr" style="display:flex;justify-content:center"></div>
+                        <p id="cart-upi-text" class="text-sm text-gray-600" style="margin-top:6px"></p>
                     </div>
-                    <input type="text" placeholder="UPI ID or Transaction Reference" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                    <label for="payment-ref" class="text-sm text-gray-700">UPI / transaction reference (optional)</label>
+                    <input type="text" id="payment-ref" maxlength="40" autocomplete="off" placeholder="e.g. last 4-6 digits of UPI Ref No." class="w-full p-2 border border-gray-200 rounded-lg text-sm">
                 </div>
             </div>
 
@@ -398,6 +400,7 @@
         // kirana goods are 0/5/12% - not a flat 18%.
         let taxEnabled = false;
         let shopGstin = null;
+        let shopUpi = null, shopName = '';
         function gstRate() {
             const el = document.getElementById('gst-rate');
             return el ? (parseFloat(el.value) || 0) / 100 : 0;
@@ -534,7 +537,22 @@
 
             document.getElementById('subtotal').textContent = `₹${subtotal.toFixed(2)}`;
             document.getElementById('gst').textContent = `₹${gst.toFixed(2)}`;
-            document.getElementById('total').textContent = `₹${total.toFixed(2)}`;
+            document.getElementById('total').textContent = KK.inr(total);
+            document.getElementById('subtotal').textContent = KK.inr(subtotal);
+            document.getElementById('gst').textContent = KK.inr(gst);
+            if (selectedPaymentType === 'online') drawCartUpi(total);
+        }
+        function drawCartUpi(total) {
+            const box = document.getElementById('cart-upi-qr'), txt = document.getElementById('cart-upi-text');
+            if (!box) return;
+            if (!shopUpi) {
+                box.innerHTML = '';
+                txt.innerHTML = 'Add your shop\'s UPI ID in <a href="/profile" style="color:#2E7D32;text-decoration:underline">Profile</a> to show a payment QR here.';
+                return;
+            }
+            if (!(total > 0)) { box.innerHTML = ''; txt.textContent = ''; return; }
+            KK.qr(box, KK.upiLink(shopUpi, shopName, total, 'Kirana bill'), 190);
+            txt.textContent = `UPI: ${shopUpi} · ${KK.inr(total)}`;
         }
 
         // Tab functions
@@ -579,6 +597,7 @@
 
         function selectPayment(type) {
             selectedPaymentType = type;
+            if (type === 'online') setTimeout(calculateTotals, 0);
             const buttons = ['credit-payment', 'cash-payment', 'online-payment', 'split-payment'];
             buttons.forEach(btn => {
                 const element = document.getElementById(btn);
@@ -761,6 +780,7 @@
                     discount_amount: 0,
                     total_amount: parseFloat((subtotal + gst).toFixed(2)),
                     payment_mode: selectedPaymentType,
+                    reference_number: (document.getElementById('payment-ref') || {}).value || null,
                     generated_by: generatorSelect ? generatorSelect.options[generatorSelect.selectedIndex].text : 'Owner',
                     items: items
                 })
@@ -1120,6 +1140,8 @@
                     const ps = shopInfo.querySelectorAll('p');
                     if (ps[0]) ps[0].textContent = info.gst_number ? `GSTIN: ${info.gst_number}` : '';
                     shopGstin = info.gst_number || null;
+                    shopUpi = info.upi_id || null;
+                    shopName = info.shop_name || '';
                     if (ps[1]) ps[1].textContent = '';
                 }
             }

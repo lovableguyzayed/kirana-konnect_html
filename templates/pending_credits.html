@@ -302,16 +302,13 @@
             <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
                 <h3 class="font-semibold text-dark mb-3">Quick Actions</h3>
                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="sendBulkReminders()" class="bg-yellow-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-bell mr-2"></i>Send Reminders
+                    <button onclick="sendBulkReminders()" class="text-white p-3 rounded-lg font-medium" style="background:#25D366">
+                        <i class="fa-brands fa-whatsapp mr-2"></i>Send Reminders
                     </button>
                     <button onclick="generateCreditReport()" class="bg-blue-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-file-lines mr-2"></i>Credit Report
+                        <i class="fa-solid fa-file-csv mr-2"></i>Udhar list (Excel)
                     </button>
                 </div>
-                <button onclick="setCreditLimits()" class="w-full mt-3 bg-purple-500 text-white p-3 rounded-lg font-medium">
-                    <i class="fa-solid fa-cog mr-2"></i>Manage Credit Limits
-                </button>
             </div>
         </div>
     </main>
@@ -485,20 +482,42 @@
             window.location.href = '/customer-ledger';
         }
 
+        // WhatsApp reminders (free; opens the customer's chat with the message).
+        let KK_SHOP = {};
+        fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).then(st => { KK_SHOP = st; }).catch(() => {});
+        function remindOnWhatsApp(id) {
+            const c = (window.KK_DUE || []).find(x => x.id === id);
+            if (!c) return;
+            KK.whatsapp(c.phone, KK.udharReminder(KK_SHOP.shop_name, c.name, c.outstanding_balance, KK_SHOP.upi_id));
+        }
         function sendBulkReminders() {
-            // Send bulk reminders to overdue customers
-            console.log('Sending payment reminders to all overdue customers');
+            const due = window.KK_DUE || [];
+            if (!due.length) { alert('No one has udhar right now.'); return; }
+            const wrap = document.createElement('div');
+            wrap.setAttribute('role', 'dialog');
+            wrap.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+            const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+            wrap.innerHTML = `<div style="background:#fff;width:100%;max-height:80vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px 24px">
+                <h3 style="font-size:18px;font-weight:700;margin:0 0 4px">Send WhatsApp reminders</h3>
+                <p style="color:#52606D;font-size:14px;margin:0 0 8px">Tap each customer. WhatsApp opens with the message ready.</p>
+                ${due.map(c => `<button data-id="${c.id}" style="width:100%;display:flex;justify-content:space-between;align-items:center;min-height:56px;padding:8px 4px;border:0;border-top:1px solid #eee;background:none;text-align:left">
+                    <span><b>${esc(c.name)}</b><br><span style="color:#52606D;font-size:13px">${esc(c.phone)}</span></span>
+                    <span style="color:#C62828;font-weight:700">${KK.inr(c.outstanding_balance)} <i class="fa-brands fa-whatsapp" style="color:#25D366;font-size:20px;margin-left:6px"></i></span></button>`).join('')}
+                <button class="kk-close" style="width:100%;min-height:48px;margin-top:8px;border:0;border-radius:12px;background:#EEF2EE;font-weight:700">Close</button></div>`;
+            wrap.addEventListener('click', e => {
+                const b = e.target.closest('button[data-id]');
+                if (b) { b.style.opacity = .5; remindOnWhatsApp(Number(b.dataset.id)); }
+                if (e.target === wrap || e.target.closest('.kk-close')) wrap.remove();
+            });
+            document.body.appendChild(wrap);
         }
 
         function generateCreditReport() {
-            // Generate and download credit report
-            console.log('Generating credit report');
+            // Excel-friendly list of everyone who owes money.
+            window.location.href = '/export/udhar.csv';
         }
 
-        function setCreditLimits() {
-            // Open credit limit management interface
-            console.log('Opening credit limit management');
-        }
+
 
         // Filter functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -590,6 +609,7 @@
 
                         // Filter tab counts
                         const counts = { overdue: 0, due: 0, current: 0 };
+                        window.KK_DUE = customers;
                         customers.forEach(c => counts[bucket(c.last_credit_at)]++);
                         document.querySelectorAll('.filter-btn').forEach(btn => {
                             const f = btn.getAttribute('data-filter');
@@ -629,11 +649,15 @@
                                     <a href="tel:+91${c.phone}" class="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium text-center">
                                         <i class="fa-solid fa-phone mr-1"></i>Call
                                     </a>
-                                    <button onclick="collectFromCustomer(${c.id}, '${c.name.replace(/'/g, "&#39;")}', ${c.outstanding_balance})"
+                                    <button onclick="remindOnWhatsApp(${c.id})" aria-label="WhatsApp reminder"
+                                            class="flex-1 py-2 rounded-lg text-sm font-medium" style="background:#E8F8EE;color:#128C4A">
+                                        <i class="fa-brands fa-whatsapp mr-1"></i>Remind
+                                    </button>
+                                    <button onclick="collectFromCustomer(${c.id}, ${JSON.stringify(c.name).replace(/"/g, '&quot;')}, ${c.outstanding_balance})"
                                             class="flex-1 py-2 bg-green-50 text-green-600 rounded-lg text-sm font-medium">
                                         <i class="fa-solid fa-hand-holding-dollar mr-1"></i>Collect
                                     </button>
-                                    <button onclick="window.location.href='/customer-ledger'"
+                                    <button onclick="window.location.href='/customer-ledger'" hidden
                                             class="flex-1 py-2 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium">
                                         <i class="fa-solid fa-book mr-1"></i>Ledger
                                     </button>

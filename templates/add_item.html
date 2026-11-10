@@ -421,7 +421,13 @@
         }
 
         function openCamera() {
-            alert('Camera functionality will be implemented in future updates.');
+            // Real scanner (static/js/scanner.js); the code goes into the Barcode box.
+            window.KK_SCAN_TARGET = function (code) {
+                const box = document.getElementById('barcode');
+                if (box) { box.value = code; box.dispatchEvent(new Event('input')); }
+                KK.toast('Barcode added: ' + code, 'ok');
+            };
+            KKScan.open();
         }
 
         function uploadImage() {
@@ -429,7 +435,13 @@
         }
 
         function scanBarcode() {
-            alert('Barcode scanner will be implemented in future updates.');
+            // Real scanner (static/js/scanner.js); the code goes into the Barcode box.
+            window.KK_SCAN_TARGET = function (code) {
+                const box = document.getElementById('barcode');
+                if (box) { box.value = code; box.dispatchEvent(new Event('input')); }
+                KK.toast('Barcode added: ' + code, 'ok');
+            };
+            KKScan.open();
         }
 
         function cancelAddItem() {
@@ -538,5 +550,13 @@
         });
     </script>
     <script src="{{ url_for('static', filename='js/universal-scanner.js') }}"></script>
+<script>
+    // Arriving from the scanner with an unknown barcode: fill it in.
+    (function () {
+        const code = new URLSearchParams(location.search).get('barcode');
+        const box = document.getElementById('barcode');
+        if (code && box) box.value = code;
+    })();
+</script>
 </body>
 </html>

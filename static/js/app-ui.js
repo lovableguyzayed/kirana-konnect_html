@@ -83,7 +83,12 @@
         'Choose a 4-6 digit owner PIN': '4-6 अंकों का मालिक PIN चुनें', 'Wrong PIN': 'PIN गलत है',
         'Owner PIN needed for that screen.': 'इस स्क्रीन के लिए मालिक का PIN चाहिए।',
         'Staff mode': 'स्टाफ़ मोड',
-        'Stock': 'स्टॉक', 'Bill': 'बिल', 'Scan': 'स्कैन', 'Open': 'खोलें',
+        'Stock': 'स्टॉक', 'All Bills': 'सारे बिल', 'bills': 'बिल', 'Today': 'आज', 'Paid': 'भुगतान हुआ',
+        'Cancelled': 'रद्द', 'Part paid': 'आंशिक भुगतान', 'Load more': 'और दिखाएँ',
+        'No bills here yet': 'अभी कोई बिल नहीं', 'No bills match your search': 'खोज से कोई बिल नहीं मिला',
+        'Share on WhatsApp': 'WhatsApp पर भेजें', 'WhatsApp reminder': 'WhatsApp पर याद दिलाएँ',
+        'Scan to pay with any UPI app': 'किसी भी UPI ऐप से स्कैन करके भुगतान करें', 'Cancel bill': 'बिल रद्द करें',
+        'No internet. Please try again.': 'इंटरनेट नहीं है। फिर कोशिश करें।', 'Bill': 'बिल', 'Scan': 'स्कैन', 'Open': 'खोलें',
         'Add to bill': 'बिल में जोड़ें', 'Add & scan next': 'जोड़ें और अगला स्कैन', 'Scan again': 'फिर स्कैन करें',
         'Add new product': 'नया सामान जोड़ें', 'New barcode': 'नया बारकोड', 'added to bill': 'बिल में जुड़ गया',
         'Point the camera at the barcode': 'कैमरा बारकोड की तरफ़ करें', 'Starting camera...': 'कैमरा चालू हो रहा है...',
@@ -235,7 +240,40 @@
         } catch (e) {}
     }
     window.alert = function (message) { toast(message); };
-    window.KK = { toast: toast, setLang: setLang, lang: getLang, t: t };
+
+    // ---------------------------------------------------------------- WhatsApp & UPI
+    // WhatsApp: opens the customer's chat with the message typed in (no API,
+    // no cost). Without a number, WhatsApp asks whom to send it to.
+    function whatsapp(phone, text) {
+        var d = String(phone || '').replace(/\D/g, '');
+        if (d.length === 12 && d.indexOf('91') === 0) d = d.slice(2);
+        var to = /^[6-9]\d{9}$/.test(d) ? '91' + d : '';
+        location.href = 'https://wa.me/' + to + '?text=' + encodeURIComponent(text);
+    }
+    // UPI deep link understood by GPay, PhonePe, Paytm, BHIM and bank apps.
+    function upiLink(upiId, payeeName, amount, note) {
+        var p = ['pa=' + encodeURIComponent(upiId), 'pn=' + encodeURIComponent(payeeName || 'Shop'), 'cu=INR'];
+        if (amount > 0) p.push('am=' + Number(amount).toFixed(2));
+        if (note) p.push('tn=' + encodeURIComponent(String(note).slice(0, 50)));
+        return 'upi://pay?' + p.join('&');
+    }
+    // Draws a QR code (lazy-loads the small qrcode.js library).
+    function qr(target, text, size) {
+        function draw() {
+            var q = window.qrcode(0, 'M'); q.addData(text); q.make();
+            target.innerHTML = q.createSvgTag({ cellSize: Math.max(3, Math.floor((size || 200) / (q.getModuleCount() + 8))), margin: 4, scalable: true });
+            var svg = target.querySelector('svg'); if (svg) { svg.style.width = (size || 200) + 'px'; svg.style.height = (size || 200) + 'px'; svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'UPI QR code'); }
+        }
+        if (window.qrcode) return draw();
+        var sc = document.createElement('script'); sc.src = '/static/vendor/js/qrcode.js'; sc.onload = draw;
+        document.head.appendChild(sc);
+    }
+    function inrText(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+    function udharReminder(shop, name, amount, upiId) {
+        return 'Namaste ' + name + ' ji 🙏\n' + (shop || 'Hamari dukaan') + ' par aapka ' + inrText(amount) + ' baaki hai.\n' +
+               'Kripya jaldi bhugtan karein.' + (upiId ? '\nUPI: ' + upiId : '') + '\nDhanyavaad!';
+    }
+    window.KK = { toast: toast, setLang: setLang, lang: getLang, t: t, whatsapp: whatsapp, upiLink: upiLink, qr: qr, inr: inrText, udharReminder: udharReminder };
 
 
     // ---------------------------------------------------------------- staff mode

@@ -198,6 +198,17 @@
                     <span>Print</span>
                 </button>
             </div>
+            <!-- WhatsApp, UPI QR and cancel (audit round 5) -->
+            <button type="button" onclick="whatsAppBill()" style="width:100%;min-height:52px;margin-top:12px;border:0;border-radius:12px;background:#25D366;color:#fff;font-weight:700;font-size:16px">
+                <i class="fa-brands fa-whatsapp" style="font-size:20px;margin-right:6px"></i><span>Share on WhatsApp</span>
+            </button>
+            <div id="upi-box" hidden style="margin-top:12px;background:#fff;border:1px solid #E4E7EB;border-radius:14px;padding:14px;text-align:center">
+                <p style="margin:0 0 8px;font-weight:700">Scan to pay with any UPI app</p>
+                <div id="upi-qr" style="display:flex;justify-content:center"></div>
+                <p id="upi-text" style="margin:8px 0 0;color:#52606D;font-size:14px"></p>
+            </div>
+            <div id="cancelled-banner" hidden style="margin-top:12px;background:#ECEFF1;color:#37474F;border-radius:12px;padding:12px;text-align:center;font-weight:700">This bill is CANCELLED. Stock was returned.</div>
+            <button type="button" id="cancel-bill-btn" hidden onclick="cancelBill()" style="width:100%;min-height:48px;margin-top:10px;border:0;background:none;color:#C62828;font-weight:600;text-decoration:underline">Cancel bill</button>
         </div>
     </main>
 
@@ -282,7 +293,63 @@
             }
         });
 
+        // ---- WhatsApp share, UPI QR, cancel ----
+        const KKR = { bill: null, shop: null, phone: null };
+        fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).then(st => { KKR.shop = st; showUpi(); }).catch(() => {});
+        function showUpi() {
+            const b = KKR.bill, st = KKR.shop;
+            if (!b || !st || !st.upi_id || b.payment_status === 'cancelled') return;
+            const due = b.payment_status === 'paid' ? 0 : b.total_amount;
+            if (b.payment_status === 'paid' && b.payment_mode === 'cash') return;  // nothing to collect
+            document.getElementById('upi-box').hidden = false;
+            KK.qr(document.getElementById('upi-qr'), KK.upiLink(st.upi_id, st.shop_name, due || b.total_amount, 'Bill ' + b.bill_number), 200);
+            document.getElementById('upi-text').textContent = 'UPI: ' + st.upi_id + ' · ' + KK.inr(due || b.total_amount);
+        }
+        function billText() {
+            const b = KKR.bill, st = KKR.shop || {};
+            if (!b) return '';
+            const date = new Date(b.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+            const lines = (b.items || []).map(i => {
+                const q = i.weight ? `${+i.weight} kg` : `${+i.quantity}`;
+                return `• ${i.item_name} × ${q} = ${KK.inr(i.total_price)}`;
+            });
+            const paid = b.payment_status === 'paid';
+            return `🧾 ${st.shop_name || 'Bill'}\nBill ${b.bill_number} · ${date}\n\n${lines.join('\n')}\n\n` +
+                   (b.tax_amount ? `GST: ${KK.inr(b.tax_amount)}\n` : '') +
+                   `*Total: ${KK.inr(b.total_amount)}*\n` +
+                   (b.payment_status === 'cancelled' ? 'Status: CANCELLED\n' : paid ? `Paid (${b.payment_mode}) ✅\n` : `Udhar / baaki: ${KK.inr(b.total_amount)}\n`) +
+                   (!paid && st.upi_id ? `UPI: ${st.upi_id}\n` : '') + 'Dhanyavaad! 🙏';
+        }
+        async function whatsAppBill() {
+            const b = KKR.bill;
+            if (!b) { alert('Bill is still loading. Please wait.'); return; }
+            // Phones with Web Share (Chrome) can send the PDF itself to WhatsApp.
+            try {
+                if (navigator.canShare) {
+                    const r = await fetch(`/api/bills/${encodeURIComponent(b.bill_number)}/pdf`);
+                    const blob = await r.blob();
+                    const file = new File([blob], `Invoice_${b.bill_number}.pdf`, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: billText() }); return; }
+                }
+            } catch (e) { if (e && e.name === 'AbortError') return; }
+            KK.whatsapp(KKR.phone, billText());
+        }
+        function shareReceipt() { whatsAppBill(); }
+        async function cancelBill() {
+            const b = KKR.bill;
+            if (!b || !confirm(`Cancel bill ${b.bill_number} for ${KK.inr(b.total_amount)}?\n\nStock will be returned and it will be removed from sales and udhar. This cannot be undone.`)) return;
+            const r = await fetch(`/api/bills/${encodeURIComponent(b.bill_number)}/cancel`, { method: 'POST' });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok && d.success) { alert('Bill cancelled. Stock returned.'); location.reload(); }
+            else alert(d.error || 'Could not cancel the bill.');
+        }
+
         function updateReceiptWithData(billData) {
+            KKR.bill = billData;
+            const cancelled = billData.payment_status === 'cancelled';
+            document.getElementById('cancelled-banner').hidden = !cancelled;
+            document.getElementById('cancel-bill-btn').hidden = cancelled;
+            showUpi();
             // Update bill details
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(1) .text-sm.text-gray-700').textContent = `#${billData.bill_number}`;
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(2) .text-sm.text-gray-700').textContent = new Date(billData.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -333,7 +400,8 @@
             setRow('Total:', money(billData.total_amount));
             setRow('Payment Mode', billData.payment_mode.charAt(0).toUpperCase() + billData.payment_mode.slice(1));
             setRow('Amount Paid', money(isPaid ? billData.total_amount : 0));
-            setRow('Amount Due', money(isPaid ? 0 : billData.total_amount));
+            if (cancelled) setRow('Amount Due', money(0));
+            if (!cancelled) setRow('Amount Due', money(isPaid ? 0 : billData.total_amount));
 
             // Customer outstanding balance: show live data for account customers,
             // hide the block for walk-in/paid bills.
@@ -343,6 +411,7 @@
                     fetch(`/api/customer/${billData.customer_id}`)
                         .then(r => r.json())
                         .then(cust => {
+                            KKR.phone = cust.phone;
                             const amountEl = balanceBlock.querySelector('.text-lg');
                             if (amountEl) amountEl.textContent = `₹${(cust.outstanding_balance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
                         })
