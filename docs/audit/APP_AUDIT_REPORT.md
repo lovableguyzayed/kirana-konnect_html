@@ -168,10 +168,12 @@ Severity: P0 Blocker · P1 Critical · P2 Major · P3 Minor · P4 Polish. Person
 | KK-044 | Staff | `staff.html` attendance | Fake demo + "would be implemented" | — | P3 | Hidden; page is "My Team" | S | ✅ Round 3 |
 | KK-045 | Auth | `signin.html` phone field | Pasting "+91 98765 43210" kept "9198765432" | R | P1 | Strip 91 / leading 0 | S | ✅ Round 3, Verified |
 | KK-046 | Dashboard | stat cards | Amounts without Indian grouping; big amounts ran into icons | R, A | P3 | en-IN format + shrink-to-fit | S | ✅ Round 3, Verified |
+| KK-047 | UI | splash, cart, dashboard, profile defaults | Made-up shop "Sharma Kirana Store" + fake GSTIN/Udyam shown before real data loads (and on splash always) | All | P2 | Blank defaults; splash card hidden | S | ✅ Round 4 |
+| KK-048 | UI | product details, receipt, sales report | Broken-image icon; "GST (5%) ₹0.00" on non-GST bills; amounts without Indian grouping | R | P3 | Grey box, hide zero rows, en-IN format | S | ✅ Round 4 |
 | KK-036 | Auth | `app.py` `/logout` (GET) | Logout by GET link (minor CSRF nuisance); single shared login for owner + staff (no per-staff accounts) | F | P3 | POST logout; staff PINs later | M | Open |
 
 ### Before / after screenshots
-Gallery: [`mockups/index.html`](mockups/index.html). Files: `KK-020_privacy_after`, `KK-020_account-deletion_after`, `KK-022_ledger-details_after`, `KK-035_invoice-hindi_after`, `D4_cart-gst_after`, `KK-003_cart_*`, `KK-006_refill_*`, `KK-007_invoice-pdf_after`, `KK-008_export-pdf_*`, `KK-013_signin_*`, `KK-014_receipt-sample_before`, `KK-017_profile_*`, `KK-020_dashboard_before`.
+Gallery: [`mockups/index.html`](mockups/index.html). Every screen of the app: `docs/audit/screens/` (made by `docs/audit/tools/all_screens.js`), also in the PDF. Files: `KK-020_privacy_after`, `KK-020_account-deletion_after`, `KK-022_ledger-details_after`, `KK-035_invoice-hindi_after`, `D4_cart-gst_after`, `KK-003_cart_*`, `KK-006_refill_*`, `KK-007_invoice-pdf_after`, `KK-008_export-pdf_*`, `KK-013_signin_*`, `KK-014_receipt-sample_before`, `KK-017_profile_*`, `KK-020_dashboard_before`.
 
 ---
 

@@ -1,0 +1,301 @@
+[
+  {
+    "files": [
+      "01_splash.png"
+    ],
+    "title": "Splash",
+    "note": "First screen: Get Started (pricing button hidden).",
+    "url": "/splash",
+    "more": false
+  },
+  {
+    "files": [
+      "02_signin_1.png",
+      "02_signin_2.png"
+    ],
+    "title": "Sign in",
+    "note": "Phone/email + password, OTP login (when SMS is set up), English/हिंदी.",
+    "url": "/signin",
+    "more": false
+  },
+  {
+    "files": [
+      "03_signin_otp.png"
+    ],
+    "title": "Sign in – OTP",
+    "note": "6-digit OTP, resend timer, change number.",
+    "url": "/signin",
+    "more": false
+  },
+  {
+    "files": [
+      "04_forgot_password.png"
+    ],
+    "title": "Forgot password",
+    "note": "Get OTP on mobile, or use the recovery code.",
+    "url": "/signin",
+    "more": false
+  },
+  {
+    "files": [
+      "05_signup_1.png",
+      "05_signup_2.png"
+    ],
+    "title": "Create account",
+    "note": "Owner, mobile, shop details; Terms & Privacy links.",
+    "url": "/signin",
+    "more": false
+  },
+  {
+    "files": [
+      "06_privacy_1.png",
+      "06_privacy_2.png"
+    ],
+    "title": "Privacy Policy (public)",
+    "note": "What is collected and why, rights, grievance contact.",
+    "url": "/privacy",
+    "more": true
+  },
+  {
+    "files": [
+      "07_terms_1.png",
+      "07_terms_2.png"
+    ],
+    "title": "Terms of Use (public)",
+    "note": "Plain-language terms.",
+    "url": "/terms",
+    "more": true
+  },
+  {
+    "files": [
+      "08_contact.png"
+    ],
+    "title": "Help & Contact (public)",
+    "note": "Support contacts come from Render settings.",
+    "url": "/contact",
+    "more": false
+  },
+  {
+    "files": [
+      "09_account_deletion_1.png",
+      "09_account_deletion_2.png"
+    ],
+    "title": "Delete account (public)",
+    "note": "Works without the app; password + type DELETE.",
+    "url": "/account-deletion",
+    "more": false
+  },
+  {
+    "files": [
+      "10_dashboard_1.png",
+      "10_dashboard_2.png"
+    ],
+    "title": "Dashboard",
+    "note": "Today’s profit, sales, udhar, stock alerts, quick actions.",
+    "url": "/dashboard",
+    "more": true
+  },
+  {
+    "files": [
+      "11_notifications.png"
+    ],
+    "title": "Notifications",
+    "note": "Real low-stock / expiry alerts only.",
+    "url": "/notifications",
+    "more": false
+  },
+  {
+    "files": [
+      "12_inventory_1.png",
+      "12_inventory_2.png"
+    ],
+    "title": "Inventory",
+    "note": "All products with stock, price, expiry; list cut after the first part.",
+    "url": "/inventory",
+    "more": true
+  },
+  {
+    "files": [
+      "13_add_item_1.png",
+      "13_add_item_2.png"
+    ],
+    "title": "Add item",
+    "note": "New product: name, category, unit or weight, prices, barcode.",
+    "url": "/add-item",
+    "more": true
+  },
+  {
+    "files": [
+      "14_product_details_1.png",
+      "14_product_details_2.png"
+    ],
+    "title": "Product details (pieces)",
+    "note": "Stock, prices, dates; refill / add to cart.",
+    "url": "/product-details?id=80",
+    "more": false
+  },
+  {
+    "files": [
+      "15_product_details_weight_1.png",
+      "15_product_details_weight_2.png"
+    ],
+    "title": "Product details (loose / kg)",
+    "note": "Weight-based product.",
+    "url": "/product-details-weight?id=10",
+    "more": false
+  },
+  {
+    "files": [
+      "16_refill_stock_1.png",
+      "16_refill_stock_2.png"
+    ],
+    "title": "Refill stock (pieces)",
+    "note": "Adds stock to the product that was tapped.",
+    "url": "/refill-stock?id=80",
+    "more": false
+  },
+  {
+    "files": [
+      "17_refill_stock_weight_1.png",
+      "17_refill_stock_weight_2.png"
+    ],
+    "title": "Refill stock (kg)",
+    "note": "Loose items in kg / grams.",
+    "url": "/refill-stock-weight?id=10",
+    "more": false
+  },
+  {
+    "files": [
+      "18_low_stock.png"
+    ],
+    "title": "Low stock",
+    "note": "Products at or below their reorder level.",
+    "url": "/low-stock",
+    "more": false
+  },
+  {
+    "files": [
+      "19_expiry_alert_1.png",
+      "19_expiry_alert_2.png"
+    ],
+    "title": "Expiry alerts",
+    "note": "Expired and expiring-this-week items.",
+    "url": "/expiry-alert",
+    "more": true
+  },
+  {
+    "files": [
+      "20_cart_empty_1.png",
+      "20_cart_empty_2.png"
+    ],
+    "title": "Cart – empty",
+    "note": "Starts empty (fake demo items removed).",
+    "url": "/cart",
+    "more": false
+  },
+  {
+    "files": [
+      "21_cart_1.png",
+      "21_cart_2.png"
+    ],
+    "title": "Cart / billing",
+    "note": "Items, GST only with GSTIN, cash / online / udhar, Generate Bill.",
+    "url": "/cart",
+    "more": false
+  },
+  {
+    "files": [
+      "22_receipt_1.png",
+      "22_receipt_2.png"
+    ],
+    "title": "Receipt",
+    "note": "Bill with PDF download, share, print.",
+    "url": "/receipt?bill=KK-2026-000049",
+    "more": false
+  },
+  {
+    "files": [
+      "23_pending_credits_1.png",
+      "23_pending_credits_2.png"
+    ],
+    "title": "Pending credits (udhar)",
+    "note": "Who owes how much; call, collect.",
+    "url": "/pending-credits",
+    "more": false
+  },
+  {
+    "files": [
+      "24_customer_ledger_1.png",
+      "24_customer_ledger_2.png"
+    ],
+    "title": "Udhar ledger",
+    "note": "All customers with balance; search.",
+    "url": "/customer-ledger",
+    "more": false
+  },
+  {
+    "files": [
+      "25_ledger_details.png"
+    ],
+    "title": "Customer history",
+    "note": "Bills and payments, tap to call, collect.",
+    "url": "/customer-ledger",
+    "more": false
+  },
+  {
+    "files": [
+      "26_sales_report_1.png",
+      "26_sales_report_2.png"
+    ],
+    "title": "Sales report",
+    "note": "Sales (incl. udhar), profit, payment modes, top items.",
+    "url": "/sales-report",
+    "more": true
+  },
+  {
+    "files": [
+      "27_staff.png"
+    ],
+    "title": "My Team",
+    "note": "Add / remove staff members.",
+    "url": "/staff",
+    "more": false
+  },
+  {
+    "files": [
+      "28_profile_1.png",
+      "28_profile_2.png"
+    ],
+    "title": "Profile",
+    "note": "Owner and shop details, export, language, staff mode, delete account.",
+    "url": "/profile",
+    "more": false
+  },
+  {
+    "files": [
+      "29_dashboard_staff_mode.png"
+    ],
+    "title": "Dashboard – staff mode",
+    "note": "Profit locked; badge asks for owner PIN.",
+    "url": "/dashboard",
+    "more": false
+  },
+  {
+    "files": [
+      "30_dashboard_hindi.png"
+    ],
+    "title": "Dashboard – हिंदी",
+    "note": "Hindi labels and buttons.",
+    "url": "/dashboard",
+    "more": false
+  },
+  {
+    "files": [
+      "31_cart_hindi.png"
+    ],
+    "title": "Cart – हिंदी",
+    "note": "Billing in Hindi.",
+    "url": "/cart",
+    "more": false
+  }
+]

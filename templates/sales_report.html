@@ -179,6 +179,9 @@
     <script src="/static/js/universal-scanner.js"></script>
 
     <script>
+        // ₹ with Indian digit grouping: 230471 -> ₹2,30,471
+        function inrRound(v) { return '₹' + Math.round(Number(v) || 0).toLocaleString('en-IN'); }
+
         let currentPeriod = 'weekly';
         let salesChart = null;
         
@@ -353,9 +356,9 @@
             const totalProfit = data.totalProfit || 0;
             
             // Update main metrics cards with period-based data
-            document.getElementById('total-sales').textContent = `₹${Math.round(data.totalRevenue || 0)}`;
-            document.getElementById('total-profit').textContent = `₹${Math.round(totalProfit)}`;
-            document.getElementById('total-cost').textContent = `₹${Math.round(totalInvestment)}`;
+            document.getElementById('total-sales').textContent = inrRound(data.totalRevenue || 0);
+            document.getElementById('total-profit').textContent = inrRound(totalProfit);
+            document.getElementById('total-cost').textContent = inrRound(totalInvestment);
             
             // Remove percentage from cost card as requested
             document.getElementById('cost-percentage').textContent = '';
@@ -367,9 +370,9 @@
             
             console.log('Investment values:', {combinedInvestment, remainingInvestment, recoveryPercentage});
             
-            document.getElementById('total-refilled-investment').textContent = `₹${Math.round(combinedInvestment)}`;
-            document.getElementById('profit-generated').textContent = `₹${Math.round(totalProfit)}`;  // Period-based profit
-            document.getElementById('remaining-recovery').textContent = `₹${Math.round(remainingInvestment)}`;
+            document.getElementById('total-refilled-investment').textContent = inrRound(combinedInvestment);
+            document.getElementById('profit-generated').textContent = inrRound(totalProfit);  // Period-based profit
+            document.getElementById('remaining-recovery').textContent = inrRound(remainingInvestment);
             document.getElementById('recovery-progress').style.width = `${Math.min(100, recoveryPercentage)}%`;
             document.getElementById('recovery-percentage').textContent = `${recoveryPercentage}% recovered`;
             
@@ -391,21 +394,21 @@
             // Total Sales
             const totalSalesElement = document.getElementById('total-sales');
             if (totalSalesElement) {
-                totalSalesElement.textContent = `₹${Math.round(data.totalRevenue || 0)}`;
+                totalSalesElement.textContent = inrRound(data.totalRevenue || 0);
             }
             
             // Total Profit
             const totalProfit = data.totalProfit || 0;
             const profitElement = document.getElementById('total-profit');
             if (profitElement) {
-                profitElement.textContent = `₹${Math.round(totalProfit)}`;
+                profitElement.textContent = inrRound(totalProfit);
                 profitElement.className = totalProfit >= 0 ? 'text-xl font-bold text-green-600' : 'text-xl font-bold text-red-600';
             }
             
             // Total Cost (Investment)
             const totalCostElement = document.getElementById('total-cost');
             if (totalCostElement) {
-                totalCostElement.textContent = `₹${Math.round(data.totalInvestment || 0)}`;
+                totalCostElement.textContent = inrRound(data.totalInvestment || 0);
             }
             
             // Update chart title with period
@@ -442,12 +445,12 @@
                         </div>
                         <div>
                             <p class="font-semibold text-dark">${item.name}</p>
-                            <p class="text-xs text-gray-500">${Math.round(item.quantity)} units sold • Investment: ₹${Math.round(item.investment || 0)}</p>
+                            <p class="text-xs text-gray-500">${Math.round(item.quantity)} units sold • Investment: ${inrRound(item.investment || 0)}</p>
                         </div>
                     </div>
                     <div class="text-right">
-                        <p class="font-bold text-dark">₹${Math.round(item.amount)}</p>
-                        <p class="text-xs text-green-600">+₹${Math.round(item.profit || 0)} profit</p>
+                        <p class="font-bold text-dark">${inrRound(item.amount)}</p>
+                        <p class="text-xs text-green-600">+${inrRound(item.profit || 0)} profit</p>
                     </div>
                 `;
                 topItemsContainer.appendChild(itemElement);
@@ -624,18 +627,18 @@
             // Update investment recovery section
             const totalInvestmentElement = document.getElementById('total-refilled-investment');
             if (totalInvestmentElement) {
-                totalInvestmentElement.textContent = `₹${Math.round(totalCombinedInvestment)}`;
+                totalInvestmentElement.textContent = inrRound(totalCombinedInvestment);
             }
             
             const profitGeneratedElement = document.getElementById('profit-generated');
             if (profitGeneratedElement) {
-                profitGeneratedElement.textContent = `₹${Math.round(totalProfit)}`;
+                profitGeneratedElement.textContent = inrRound(totalProfit);
                 profitGeneratedElement.className = totalProfit >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-600';
             }
             
             const remainingRecoveryElement = document.getElementById('remaining-recovery');
             if (remainingRecoveryElement) {
-                remainingRecoveryElement.textContent = `₹${Math.round(remainingInvestment)}`;
+                remainingRecoveryElement.textContent = inrRound(remainingInvestment);
             }
             
             // Update progress bar

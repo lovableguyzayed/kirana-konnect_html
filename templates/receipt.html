@@ -132,7 +132,7 @@
                             <span class="text-sm text-gray-800">₹450.00</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">GST (5%):</span>
+                            <span class="text-sm text-gray-600">GST:</span>
                             <span class="text-sm text-gray-800">₹22.50</span>
                         </div>
                         <div class="flex justify-between items-center border-t border-gray-300 pt-2">
@@ -338,11 +338,18 @@
                     }
                 });
             };
-            const money = v => `₹${(v || 0).toFixed(2)}`;
+            const money = v => '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const isPaid = billData.payment_status === 'paid';
 
             setRow('Subtotal', money(billData.subtotal));
             setRow('GST', money(billData.tax_amount));
+            // Hide GST / discount rows when they are zero (no "GST ₹0.00" on non-GST bills).
+            document.querySelectorAll('.flex.justify-between span.text-sm.text-gray-600').forEach(el => {
+                const label = el.textContent.trim();
+                if ((label.startsWith('GST') && !billData.tax_amount) || (label.startsWith('Discount') && !billData.discount_amount)) {
+                    el.parentElement.style.display = 'none';
+                }
+            });
             setRow('Discount', `- ${money(billData.discount_amount)}`);
             setRow('Total:', money(billData.total_amount));
             setRow('Payment Mode', billData.payment_mode.charAt(0).toUpperCase() + billData.payment_mode.slice(1));

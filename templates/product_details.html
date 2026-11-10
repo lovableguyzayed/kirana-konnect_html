@@ -63,7 +63,7 @@
         <!-- Product Image Section -->
         <div id="product-image" class="bg-white px-4 py-6">
             <div class="flex justify-center">
-                <img id="product-img" class="w-48 h-48 rounded-lg object-cover border border-gray-200" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/dd29a1f85f-469e6193e37489fc8c43.png" alt="Product image">
+                <img id="product-img" class="w-48 h-48 rounded-lg object-cover border border-gray-200" style="background:#F3F4F6" alt="Product image">
             </div>
         </div>
 
@@ -805,5 +805,23 @@
             initializePage();
         });
     </script>
+<script>
+    // Products have no photos yet: show a neutral grey box instead of a
+    // broken-image icon, whenever the page sets an empty or failing src.
+    (function () {
+        const img = document.getElementById('product-img');
+        if (!img) return;
+        const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        const fix = () => {
+            const src = img.getAttribute('src') || '';
+            if (src !== BLANK && (!src || src === location.href || (img.complete && img.naturalWidth === 0))) {
+                img.src = BLANK; img.alt = '';
+            }
+        };
+        img.addEventListener('error', () => { img.src = BLANK; img.alt = ''; });
+        new MutationObserver(() => setTimeout(fix, 50)).observe(img, { attributes: true, attributeFilter: ['src'] });
+        fix();
+    })();
+</script>
 </body>
 </html>

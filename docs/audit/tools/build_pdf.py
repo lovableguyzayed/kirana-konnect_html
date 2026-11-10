@@ -16,9 +16,43 @@ def md(path):
     text = text.replace('[`mockups/index.html`](mockups/index.html)', 'the appendix')
     return markdown.markdown(text, extensions=['tables', 'sane_lists'])
 
-def img(name):
-    with open(os.path.join(MOCK, name), 'rb') as f:
-        return 'data:image/png;base64,' + base64.b64encode(f.read()).decode()
+def img(name, folder=None):
+    """Embed an image; large screenshots are re-encoded as JPEG to keep the PDF small."""
+    path = os.path.join(folder or MOCK, name)
+    try:
+        from PIL import Image
+        import io
+        im = Image.open(path).convert('RGB')
+        buf = io.BytesIO()
+        im.save(buf, 'JPEG', quality=82, optimize=True)
+        return 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
+    except ImportError:
+        with open(path, 'rb') as f:
+            return 'data:image/png;base64,' + base64.b64encode(f.read()).decode()
+
+SCREENS = os.path.join(AUDIT, 'screens')
+def all_screens():
+    import json
+    meta = os.path.join(SCREENS, 'screens.json')
+    if not os.path.exists(meta):
+        return ''
+    items = json.load(open(meta, encoding='utf-8'))
+    cards = []
+    for i, x in enumerate(items):
+        files = x.get('files') or [x['file']]
+        for k, f in enumerate(files):
+            part = f' ({k + 1}/{len(files)})' if len(files) > 1 else ''
+            more = ' Longer list continues below in the app.' if x.get('more') and k == len(files) - 1 else ''
+            cards.append(
+                f'<figure class="screen"><figcaption><b>{i + 1}. {html.escape(x["title"])}{part}</b>'
+                f'<span>{html.escape(x["url"] or "/")}</span>{html.escape(x["note"]) if k == 0 else "&nbsp;"}{more}</figcaption>'
+                f'<img src="{img(f, SCREENS)}"></figure>')
+    cards = ''.join(cards)
+    return (f'<div class="chapter"><h2>All screens ({len(items)})</h2>'
+            '<p>Every screen of the app as it is now, captured on a 360×800 phone screen. '
+            'Long screens are shown from the top (very long lists are cut). Sample data: '
+            'Ramesh General Store.</p>'
+            f'<div class="screens">{cards}</div></div>')
 
 GALLERY = [
     ('KK-003 Cart', 'Cart started with 6 fake items that could be billed; now starts empty.',
@@ -76,15 +110,22 @@ img {{ width: 100%; border: 1px solid #ccc; border-radius: 4pt; }}
 .pair img {{ max-height: 115mm; object-fit: contain; }}
 figcaption {{ text-align: center; font-size: 8.5pt; color: #52606D; }}
 .singles {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; }}
+.screens {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8pt 12pt; }}
+.screen {{ margin: 0; break-inside: avoid; display: flex; flex-direction: column; align-items: center; }}
+.screen figcaption {{ text-align: left; width: 100%; font-size: 8pt; color: #1F2933; margin-bottom: 3pt; min-height: 30pt; }}
+.screen figcaption b {{ font-size: 10pt; display: block; color: #2E7D32; }}
+.screen figcaption span {{ display: block; font-family: monospace; color: #52606D; }}
+.screen img {{ width: auto; max-width: 100%; height: 108mm; object-fit: contain; border-radius: 6pt; }}
 .single {{ margin: 0; break-inside: avoid; }} .single img {{ max-height: 120mm; object-fit: contain; }}
 </style></head><body>
 <div class="cover"><h1>Kirana Konnect — App Audit &amp; Fixes</h1>
 <p>10 November 2026 · Branch <b>claude/new-session-e7po74</b></p>
-<p>Contents: 1. Report · 2. Manual test checklist · 3. Before / after screenshots</p></div>
+<p>Contents: 1. Report · 2. Manual test checklist · 3. Before / after screenshots · 4. All screens of the app</p></div>
 {md('APP_AUDIT_REPORT.md').replace('<h1>', '<h1 style="display:none">', 1)}
 <div class="chapter">{md('MANUAL_TEST_CHECKLIST.md')}</div>
 <div class="chapter"><h2>Before / after screenshots</h2>{''.join(parts)}
 <h2>New screens</h2><div class="singles">{singles}</div></div>
+{all_screens()}
 </body></html>'''
 doc = re.sub(r'<li>\[ \]', '<li>☐', doc).replace('<li>[x]', '<li>☑')
 out = os.path.join(os.environ.get('PDF_TMP', AUDIT), 'report_print.html')
