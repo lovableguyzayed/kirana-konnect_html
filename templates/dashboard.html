@@ -293,7 +293,7 @@
                         </div>
                         <div class="text-left">
                             <p class="font-semibold text-dark">Low Stock</p>
-                            <p class="text-sm text-gray-500">10 items need restocking</p>
+                            <p id="lowstock-sub" class="text-sm text-gray-500">Items that need restocking</p>
                         </div>
                     </div>
                     <i class="fa-solid fa-chevron-right text-gray-400"></i>
@@ -306,7 +306,7 @@
                         </div>
                         <div class="text-left">
                             <p class="font-semibold text-dark">Expiring Soon</p>
-                            <p class="text-sm text-gray-500">5 items expire this week</p>
+                            <p id="expiry-sub" class="text-sm text-gray-500">Items expiring this week</p>
                         </div>
                     </div>
                     <i class="fa-solid fa-chevron-right text-gray-400"></i>
@@ -1067,11 +1067,15 @@
         }
 
         // Report and ledger button handlers
+        // These buttons used to pop "feature coming soon!" even though the
+        // screens exist (and then navigated anyway). Route them directly.
+        const DASH_LINKS = { 'Daily Reports': '/sales-report' };
         document.querySelectorAll('#reports-ledger button, #quick-links button').forEach(button => {
-            button.addEventListener('click', function() {
-                const title = this.querySelector('p').textContent;
-                alert(`${title} feature coming soon!`);
-            });
+            if (button.getAttribute('onclick')) return;  // already navigates
+            const title = (button.querySelector('p') || {}).textContent;
+            if (DASH_LINKS[title]) {
+                button.addEventListener('click', () => { window.location.href = DASH_LINKS[title]; });
+            }
         });
 
         // Radial Menu Functions
@@ -1339,6 +1343,10 @@
                 // Update Inventory
                 document.getElementById('total-products').textContent = `${stats.total_products} Items`;
                 document.getElementById('inventory-alerts').textContent = `${stats.expired_products} Expired • ${stats.low_stock_products} Low`;
+                const lowSub = document.getElementById('lowstock-sub');
+                if (lowSub) lowSub.textContent = stats.low_stock_products === 1 ? '1 item needs restocking' : `${stats.low_stock_products} items need restocking`;
+                const expSub = document.getElementById('expiry-sub');
+                if (expSub) expSub.textContent = stats.expired_products ? `${stats.expired_products} item(s) already expired` : 'Check items expiring soon';
                 
             } catch (error) {
                 console.error('Error loading dashboard stats:', error);
