@@ -277,6 +277,11 @@
             const urlParams = new URLSearchParams(window.location.search);
             const billNumber = urlParams.get('bill');
             
+            if (!billNumber) {
+                // No bill chosen: don't show the built-in sample receipt.
+                window.location.replace('/dashboard');
+                return;
+            }
             if (billNumber) {
                 // Update bill number in header
                 document.getElementById('bill-number-header').textContent = `Bill #${billNumber}`;
@@ -287,9 +292,12 @@
                     if (response.ok) {
                         const billData = await response.json();
                         updateReceiptWithData(billData);
+                    } else {
+                        alert('This bill could not be found.');
+                        window.location.replace('/dashboard');
                     }
                 } catch (error) {
-                    console.error('Error loading bill data:', error);
+                    alert('No internet. The bill could not be loaded - please try again.');
                 }
             }
         });
@@ -297,7 +305,7 @@
         function updateReceiptWithData(billData) {
             // Update bill details
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(1) .text-sm.text-gray-700').textContent = `#${billData.bill_number}`;
-            document.querySelector('.px-4.py-3.border-b .flex:nth-child(2) .text-sm.text-gray-700').textContent = new Date(billData.created_at).toLocaleString();
+            document.querySelector('.px-4.py-3.border-b .flex:nth-child(2) .text-sm.text-gray-700').textContent = new Date(billData.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(3) .text-sm.text-gray-700').textContent = billData.customer_name || 'Guest Customer';
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(4) .text-sm.text-gray-700').textContent = billData.generated_by || 'Store Staff';
             

@@ -988,6 +988,17 @@ try:
             db.session.rollback()
             app.logger.warning(f"Dedupe skipped: {dedupe_error}")
 
+        # Clear the fake alarms older releases created (see get_notifications).
+        try:
+            Notification.query.filter(
+                Notification.is_read.is_(False),
+                Notification.title.in_(['Subscription Expiring Soon', 'Enable Data Backup'])
+            ).delete(synchronize_session=False)
+            db.session.commit()
+        except Exception as cleanup_error:
+            db.session.rollback()
+            app.logger.warning(f"Fake-notification cleanup skipped: {cleanup_error}")
+
         # A store with fewer than 40 products is a fresh (or barely-touched)
         # instance: give it the full demo catalog, customers, staff and sales
         # history so every screen is alive out of the box. seed_demo is
@@ -2042,8 +2053,10 @@ def get_notifications():
         
         # Run notification checks to ensure latest data
         try:
-            check_subscription_expiry()
-            check_backup_status()
+            # check_subscription_expiry() and check_backup_status() used to
+            # create fake alarms ("subscription expires in 3 days", "enable
+            # cloud backup") - there is no subscription or backup system, so
+            # they only scared shop owners. Re-enable once those exist.
             check_low_stock()
             check_expiring_products()
         except Exception as check_error:

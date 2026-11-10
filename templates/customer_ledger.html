@@ -267,7 +267,7 @@
                         
                         <div class="flex items-center justify-between">
                             <div class="text-xs text-gray-500">
-                                <span>Member since: ${new Date(customer.created_at).toLocaleDateString()}</span>
+                                <span>Member since: ${new Date(customer.created_at).toLocaleDateString('en-IN')}</span>
                             </div>
                             <div class="flex space-x-2">
                                 <button onclick="collectPayment(${customer.id}, '${customer.name}', ${customer.outstanding_balance})" 

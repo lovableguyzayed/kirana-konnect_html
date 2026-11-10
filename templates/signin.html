@@ -111,8 +111,9 @@
                 <span class="text-lg">Sign In</span>
             </button>
 
-            <!-- Alternative Login Methods -->
-            <div id="alternative-login" class="space-y-4">
+            <!-- Alternative Login Methods: hidden until real SMS OTP exists. The old
+                 OTP flow sent no SMS and "verified" any 6 digits (see audit KK-013). -->
+            <div id="alternative-login" class="space-y-4 hidden" aria-hidden="true">
                 <div class="relative">
                     <div class="absolute inset-0 flex items-center">
                         <div class="w-full border-t border-gray-300"></div>
@@ -123,14 +124,15 @@
                 </div>
 
                 <!-- OTP Login -->
-                <button id="otp-btn" class="w-full bg-white border border-gray-300 text-dark font-medium py-3 px-6 rounded-xl shadow-sm hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-3">
+                <button id="otp-btn" type="button" class="w-full bg-white border border-gray-300 text-dark font-medium py-3 px-6 rounded-xl shadow-sm hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-3">
                     <i class="fa-solid fa-mobile-alt text-accent text-lg"></i>
                     <span>Login with OTP</span>
                 </button>
             </div>
 
             <!-- Language Selection -->
-            <div id="language-selection" class="space-y-2">
+            <!-- Hidden: the selector did nothing yet (no translations). See audit KK-030. -->
+            <div id="language-selection" class="space-y-2 hidden" aria-hidden="true">
                 <label class="text-dark text-sm font-medium">Preferred Language</label>
                 <select class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
                     <option value="english">English</option>
