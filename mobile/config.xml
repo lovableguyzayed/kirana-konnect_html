@@ -32,7 +32,6 @@
          resource compilation ("Invalid <color> for given resource value"). -->
     <preference name="BackgroundColor" value="#4CAF50" />
     <preference name="SplashMaintainAspectRatio" value="true" />
-    <preference name="loglevel" value="DEBUG" />
 
     <platform name="android">
         <preference name="AndroidWindowSplashScreenBackgroundColor" value="#4CAF50" />
@@ -49,5 +48,5 @@
         <icon density="xxxhdpi" src="res/android/icon-192-xxxhdpi.png" />
     </platform>
 
-    <engine name="android" spec="^14.0.0" />
+    <engine name="android" spec="^15.1.0" />
 </widget>

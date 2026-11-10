@@ -32,7 +32,7 @@ Cordova cannot build the APK in the Claude web environment because Google's
 Android SDK servers are blocked there. Build on your own machine or a CI runner:
 
 - **Node.js** 18+ and **Cordova CLI**: `npm install -g cordova`
-- **Java JDK 17** (JDK 17 is required by cordova-android 13)
+- **Java JDK 17** (used by cordova-android 15, which targets Android 16 / API 36 as Google Play requires since 31 Aug 2026)
 - **Android SDK** — easiest via **Android Studio**, or the command-line tools.
   Set the environment variables:
   ```bash
@@ -41,7 +41,7 @@ Android SDK servers are blocked there. Build on your own machine or a CI runner:
   ```
 - Install the required SDK packages and accept licenses:
   ```bash
-  sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+  sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
   sdkmanager --licenses
   ```
 

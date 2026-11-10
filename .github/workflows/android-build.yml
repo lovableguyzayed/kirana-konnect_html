@@ -43,7 +43,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install Cordova
         run: npm install -g cordova
@@ -61,7 +61,7 @@ jobs:
           grep APP_URL www/js/config.js
 
       - name: Add Android platform
-        run: cordova platform add android@14.0.0
+        run: cordova platform add android@15.1.0
 
       - name: Build debug APK
         run: cordova build android --verbose
