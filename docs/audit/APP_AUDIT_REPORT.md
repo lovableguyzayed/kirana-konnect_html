@@ -17,7 +17,7 @@
 ### Release-readiness verdict
 **Before this audit: not safe to release.** Anyone who knew the owner's phone number (printed on every bill) could take over the shop account. The empty cart billed fake items. Refill could add stock to the wrong product.
 
-**After the fixes on this branch:** the core shop flows are trustworthy. **The app is still not ready for the Play Store**, because it has no account deletion, no privacy policy page, and you still need to make the decisions in §5.
+**After the fixes on this branch (round 2, 10 Nov 2026):** core shop flows are trustworthy, and the Play-Store blockers in the code are done (account deletion, privacy/terms pages, target API 36). **Before publishing, you still need to:** fill in support contacts on Render, check the policy text, decide on SMS OTP, and run the real-phone checks in `MANUAL_TEST_CHECKLIST.md`.
 
 ### Top 10 issues (all fixed on this branch unless marked)
 | # | Issue | Severity | Status |
@@ -31,7 +31,7 @@
 | 7 | "Change password" and "Edit profile" said *success* but saved nothing; profile showed a stranger's details and fake GSTIN (KK-016/017) | P1 | Fixed, Verified |
 | 8 | Business-report PDF printed every ₹ as ■ and showed sell price as buy price; invoice PDF crashed on names with `<` (KK-007/008) | P1 | Fixed, Verified |
 | 9 | Dates/"today" computed in UTC → sales 12:00–5:30 AM IST counted on the wrong day; profit for loose (kg) items wrong (KK-009/010) | P1 | Fixed |
-| 10 | No in-app **account deletion**, no privacy policy URL; Android shell targeted API 35 (Play needs 36 since 31 Aug 2026) | P0 for store | Target API fixed (APK builds in CI); deletion **needs your decision** |
+| 10 | No in-app **account deletion**, no privacy policy URL; Android shell targeted API 35 (Play needs 36 since 31 Aug 2026) | P0 for store | All fixed: deletion page, /privacy, API 36 APK builds in CI |
 
 ---
 
@@ -140,26 +140,30 @@ Severity: P0 Blocker · P1 Critical · P2 Major · P3 Minor · P4 Polish. Person
 | KK-017 | Profile | `profile.html:1733`, 551-582 | Edit profile not saved; page shows "Rajesh"/fake GSTIN, so GSTIN never reaches invoices | A | P1 | Load real data; `PUT /api/auth/profile` | S | ✅ Fixed, test |
 | KK-018 | Dashboard | `dashboard.html:1070` | Report buttons "coming soon"; fixed counts "10 items", "5 items" | R | P2 | Real links & counts | S | ✅ Fixed |
 | KK-019 | Android | `mobile/config.xml`, CI | Target API 35 (Play needs 36 since 31 Aug 2026); `loglevel DEBUG`; CI `setup-android@v3` broken | — | P0 store | cordova-android 15.1, SDK 36, CI uses runner SDK | S | ✅ Done; APK builds in CI (run #15) |
-| KK-020 | Compliance | — | **No account deletion** (in-app or web link): Play requirement for apps with sign-up | All | P0 store | Add "Delete my shop account" + public web form | M | ⏳ D1 |
-| KK-021 | Compliance | `profile.html:767`, signup modals | Privacy Policy link is `#`; Terms/Privacy only in signup pop-ups; no public URL for Play listing; no grievance contact (DPDP) | All | P1 | Public `/privacy`, `/terms`, contact page | M | ⏳ D7 (needs your text) |
-| KK-022 | Ledger | `customer_ledger.html:390, 501` | "Add payment" / "Add customer with credit" = coming soon (Pending Credits → Collect works) | R | P2 | Wire to `/api/payments`, `/api/customers` | S | Open (needs preview) |
+| KK-020 | Compliance | — | **No account deletion** (in-app or web link): Play requirement for apps with sign-up | All | P0 store | Add "Delete my shop account" + public web form | M | ✅ Fixed (round 2): `/account-deletion`, in-app + web |
+| KK-021 | Compliance | `profile.html:767`, signup modals | Privacy Policy link is `#`; Terms/Privacy only in signup pop-ups; no public URL for Play listing; no grievance contact (DPDP) | All | P1 | Public `/privacy`, `/terms`, contact page | M | ✅ Plain-language pages added; **you must review the text and set SUPPORT_* contacts** |
+| KK-022 | Ledger | `customer_ledger.html:390, 501` | "Add payment" / "Add customer with credit" = coming soon (Pending Credits → Collect works) | R | P2 | Customer history sheet + Collect; header + guides to search | S | ✅ Fixed (round 2) |
 | KK-023 | Settings | `settings.html:488`, toggles | Privacy settings & several toggles do nothing | All | P3 | Bind to `/api/notification-settings` or remove | S | Open |
-| KK-024 | Reports | `api_sales_data` | Udhar (credit) sales never appear in sales/revenue; "credit" slice always 0 | R | P2 | Decide: report = sales made (incl. udhar) vs cash collected | S | ⏳ D5 |
+| KK-024 | Reports | `api_sales_data` | Udhar (credit) sales never appear in sales/revenue; "credit" slice always 0 | R | P2 | Decide: report = sales made (incl. udhar) vs cash collected | S | ✅ Udhar counted as sales; API adds `udharSales`, `cashReceived` |
 | KK-025 | Staff | `staff.html:309-321` | Attendance buttons say "would be implemented" | — | P3 | Build or hide | M | Open |
-| KK-026 | Pricing | `index.html` | Public page with blank prices and dead buttons; contradictory "Save 90%" | — | P2 | Fill or hide | S | ⏳ D3 |
+| KK-026 | Pricing | `index.html` | Public page with blank prices and dead buttons; contradictory "Save 90%" | — | P2 | Fill or hide | S | ✅ Hidden: `/pricing` → sign-in, fake 'My Plan ₹799 ACTIVE' card hidden |
 | KK-027 | UI | `cart.html` and others | Item/customer names inserted into HTML without escaping (`innerHTML`): self-XSS, owner-only data | — | P3 | Escape helper | S | Open |
 | KK-028 | UI | most pages: `alert()`/`confirm()` (≈80 uses) | Browser pop-ups feel like a website, not an app; English-only jargon | R | P3 | In-app toast/bottom sheet | M | Open (preview) |
-| KK-029 | UI | dashboard, inventory | Green "+" floating button covers "Add Item" quick action and inventory card buttons at 360 px. **Verified** (screenshot) | R | P3 | Bottom padding / move FAB | S | Open (preview) |
+| KK-029 | UI | dashboard, inventory | Green "+" floating button covers "Add Item" quick action and inventory card buttons at 360 px. **Verified** (screenshot) | R | P3 | Bottom padding / move FAB | S | ✅ Extra bottom space; FAB can still cover the 'Add Item' quick action on first view |
 | KK-030 | i18n | all templates | English only; no translation setup (Hindi would help Ramesh ji most) | R | P2 | i18n layer + Hindi strings | L | ⏳ D6 |
 | KK-031 | Native feel | `mobile/config.xml` | Portrait lock is ignored on tablets/foldables at API 36; edge-to-edge on Android 16 untested; no offline cache (blank page off-network after splash) | R | P2 | Device test; service worker for static files | M | Device |
 | KK-032 | Performance | dashboard stats, `/api/customers/with-balance`, `outstanding_balance` | Computes every customer's balance with 2 queries each (N+1); slow on Render free tier with many customers | R | P3 | Aggregate SQL | M | Open |
-| KK-033 | Data | `Customer.phone` | No uniqueness/validation; duplicates possible; Aadhaar number collected (sensitive under DPDP, not needed for udhar) | All | P2 | Validate 10-digit; stop asking Aadhaar (D10) | S | ⏳ D10 |
-| KK-034 | Refill images | `refill_stock*.html` | Remote Unsplash/Google images (fail offline, cost data) | R | P4 | Remove remote placeholders | S | Partly (no broken icon when missing) |
-| KK-035 | PDF | invoice | Devanagari text prints as boxes | R | P2 | Noto Sans Devanagari + shaping | M | ⏳ D8 |
+| KK-033 | Data | `Customer.phone` | No uniqueness/validation; duplicates possible; Aadhaar number collected (sensitive under DPDP, not needed for udhar) | All | P2 | Validate 10-digit; stop asking Aadhaar (D10) | S | ✅ Aadhaar no longer stored; phone uniqueness still open (needs migration) |
+| KK-034 | Refill images | `refill_stock*.html` | Remote Unsplash/Google images (fail offline, cost data) | R | P4 | Remove remote placeholders | S | ✅ Fixed |
+| KK-035 | PDF | invoice | Devanagari text prints as boxes | R | P2 | Noto Sans Devanagari + shaping | M | ✅ Fixed (round 2), Verified |
+| KK-037 | Billing | `/bill-generate` (dashboard "Payment") | Second, older checkout with hard-coded items, fake shop "Sharma Kirana Store" and fake GSTIN, all billable. **Verified** | R | P0 | Route → `/cart`; template deleted | S | ✅ Fixed |
+| KK-038 | Ledger | `customer_ledger.html:399` | "View Details" opened a non-existent URL (raw "Not found") | R | P2 | Bottom-sheet history | S | ✅ Fixed |
+| KK-039 | Layout | dashboard, add-item @320 px | Sideways scroll 9–31 px on small phones. **Verified** | R | P3 | `min-width:0` on flex children | S | ✅ Fixed; 84 screen/size checks clean |
+| KK-040 | GST | `cart.html:388` | Flat 18% GST on by default, even without GSTIN (D4) | A, R | P1 | Off by default; needs GSTIN; 5/12/18% per bill | S | ✅ Fixed, Verified |
 | KK-036 | Auth | `app.py` `/logout` (GET) | Logout by GET link (minor CSRF nuisance); single shared login for owner + staff (no per-staff accounts) | F | P3 | POST logout; staff PINs later | M | Open |
 
 ### Before / after screenshots
-Gallery: [`mockups/index.html`](mockups/index.html). Files: `KK-003_cart_*`, `KK-006_refill_*`, `KK-007_invoice-pdf_after`, `KK-008_export-pdf_*`, `KK-013_signin_*`, `KK-014_receipt-sample_before`, `KK-017_profile_*`, `KK-020_dashboard_before`.
+Gallery: [`mockups/index.html`](mockups/index.html). Files: `KK-020_privacy_after`, `KK-020_account-deletion_after`, `KK-022_ledger-details_after`, `KK-035_invoice-hindi_after`, `D4_cart-gst_after`, `KK-003_cart_*`, `KK-006_refill_*`, `KK-007_invoice-pdf_after`, `KK-008_export-pdf_*`, `KK-013_signin_*`, `KK-014_receipt-sample_before`, `KK-017_profile_*`, `KK-020_dashboard_before`.
 
 ---
 
@@ -176,22 +180,22 @@ Gallery: [`mockups/index.html`](mockups/index.html). Files: `KK-003_cart_*`, `KK
 
 ---
 
-## 5. Needs my decision
+## 5. Decisions (round 2: you said “do it now”, so I applied my recommendations)
 
-| # | Decision | My recommendation |
+| # | Decision | What I did |
 |---|---|---|
-| D1 | **Account deletion** (Play requirement): in-app "Delete my shop" plus a public web page to request deletion. Deleting wipes products, bills, customers. What must be kept (bills for GST/tax, typically 6–8 years)? | Add both; keep bills only if GST-registered, anonymised; confirm with a typed shop name |
-| D2 | **Real SMS OTP login/reset** needs an SMS provider (MSG91 / 2Factor / Firebase Phone Auth) + **TRAI DLT** sender ID & template. New service + cost per SMS | Yes, MSG91 or Firebase; use it for forgot-password first |
-| D3 | **Pricing page / subscription**: prices are blank. If you charge shops a subscription *inside the Android app*, Google Play's Payments policy applies (it is a digital service): Play Billing, or user-choice/alternative billing for India, or take payment outside the app (no buy buttons in-app) | Until decided, hide `/pricing` from the app |
-| D4 | **GST in cart**: flat 18% "Add Tax" on whole cart, on by default, even with no GSTIN | Off by default; only allow when GSTIN is saved; per-product GST rate (needs a DB column) |
-| D5 | **Sales report**: count udhar sales as sales (recommended) or only cash collected? | Show both: "Sales made" and "Money received" |
-| D6 | **Hindi**: add an i18n layer + Hindi/Hinglish strings | Yes, start with sign-in, cart, receipt |
-| D7 | **Privacy policy, Terms, Refund, Contact (WhatsApp/phone/email, grievance officer)**: I need your real text/contacts; I won't write legal text myself | Send me the details; I'll add public pages |
-| D8 | **Hindi item names on PDFs**: add Noto Sans Devanagari (~250 KB) + `uharfbuzz` shaping library | Yes if shops type Hindi names |
-| D9 | **Delete `main.py`** (old mock app) and `zipFile.zip` (1 MB old copy of the code) from the repo | Yes |
-| D10 | **Stop collecting Aadhaar** for udhar customers (DPDP: collect only what's needed) | Yes, remove the field |
-| D11 | **Staff logins / PIN** so staff can't see profit or delete data | Later; owner-only for now |
-| D12 | **DB schema changes** needed for: shop address, per-product GST rate, customer phone uniqueness | Approve as one migration |
+| D1 | **Account deletion** (Play requirement): in-app "Delete my shop" plus a public web page to request deletion. Deleting wipes products, bills, customers. What must be kept (bills for GST/tax, typically 6–8 years)? | ✅ Done: password + typing DELETE erases everything; offers the PDF report first; works without the app at `/account-deletion` |
+| D2 | **Real SMS OTP login/reset** needs an SMS provider (MSG91 / 2Factor / Firebase Phone Auth) + **TRAI DLT** sender ID & template. New service + cost per SMS | ⏳ **Still yours**: needs an SMS account + DLT registration. Recovery code works meanwhile |
+| D3 | **Pricing page / subscription**: prices are blank. If you charge shops a subscription *inside the Android app*, Google Play's Payments policy applies (it is a digital service): Play Billing, or user-choice/alternative billing for India, or take payment outside the app (no buy buttons in-app) | ✅ Hidden. App is presented as free in Terms |
+| D4 | **GST in cart**: flat 18% "Add Tax" on whole cart, on by default, even with no GSTIN | ✅ Off by default, needs GSTIN, rate per bill. Per-product rate still needs D12 |
+| D5 | **Sales report**: count udhar sales as sales (recommended) or only cash collected? | ✅ Sales include udhar; API returns both figures (screen shows sales) |
+| D6 | **Hindi**: add an i18n layer + Hindi/Hinglish strings | ⏳ Not started (large job; next round) |
+| D7 | **Privacy policy, Terms, Refund, Contact (WhatsApp/phone/email, grievance officer)**: I need your real text/contacts; I won't write legal text myself | ✅ Pages written in plain language (not lawyer-reviewed). Set `SUPPORT_NAME/PHONE/WHATSAPP/EMAIL` on Render |
+| D8 | **Hindi item names on PDFs**: add Noto Sans Devanagari (~250 KB) + `uharfbuzz` shaping library | ✅ Done |
+| D9 | **Delete `main.py`** (old mock app) and `zipFile.zip` (1 MB old copy of the code) from the repo | ✅ Deleted |
+| D10 | **Stop collecting Aadhaar** for udhar customers (DPDP: collect only what's needed) | ✅ No longer stored |
+| D11 | **Staff logins / PIN** so staff can't see profit or delete data | ⏳ Later |
+| D12 | **DB schema changes** needed for: shop address, per-product GST rate, customer phone uniqueness | ⏳ Not done: schema changes need a backup first |
 
 ---
 

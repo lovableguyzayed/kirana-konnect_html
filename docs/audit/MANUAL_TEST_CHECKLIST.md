@@ -4,6 +4,9 @@ Tick each on a real phone after deploying this branch.
 
 ## Deploy
 - [ ] Render: the blueprint now adds `OWNER_RESET_CODE`. For an existing service, add it by hand (Environment → Add, at least 6 characters) and note it somewhere safe.
+- [ ] Render → Environment: set `SUPPORT_NAME`, `SUPPORT_PHONE`, `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`; open `/contact` and check they show.
+- [ ] Read `/privacy` and `/terms` once and correct anything that is not true for your business.
+- [ ] On a **test** shop only: `/account-deletion` deletes everything (do NOT try on the real shop).
 - [ ] `/healthz` shows `database: connected` after deploy.
 - [ ] Sign in works; after **10 wrong passwords** you see "Too many wrong attempts" (wait 15 min).
 - [ ] Forgot password: wrong code → refused; right code → you are signed in.
@@ -32,9 +35,9 @@ Tick each on a real phone after deploying this branch.
 
 ## Before Play Store release
 - [ ] Target API 36 ✔ (this branch). Signed **release** AAB (`cordova build android --release --packageType=bundle`).
-- [ ] Account deletion in-app + public web link (decision D1).
-- [ ] Privacy Policy + Terms public URLs (decision D7), linked in app and in Play listing.
+- [x] Account deletion in-app + public web link (`/account-deletion`).
+- [ ] Privacy Policy `/privacy` + Terms `/terms` ✔ in app; add the `/privacy` URL to the Play listing and `/account-deletion` to the Data safety form.
 - [ ] Data Safety form: name, phone, email, purchase/udhar records, camera (not stored).
-- [ ] Billing policy decided for subscriptions (decision D3).
+- [x] No in-app purchases (pricing hidden) → no Play Billing needed for now.
 - [ ] New personal developer account: closed test with ≥12 testers for 14 days.
 - [ ] Remove `allow-intent http://*/*` if not needed; keep `allow-navigation` limited to your domain.
