@@ -113,3 +113,13 @@ def test_account_deletion_wipes_everything(tmp_path):  # D1 - run on its own DB
     out = subprocess.run([sys.executable, '-c', code, str(tmp_path / 'd.db'), root],
                          capture_output=True, text=True)
     assert out.stdout.strip().endswith('OK'), out.stderr[-2000:]
+
+
+def test_sales_report_counts_udhar(auth):  # D5
+    cid = auth.post('/api/customers', json={'name': 'Udhar Wala', 'phone': '9822222222'}).get_json()['id']
+    before = auth.get('/api/sales-data?period=daily').get_json()['data']
+    _bill(auth, payment_mode='credit', customer_id=cid)
+    after = auth.get('/api/sales-data?period=daily').get_json()['data']
+    assert round(after['totalRevenue'] - before['totalRevenue'], 2) == 100
+    assert round(after['udharSales'] - before['udharSales'], 2) == 100
+    assert round(after['cashReceived'] - before['cashReceived'], 2) == 0

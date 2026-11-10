@@ -1525,9 +1525,8 @@ def get_dashboard_stats():
     # Calculate today's sales (IST calendar day)
     today_bills = Bill.query.filter(
         Bill.created_at >= today_start,
-        Bill.created_at < today_start + timedelta(days=1),
-        Bill.payment_status == 'paid'
-    ).all()
+        Bill.created_at < today_start + timedelta(days=1)
+    ).all()  # includes udhar sales (sales made, not only cash collected)
     
     total_sales = sum(bill.total_amount for bill in today_bills)
     transaction_count = len(today_bills)
@@ -1563,8 +1562,7 @@ def get_dashboard_stats():
     yesterday = today - timedelta(days=1)
     yesterday_bills = Bill.query.filter(
         Bill.created_at >= today_start - timedelta(days=1),
-        Bill.created_at < today_start,
-        Bill.payment_status == 'paid'
+        Bill.created_at < today_start
     ).all()
     
     yesterday_sales = sum(bill.total_amount for bill in yesterday_bills)
@@ -2467,8 +2465,10 @@ def api_sales_data():
             to_datetime = today.replace(hour=23, minute=59, second=59, microsecond=999999)
         
         # Build query for the period (DB stores UTC)
+        # All sales made in the period, including udhar (credit) sales -
+        # those used to be left out entirely (audit D5). Money actually
+        # received is reported separately as cashReceived.
         query = Bill.query.filter(
-            Bill.payment_status == 'paid',
             Bill.created_at >= from_datetime - IST_OFFSET,
             Bill.created_at <= to_datetime - IST_OFFSET
         )
@@ -2679,7 +2679,7 @@ def api_sales_data():
                 
                 if product and product.cost_price:
                     # Add cost price of sold quantity for this period
-                    period_sold_amount += (product.cost_price * item.quantity)
+                    period_sold_amount += (product.cost_price * sold_quantity(item))
 
         # Calculate remaining investment (simplified calculation)
         remaining_investment = max(0, total_combined_investment - period_sold_amount)
@@ -2698,6 +2698,8 @@ def api_sales_data():
                 'profitPercentage': round((total_profit / total_revenue) * 100) if total_revenue > 0 else 0,
                 'avgBillValue': total_revenue / total_bills if total_bills > 0 else 0,
                 'paymentModes': payment_modes,
+                'udharSales': payment_modes['credit']['amount'],
+                'cashReceived': total_revenue - payment_modes['credit']['amount'],
                 'categories': categories,
                 'topItems': top_items,  # Period-based top items
                 'chartData': {
