@@ -1073,8 +1073,9 @@ def index():
 
 @app.route('/pricing')
 def pricing():
-    """Serve the pricing plans page"""
-    return render_template('index.html')
+    """Pricing page is switched off until real prices and a Play-compliant
+    payment route are decided (audit D3); templates/index.html is kept."""
+    return redirect(url_for('signin'))
 
 @app.route('/splash')
 def splash():
@@ -1594,7 +1595,9 @@ def create_customer():
             name=data['name'],
             phone=data['phone'],
             address=data.get('address', ''),
-            aadhar_number=data.get('aadhar_number', ''),
+            # Aadhaar is not needed for udhar and is sensitive personal data
+            # under the DPDP Act - no longer stored (audit D10).
+            aadhar_number=None,
             email=data.get('email', '')
         )
         

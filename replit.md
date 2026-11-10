@@ -21,10 +21,9 @@ The app starts automatically via the **Start application** workflow:
 ```
 gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
 ```
-Entry point is `main.py` (imports `app` from `app.py`).
+Entry point is `app.py` (`gunicorn app:app`).
 
 ## Project structure
-- `main.py` — WSGI entry point
 - `app.py` — Flask routes and sample data
 - `templates/` — Jinja2 HTML templates
 - `static/js/` — Client-side JavaScript (universal-scanner.js)
