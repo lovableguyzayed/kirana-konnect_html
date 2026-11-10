@@ -213,7 +213,8 @@ PUBLIC_ENDPOINTS = {
     'static', 'index', 'pricing', 'splash', 'signin', 'signup',
     'auth_login', 'auth_signup', 'auth_status', 'logout',
     'form_login', 'form_signup', 'healthz', 'auth_reset_password',
-    'privacy', 'terms', 'contact', 'account_deletion'
+    'privacy', 'terms', 'contact', 'account_deletion',
+    'otp_send', 'otp_verify'
 }
 
 @app.before_request
@@ -255,6 +256,7 @@ def auth_status():
     payload = {
         'account_exists': db.session.query(User.id).first() is not None,
         'authenticated': current_user.is_authenticated,
+        'otp_enabled': otp_enabled(),
         'shop_name': current_user.shop_name if current_user.is_authenticated else None,
         'owner_name': current_user.owner_name if current_user.is_authenticated else None
     }
@@ -319,6 +321,137 @@ def _rate_limited(action, key, limit, window):
     if len(_RATE_BUCKETS) > 10000:  # bound memory
         _RATE_BUCKETS.clear()
     return len(hits) >= limit
+
+# --- SMS OTP (login + forgot password) ---------------------------------------
+# Off until SMS_PROVIDER is set. Supported: 'msg91' (needs MSG91_AUTHKEY and a
+# TRAI-DLT-approved MSG91_OTP_TEMPLATE_ID) and 'console' (TESTING ONLY: writes
+# the code to the server log). Codes: 6 digits, valid 5 minutes, 5 tries,
+# stored hashed; sends are rate limited per number and per IP so nobody can
+# run up the SMS bill ("SMS pumping").
+OTP_TTL = timedelta(minutes=5)
+OTP_RESEND_SECONDS = 30
+
+class OtpCode(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(15), nullable=False, index=True)
+    purpose = db.Column(db.String(10), nullable=False)  # login | reset
+    code_hash = db.Column(db.String(256), nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+def otp_enabled():
+    provider = os.environ.get('SMS_PROVIDER', '').strip().lower()
+    if provider == 'msg91':
+        return bool(os.environ.get('MSG91_AUTHKEY') and os.environ.get('MSG91_OTP_TEMPLATE_ID'))
+    return provider == 'console'
+
+def _send_sms_otp(phone, code):
+    """Send the code; returns True when the provider accepted it."""
+    provider = os.environ.get('SMS_PROVIDER', '').strip().lower()
+    if provider == 'console':
+        app.logger.warning(f"[SMS_PROVIDER=console - testing only] OTP for ...{phone[-4:]}: {code}")
+        return True
+    if provider == 'msg91':
+        import json, urllib.request, urllib.parse
+        query = urllib.parse.urlencode({'template_id': os.environ['MSG91_OTP_TEMPLATE_ID'],
+                                        'mobile': '91' + phone, 'otp': code,
+                                        'otp_expiry': int(OTP_TTL.total_seconds() // 60)})
+        req = urllib.request.Request('https://control.msg91.com/api/v5/otp?' + query, method='POST',
+                                     headers={'authkey': os.environ['MSG91_AUTHKEY'],
+                                              'Content-Type': 'application/json'}, data=b'{}')
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read().decode() or '{}')
+            ok = body.get('type') == 'success'
+            if not ok:
+                app.logger.error(f"MSG91 OTP rejected: {str(body)[:200]}")
+            return ok
+        except Exception as e:
+            app.logger.error(f"MSG91 OTP send failed: {e}")
+            return False
+    return False
+
+def _clean_mobile(value):
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if len(digits) == 12 and digits.startswith('91'):
+        digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith('0'):
+        digits = digits[1:]
+    return digits if len(digits) == 10 and digits[0] in '6789' else None
+
+@app.route('/api/auth/otp/send', methods=['POST'])
+def otp_send():
+    if not otp_enabled():
+        return jsonify({'success': False, 'error': 'OTP by SMS is not set up yet.'}), 503
+    data = request.get_json() or {}
+    purpose = 'reset' if data.get('purpose') == 'reset' else 'login'
+    phone = _clean_mobile(data.get('phone'))
+    if not phone:
+        return jsonify({'success': False, 'error': 'Enter a valid 10-digit mobile number'}), 400
+    if (_rate_limited('otp_ip', request.remote_addr, limit=10, window=3600)
+            or _rate_limited('otp_phone', phone, limit=4, window=900)):
+        return jsonify({'success': False, 'error': 'Too many OTP requests. Please wait 15 minutes.'}), 429
+    user = User.query.filter_by(phone=phone).first()
+    if user is None:
+        _rate_hit('otp_ip', request.remote_addr)
+        return jsonify({'success': False, 'error': 'This number is not registered. Check the number or create an account.'}), 404
+    last = OtpCode.query.filter_by(phone=phone, purpose=purpose).order_by(OtpCode.id.desc()).first()
+    if last and (datetime.utcnow() - last.created_at).total_seconds() < OTP_RESEND_SECONDS:
+        wait = OTP_RESEND_SECONDS - int((datetime.utcnow() - last.created_at).total_seconds())
+        return jsonify({'success': False, 'error': f'Please wait {wait} seconds before asking again.', 'wait': wait}), 429
+    import secrets as _s
+    code = f"{_s.randbelow(1000000):06d}"
+    OtpCode.query.filter_by(phone=phone, purpose=purpose, used=False).update({'used': True})
+    db.session.add(OtpCode(phone=phone, purpose=purpose, code_hash=generate_password_hash(code),
+                           expires_at=datetime.utcnow() + OTP_TTL))
+    db.session.commit()
+    _rate_hit('otp_ip', request.remote_addr)
+    _rate_hit('otp_phone', phone)
+    if not _send_sms_otp(phone, code):
+        return jsonify({'success': False, 'error': 'Could not send the SMS right now. Please try again.'}), 502
+    return jsonify({'success': True, 'resend_after': OTP_RESEND_SECONDS,
+                    'message': f'OTP sent to +91 {phone[:2]}XXXXXX{phone[-2:]}'})
+
+def _check_otp(phone, purpose, code):
+    """Returns (ok, error_message)."""
+    rec = OtpCode.query.filter_by(phone=phone, purpose=purpose, used=False).order_by(OtpCode.id.desc()).first()
+    if rec is None or rec.expires_at < datetime.utcnow():
+        return False, 'OTP has expired. Please ask for a new one.'
+    if rec.attempts >= 5:
+        rec.used = True
+        db.session.commit()
+        return False, 'Too many wrong tries. Please ask for a new OTP.'
+    if not check_password_hash(rec.code_hash, str(code or '').strip()):
+        rec.attempts += 1
+        db.session.commit()
+        left = 5 - rec.attempts
+        return False, f'Wrong OTP. {left} tries left.' if left else 'Too many wrong tries. Please ask for a new OTP.'
+    rec.used = True
+    db.session.commit()
+    return True, None
+
+@app.route('/api/auth/otp/verify', methods=['POST'])
+def otp_verify():
+    if not otp_enabled():
+        return jsonify({'success': False, 'error': 'OTP by SMS is not set up yet.'}), 503
+    data = request.get_json() or {}
+    purpose = 'reset' if data.get('purpose') == 'reset' else 'login'
+    phone = _clean_mobile(data.get('phone'))
+    user = User.query.filter_by(phone=phone).first() if phone else None
+    if user is None:
+        return jsonify({'success': False, 'error': 'This number is not registered.'}), 404
+    if purpose == 'reset' and len(data.get('new_password') or '') < 6:
+        return jsonify({'success': False, 'error': 'New password must be at least 6 characters'}), 400
+    ok, err = _check_otp(phone, purpose, data.get('code'))
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+    if purpose == 'reset':
+        user.set_password(data['new_password'])
+        db.session.commit()
+    login_user(user, remember=True)
+    return jsonify({'success': True, 'shop_name': user.shop_name})
 
 def _find_user(identifier):
     """Look up a user by email or 10-digit phone from a free-form identifier."""

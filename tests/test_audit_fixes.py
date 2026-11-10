@@ -149,3 +149,30 @@ def test_shop_address_saved_and_on_invoice(auth):  # D12
     import io
     text = PdfReader(io.BytesIO(auth.get(f'/api/bills/{num}/pdf').data)).pages[0].extract_text()
     assert 'Hanuman Mandir' in text
+
+
+def test_sms_otp_login_and_reset(flask_app, owner, monkeypatch):  # D2
+    c = flask_app.test_client()
+    assert c.post('/api/auth/otp/send', json={'phone': owner['phone']}).status_code == 503  # off by default
+    sent = {}
+    monkeypatch.setenv('SMS_PROVIDER', 'console')
+    monkeypatch.setattr(A, '_send_sms_otp', lambda phone, code: sent.update(code=code) or True)
+    A._RATE_BUCKETS.clear()
+    assert c.post('/api/auth/otp/send', json={'phone': '9123456789'}).status_code == 404  # not registered
+    r = c.post('/api/auth/otp/send', json={'phone': '+91 ' + owner['phone']})
+    assert r.status_code == 200 and len(sent['code']) == 6
+    assert c.post('/api/auth/otp/send', json={'phone': owner['phone']}).status_code == 429  # 30 s resend wait
+    bad = c.post('/api/auth/otp/verify', json={'phone': owner['phone'], 'code': '000000' if sent['code'] != '000000' else '111111'})
+    assert bad.status_code == 400 and 'tries left' in bad.get_json()['error']
+    ok = c.post('/api/auth/otp/verify', json={'phone': owner['phone'], 'code': sent['code']})
+    assert ok.status_code == 200 and c.get('/api/auth/status').get_json()['authenticated']
+    # a used code cannot be reused
+    assert c.post('/api/auth/otp/verify', json={'phone': owner['phone'], 'code': sent['code']}).status_code == 400
+    # reset with OTP
+    with flask_app.app_context():
+        A.OtpCode.query.delete(); A.db.session.commit()
+    c2 = flask_app.test_client()
+    c2.post('/api/auth/otp/send', json={'phone': owner['phone'], 'purpose': 'reset'})
+    r = c2.post('/api/auth/otp/verify', json={'phone': owner['phone'], 'purpose': 'reset', 'code': sent['code'],
+                                              'new_password': owner['password']})
+    assert r.status_code == 200

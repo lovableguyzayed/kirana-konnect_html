@@ -39,5 +39,12 @@ services:
         sync: false
       - key: SUPPORT_EMAIL
         sync: false
+      # SMS OTP: set SMS_PROVIDER=msg91 plus the two MSG91 values to switch on.
+      - key: SMS_PROVIDER
+        sync: false
+      - key: MSG91_AUTHKEY
+        sync: false
+      - key: MSG91_OTP_TEMPLATE_ID
+        sync: false
       - key: PYTHON_VERSION
         value: "3.11.9"
