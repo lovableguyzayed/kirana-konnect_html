@@ -83,6 +83,13 @@
         'Choose a 4-6 digit owner PIN': '4-6 अंकों का मालिक PIN चुनें', 'Wrong PIN': 'PIN गलत है',
         'Owner PIN needed for that screen.': 'इस स्क्रीन के लिए मालिक का PIN चाहिए।',
         'Staff mode': 'स्टाफ़ मोड',
+        'Stock': 'स्टॉक', 'Bill': 'बिल', 'Scan': 'स्कैन', 'Open': 'खोलें',
+        'Add to bill': 'बिल में जोड़ें', 'Add & scan next': 'जोड़ें और अगला स्कैन', 'Scan again': 'फिर स्कैन करें',
+        'Add new product': 'नया सामान जोड़ें', 'New barcode': 'नया बारकोड', 'added to bill': 'बिल में जुड़ गया',
+        'Point the camera at the barcode': 'कैमरा बारकोड की तरफ़ करें', 'Starting camera...': 'कैमरा चालू हो रहा है...',
+        'Or type the barcode': 'या बारकोड लिखें', 'Enter quantity': 'मात्रा लिखें',
+        'this product is not in your stock yet.': 'यह सामान अभी आपके स्टॉक में नहीं है।',
+        'Camera permission denied - type the barcode below': 'कैमरा की अनुमति नहीं मिली - नीचे बारकोड लिखें',
         'Profile saved.': 'प्रोफ़ाइल सेव हो गई।',
         'The cart is empty. Add items before generating a bill.': 'कार्ट ख़ाली है। बिल बनाने से पहले सामान जोड़ें।',
         'Network error - the bill was not generated.': 'इंटरनेट नहीं है - बिल नहीं बना।',
@@ -129,6 +136,68 @@
         location.reload();
     }
 
+
+    // ---------------------------------------------------------------- native feel
+    // Injected as early as possible (this script is in <head>).
+    (function nativeFeel() {
+        var css = [
+            // Smooth native-style screen changes (Chrome/Android WebView 126+).
+            '@view-transition { navigation: auto; }',
+            '::view-transition-old(root) { animation: 120ms ease-out both kkFadeOut; }',
+            '::view-transition-new(root) { animation: 200ms cubic-bezier(.2,.8,.2,1) both kkSlideIn; }',
+            '@keyframes kkFadeOut { to { opacity: 0; } }',
+            '@keyframes kkSlideIn { from { opacity: 0; transform: translateX(6%); } }',
+            '::view-transition-group(kk-nav) { animation: none; }',
+            'html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }',
+            'body { overscroll-behavior-y: contain; }',
+            // No double-tap zoom delay; UI labels are not text-selectable (inputs still are).
+            'a, button, [onclick], label, nav, .kk-nav { touch-action: manipulation; -webkit-user-select: none; user-select: none; }',
+            'a:active, button:active, [onclick]:active { opacity: .72; transition: opacity 0s; }',
+            'button, [onclick] { transition: opacity .12s; cursor: pointer; }',
+            // Room for the shared bottom bar on every screen that has it.
+            'body:has(.kk-nav) { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }',
+            '#kk-progress { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: #2E7D32; z-index: 2147483005; transition: width 6s cubic-bezier(.1,.7,.2,1); }'
+        ].join('\n');
+        var st = document.createElement('style'); st.id = 'kk-native'; st.textContent = css;
+        (document.head || document.documentElement).appendChild(st);
+        // Prefetch a screen as soon as a finger touches its link, so it opens instantly.
+        try {
+            if (HTMLScriptElement.supports && HTMLScriptElement.supports('speculationrules')) {
+                var sr = document.createElement('script'); sr.type = 'speculationrules';
+                sr.textContent = JSON.stringify({ prefetch: [{ source: 'document', eagerness: 'moderate',
+                    where: { and: [{ href_matches: '/*' },
+                                   { not: { href_matches: '/logout' } }, { not: { href_matches: '/api/*' } },
+                                   { not: { href_matches: '/export-business-data' } }, { not: { href_matches: '/account-deletion' } }] } }] });
+                (document.head || document.documentElement).appendChild(sr);
+            }
+        } catch (e) {}
+    })();
+
+    // Thin progress bar while the next screen loads (instant feedback on tap).
+    function startProgress() {
+        var b = document.getElementById('kk-progress');
+        if (!b) { b = document.createElement('div'); b.id = 'kk-progress'; document.body.appendChild(b); }
+        b.style.width = '0'; void b.offsetWidth; b.style.width = '85%';
+    }
+    window.addEventListener('beforeunload', function () { if (document.body) startProgress(); });
+
+    // Back/Forward restored a screen from memory: make sure the user is still
+    // signed in (after Logout, Back must not show private data) and refresh
+    // stale data if the screen was away for over a minute.
+    var hiddenAt = Date.now();
+    window.addEventListener('pagehide', function () { hiddenAt = Date.now(); });
+    window.addEventListener('pageshow', function (e) {
+        var bar = document.getElementById('kk-progress'); if (bar) bar.remove();
+        if (!e.persisted) return;
+        if (/^\/(signin|signup|login|privacy|terms|contact|account-deletion|splash)?$/.test(location.pathname)) return;
+        fetch('/api/auth/status', { cache: 'no-store', credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (st) {
+                if (!st.authenticated) location.replace('/signin');
+                else if (Date.now() - hiddenAt > 60000) location.reload();
+            }).catch(function () {});
+    });
+
     // ---------------------------------------------------------------- toasts
     var ERROR_WORDS = /(error|could not|couldn't|not |wrong|failed|invalid|please|no internet|too many|required|must|नहीं)/i;
     function ensureToastHost() {
@@ -144,7 +213,7 @@
         }
         return host;
     }
-    function toast(message, kind) {
+    function toast(message, kind, restored) {
         message = t(String(message == null ? '' : message));
         if (!document.body) {
             document.addEventListener('DOMContentLoaded', function () { toast(message, kind); });
@@ -160,7 +229,7 @@
         el.addEventListener('click', function () { el.remove(); });
         ensureToastHost().appendChild(el);
         setTimeout(function () { el.remove(); }, Math.min(7000, 2500 + message.length * 40));
-        try {  // survive an immediate page change
+        if (!restored) try {  // survive an immediate page change (once)
             sessionStorage.setItem('kk_toast', JSON.stringify({ m: message, e: isError, at: Date.now() }));
             setTimeout(function () { sessionStorage.removeItem('kk_toast'); }, 1500);
         } catch (e) {}
@@ -251,7 +320,7 @@
         try {
             var saved = JSON.parse(sessionStorage.getItem('kk_toast') || 'null');
             sessionStorage.removeItem('kk_toast');
-            if (saved && Date.now() - saved.at < 6000) toast(saved.m, saved.e ? 'error' : 'ok');
+            if (saved && Date.now() - saved.at < 6000) toast(saved.m, saved.e ? 'error' : 'ok', true);
         } catch (e) {}
         if (getLang() === 'hi') {
             document.documentElement.lang = 'hi';

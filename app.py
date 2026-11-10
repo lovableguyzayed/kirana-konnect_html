@@ -261,6 +261,19 @@ def _enforce_staff_mode():
 
 APP_VERSION = "2026-11-10-audit-round3"
 
+NAV_TABS = {
+    'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
+    'inventory': 'stock', 'add_item': 'stock', 'product_details': 'stock', 'product_details_weight': 'stock',
+    'refill_stock': 'stock', 'refill_stock_weight': 'stock', 'low_stock': 'stock', 'expiry_alert': 'stock',
+    'cart': 'bill', 'receipt': 'bill', 'bills_page': 'bill',
+    'pending_credits': 'udhar', 'customer_ledger': 'udhar',
+}
+
+@app.context_processor
+def inject_nav():
+    """Which bottom-bar tab is highlighted on this screen (templates/_nav.html)."""
+    return {'nav_active': NAV_TABS.get(request.endpoint, '')}
+
 @app.route('/healthz')
 def healthz():
     """Public diagnostic: which build is live and whether the DB works.
@@ -3438,9 +3451,13 @@ def no_cache_html(response):
     their normal caching via Flask's static handler.
     """
     if not request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        # 'no-cache' (not 'no-store'): the browser must re-check with the
+        # server before reusing a page, so stale pre-login pages never show,
+        # but Back/Forward can still restore the previous screen instantly
+        # from memory (bfcache) like a native app. app-ui.js re-checks login
+        # when a page is restored that way.
+        response.headers['Cache-Control'] = 'no-cache, private, max-age=0'
         response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
     return response
 
 # Global error handlers: JSON for API calls, a redirect to the dashboard for

@@ -25,6 +25,7 @@
         }
     </style>
     <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-50">
     <!-- Header Section -->
@@ -84,26 +85,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-        <div class="flex justify-around items-center">
-            <a href="/dashboard" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-house text-xl"></i>
-                <span class="text-xs">Home</span>
-            </a>
-            <a href="/inventory" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-boxes-stacked text-xl"></i>
-                <span class="text-xs">Inventory</span>
-            </a>
-            <a href="/cart" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-shopping-cart text-xl"></i>
-                <span class="text-xs">Cart</span>
-            </a>
-            <a href="/profile" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-user text-xl"></i>
-                <span class="text-xs">Profile</span>
-            </a>
-        </div>
-    </div>
+    {% include '_nav.html' %}
 
     <script>
         let allProducts = [];

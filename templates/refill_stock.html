@@ -15,6 +15,7 @@
         ::-webkit-scrollbar { display: none; }
     </style>
     <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-100">
     <!-- Header Section -->
@@ -161,29 +162,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button onclick="goToDashboard()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button onclick="goToInventory()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-box text-primary text-lg"></i>
-                <span class="text-xs mt-1 text-primary">Inventory</span>
-            </button>
-            <button onclick="openScanner()" class="relative -top-3 bg-primary rounded-full p-3 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button onclick="goToCart()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button onclick="goToProfile()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <!-- Universal Scanner Modal -->
     <div id="scanner-modal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden">
@@ -324,7 +303,7 @@
                 reorderLevel: 6,
                 sellingPrice: 20,
                 barcode: '8901030821213',
-                image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'
+                image: '/static/icons/product.svg'
             },
             2: {
                 id: 2,
@@ -337,7 +316,7 @@
                 reorderLevel: 5,
                 sellingPrice: 25,
                 barcode: null, // No barcode for this product
-                image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400'
+                image: '/static/icons/product.svg'
             }
         };
         

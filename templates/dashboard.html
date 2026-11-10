@@ -43,13 +43,14 @@
   }
 </style>
     <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-poppins bg-gray-50">
     <!-- Header Section -->
     <header id="header" class="bg-white shadow-sm fixed top-0 left-0 right-0 z-10">
         <div class="flex items-center justify-between p-4">
             <div class="flex items-center space-x-3">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Owner" class="w-10 h-10 rounded-full border-2 border-primary">
+                <a href="/profile" aria-label="Profile and settings" style="display:inline-flex"><img id="owner-avatar" src="/static/icons/person.svg" alt="" class="w-10 h-10 rounded-full border-2 border-primary"></a>
                 <div>
                     <h1 class="text-lg font-bold text-dark">Kirana Konnect</h1>
                     <p class="text-xs text-gray-600 font-medium"></p>
@@ -334,7 +335,7 @@
             <div class="bg-white p-4 rounded-xl shadow-sm">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/5e2d506a94-d83c5da4ca6ad8fcd0ad.png" alt="Aashirvaad wheat flour bag product packaging">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="Aashirvaad wheat flour bag product packaging">
                     </div>
                     <div class="flex-1" style="min-width:0">
                         <h4 class="font-bold text-dark text-lg">Aashirvaad Atta</h4>
@@ -359,7 +360,7 @@
                 <div class="bg-white p-4 rounded-xl shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Customer" class="w-10 h-10 rounded-full">
+                            <img src="/static/icons/person.svg" alt="Customer" class="w-10 h-10 rounded-full">
                             <div>
                                 <p class="font-semibold text-dark">Rajesh Kumar</p>
                                 <p class="text-xs text-gray-500">2 items • 10:30 AM</p>
@@ -387,7 +388,7 @@
                 <div class="bg-white p-4 rounded-xl shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Customer" class="w-10 h-10 rounded-full">
+                            <img src="/static/icons/person.svg" alt="Customer" class="w-10 h-10 rounded-full">
                             <div>
                                 <p class="font-semibold text-dark">Priya Sharma</p>
                                 <p class="text-xs text-gray-500">3 items • 09:15 AM</p>
@@ -491,33 +492,11 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav id="footer" class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-home text-primary text-xl"></i>
-                <span class="text-xs mt-1 text-primary font-semibold">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToInventory()">
-                <i class="fa-solid fa-box text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button onclick="openScanner()" class="relative -top-4 bg-primary rounded-full p-4 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-xl"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3 relative" onclick="goToCart()">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToProfile()">
-                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <!-- Quick Action Radial Menu -->
-    <div id="radial-menu" class="fixed bottom-20 right-4 z-40">
+    <!-- Extra floating + menu hidden: the bottom bar Scan button and Quick Actions cover it. -->
+    <div id="radial-menu" class="fixed bottom-20 right-4 z-40" hidden style="display:none">
         <!-- Main Floating Action Button -->
         <button id="fab-main" onclick="toggleRadialMenu()" class="w-14 h-14 bg-primary rounded-full shadow-lg flex items-center justify-center text-white transition-transform duration-300 hover:scale-110">
             <i id="fab-icon" class="fa-solid fa-plus text-xl transition-transform duration-300"></i>

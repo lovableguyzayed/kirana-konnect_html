@@ -24,6 +24,7 @@
         }
     </style>
     <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 
 <body class="font-inter bg-gray-100">
@@ -140,7 +141,7 @@
                 <!-- Present Staff -->
                 <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full">
                         <div>
                             <p class="font-medium text-dark">Anil Kumar</p>
                             <p class="text-sm text-gray-500">Cashier</p>
@@ -158,7 +159,7 @@
 
                 <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full">
                         <div>
                             <p class="font-medium text-dark">Priya Sharma</p>
                             <p class="text-sm text-gray-500">Assistant</p>
@@ -176,7 +177,7 @@
 
                 <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-8.jpg" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full">
                         <div>
                             <p class="font-medium text-dark">Suresh Patel</p>
                             <p class="text-sm text-gray-500">Manager</p>
@@ -195,7 +196,7 @@
                 <!-- Absent Staff -->
                 <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
                         <div>
                             <p class="font-medium text-dark">Ravi Verma</p>
                             <p class="text-sm text-gray-500">Helper</p>
@@ -213,7 +214,7 @@
 
                 <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
                         <div>
                             <p class="font-medium text-dark">Meera Singh</p>
                             <p class="text-sm text-gray-500">Accountant</p>
@@ -278,29 +279,7 @@
     </main>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button onclick="window.location.href='/dashboard'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button onclick="window.location.href='/inventory'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-box text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button onclick="window.location.href='/cart'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button onclick="window.location.href='/profile'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         function goBack() {

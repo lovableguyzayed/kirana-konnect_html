@@ -25,6 +25,7 @@
         }
     </style>
     <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-50">
     <!-- Header Section -->
@@ -372,29 +373,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/dashboard'">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/inventory'">
-                <i class="fa-solid fa-box text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg" onclick="window.location.href='/add-item'">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/cart'">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/profile'">
-                <i class="fa-solid fa-user text-primary text-lg"></i>
-                <span class="text-xs mt-1 text-primary">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         let currentCustomer = '';
