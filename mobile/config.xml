@@ -23,6 +23,9 @@
     <allow-intent href="sms:*" />
     <allow-intent href="mailto:*" />
     <allow-intent href="geo:*" />
+    <!-- Let payment QR / WhatsApp links open the UPI apps and WhatsApp. -->
+    <allow-intent href="upi:*" />
+    <allow-intent href="whatsapp:*" />
 
     <preference name="Orientation" value="portrait" />
     <preference name="Fullscreen" value="false" />

@@ -75,8 +75,14 @@ const list = [];
     { id: 3, product_id: null, name: 'Toor Dal Unpolished', quantity: 1, unit: 'Kg', price: 155 }])));
   await go('/cart'); await shot('cart', 'Cart / billing', 'Items, GST only with GSTIN, cash / online / udhar, Generate Bill.', { wait: 1000 });
   if (bill) { await go('/receipt?bill=' + bill); await shot('receipt', 'Receipt', 'Bill with PDF download, share, print.', { wait: 1200 }); }
+  await go('/bills'); await page.click('.chip[data-f="all"]'); await shot('bills', 'All Bills', 'Search by bill no., name or phone; Today / Udhar / Paid / Cancelled; Excel download.', { wait: 1000 });
+  await page.click('.kk-scan-btn'); await page.fill('#kk-scan input', process.env.AUDIT_BARCODE || ''); await page.click('#kk-scan form button');
+  await shot('scan_product', 'Scan → product sheet', 'Scan from any screen: price, stock, quantity, Add to bill / Refill.', { viewportOnly: true, wait: 1200 });
   await go('/pending-credits'); await shot('pending_credits', 'Pending credits (udhar)', 'Who owes how much; call, collect.', { wait: 1200 });
   await go('/customer-ledger'); await shot('customer_ledger', 'Udhar ledger', 'All customers with balance; search.', { wait: 1200 });
+  await go('/pending-credits'); await page.click('button:has-text("Collect") >> nth=0'); await page.click('#collect-sheet [data-mode="upi"]');
+  await shot('collect_payment', 'Collect udhar payment', 'Amount, Cash / UPI, payment QR.', { viewportOnly: true, wait: 900 });
+  await go('/customer-ledger');
   await page.click('text=View Details >> nth=0'); await shot('ledger_details', 'Customer history', 'Bills and payments, tap to call, collect.', { viewportOnly: true, wait: 1200 });
   await go('/sales-report'); await shot('sales_report', 'Sales report', 'Sales (incl. udhar), profit, payment modes, top items.', { wait: 1800 });
   await go('/staff'); await shot('staff', 'My Team', 'Add / remove staff members.', { wait: 1000 });

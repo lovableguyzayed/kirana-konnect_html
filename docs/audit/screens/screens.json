@@ -211,12 +211,31 @@
     "title": "Receipt",
     "note": "Bill with PDF download, share, print.",
     "url": "/receipt?bill=KK-2026-000049",
+    "more": true
+  },
+  {
+    "files": [
+      "23_bills_1.png",
+      "23_bills_2.png"
+    ],
+    "title": "All Bills",
+    "note": "Search by bill no., name or phone; Today / Udhar / Paid / Cancelled; Excel download.",
+    "url": "/bills",
+    "more": true
+  },
+  {
+    "files": [
+      "24_scan_product.png"
+    ],
+    "title": "Scan → product sheet",
+    "note": "Scan from any screen: price, stock, quantity, Add to bill / Refill.",
+    "url": "/bills",
     "more": false
   },
   {
     "files": [
-      "23_pending_credits_1.png",
-      "23_pending_credits_2.png"
+      "25_pending_credits_1.png",
+      "25_pending_credits_2.png"
     ],
     "title": "Pending credits (udhar)",
     "note": "Who owes how much; call, collect.",
@@ -225,8 +244,8 @@
   },
   {
     "files": [
-      "24_customer_ledger_1.png",
-      "24_customer_ledger_2.png"
+      "26_customer_ledger_1.png",
+      "26_customer_ledger_2.png"
     ],
     "title": "Udhar ledger",
     "note": "All customers with balance; search.",
@@ -235,7 +254,16 @@
   },
   {
     "files": [
-      "25_ledger_details.png"
+      "27_collect_payment.png"
+    ],
+    "title": "Collect udhar payment",
+    "note": "Amount, Cash / UPI, payment QR.",
+    "url": "/pending-credits",
+    "more": false
+  },
+  {
+    "files": [
+      "28_ledger_details.png"
     ],
     "title": "Customer history",
     "note": "Bills and payments, tap to call, collect.",
@@ -244,8 +272,8 @@
   },
   {
     "files": [
-      "26_sales_report_1.png",
-      "26_sales_report_2.png"
+      "29_sales_report_1.png",
+      "29_sales_report_2.png"
     ],
     "title": "Sales report",
     "note": "Sales (incl. udhar), profit, payment modes, top items.",
@@ -254,7 +282,7 @@
   },
   {
     "files": [
-      "27_staff.png"
+      "30_staff.png"
     ],
     "title": "My Team",
     "note": "Add / remove staff members.",
@@ -263,17 +291,17 @@
   },
   {
     "files": [
-      "28_profile_1.png",
-      "28_profile_2.png"
+      "31_profile_1.png",
+      "31_profile_2.png"
     ],
     "title": "Profile",
     "note": "Owner and shop details, export, language, staff mode, delete account.",
     "url": "/profile",
-    "more": false
+    "more": true
   },
   {
     "files": [
-      "29_dashboard_staff_mode.png"
+      "32_dashboard_staff_mode.png"
     ],
     "title": "Dashboard – staff mode",
     "note": "Profit locked; badge asks for owner PIN.",
@@ -282,7 +310,7 @@
   },
   {
     "files": [
-      "30_dashboard_hindi.png"
+      "33_dashboard_hindi.png"
     ],
     "title": "Dashboard – हिंदी",
     "note": "Hindi labels and buttons.",
@@ -291,7 +319,7 @@
   },
   {
     "files": [
-      "31_cart_hindi.png"
+      "34_cart_hindi.png"
     ],
     "title": "Cart – हिंदी",
     "note": "Billing in Hindi.",

@@ -75,6 +75,8 @@ SINGLES = [
     ('D1 Delete account page', 'KK-020_account-deletion_after.png'),
     ('D7 Privacy page', 'KK-020_privacy_after.png'),
     ('D6 Hindi, in-app message, offline strip', 'D6_hindi-toast-offline_after.png'),
+    ('Round 5: bottom bar, scanner, product sheet', 'R5_nav-scanner_after.png'),
+    ('Round 5: All Bills, UPI QR, collect payment', 'R5_bills-upi-collect_after.png'),
 ]
 
 parts = []

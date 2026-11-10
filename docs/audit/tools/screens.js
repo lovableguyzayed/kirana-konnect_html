@@ -8,7 +8,7 @@ const out = process.argv[3] || 'shots';
 const mode = process.argv[4] || 'phone';
 const pages = ['signin','signup','dashboard','cart','inventory','add-item','profile','settings',
   'notifications','sales-report','pending-credits','low-stock','expiry-alert','staff',
-  'customer-ledger?id=1','product-details?id=1','refill-stock?id=1','receipt','bill-generate','pricing','splash'];
+  'customer-ledger?id=1','product-details?id=1','refill-stock?id=1','receipt','bills','splash'];
 const sizes = mode === 'all'
   ? { '320x568': [320,568], '360x800': [360,800], '412x915': [412,915], 'tablet768': [768,1024] }
   : { '360x800': [360,800] };

@@ -261,7 +261,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-11-10-audit-round3"
+APP_VERSION = "2026-11-10-audit-round5"
 
 NAV_TABS = {
     'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',

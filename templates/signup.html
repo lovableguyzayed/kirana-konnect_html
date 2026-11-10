@@ -85,7 +85,7 @@
                         <label class="text-dark text-sm font-medium mb-2 block">Phone Number *</label>
                         <div class="flex">
                             <div class="bg-gray-100 border border-gray-300 rounded-l-xl px-3 py-3 text-dark text-sm border-r-0">+91</div>
-                            <input type="tel" name="phone" placeholder="Enter 10-digit mobile number" class="flex-1 bg-white border border-gray-300 rounded-r-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
+                            <input type="tel" name="phone" inputmode="numeric" autocomplete="tel-national" placeholder="Enter 10-digit mobile number" class="flex-1 bg-white border border-gray-300 rounded-r-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none" required>
                         </div>
                     </div>
                     
@@ -124,9 +124,10 @@
                         <input type="text" name="udyam_number" placeholder="Enter UDYAM registration number" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark placeholder-gray-500 focus:border-primary focus:outline-none">
                     </div>
                     
-                    <div>
+                    <!-- "Your Role" removed: it was required but never saved; the first account is always the owner. -->
+                    <div hidden style="display:none">
                         <label class="text-dark text-sm font-medium mb-2 block">Your Role *</label>
-                        <select class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none" required>
+                        <select class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
                             <option value="">Select your role</option>
                             <option value="owner">Owner</option>
                             <option value="manager">Manager</option>
@@ -139,12 +140,9 @@
             <!-- Language Selection -->
             <div id="language-selection" class="space-y-4">
                 <h3 class="text-dark text-lg font-semibold mb-3">Preferred Language</h3>
-                <select class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
-                    <option value="english">English</option>
-                    <option value="hindi">हिंदी (Hindi)</option>
-                    <option value="tamil">தமிழ் (Tamil)</option>
-                    <option value="bengali">বাংলা (Bengali)</option>
-                    <option value="marathi">मराठी (Marathi)</option>
+                <select id="kk-lang-select" aria-label="Preferred Language" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी (Hindi)</option>
                 </select>
             </div>
 
@@ -281,6 +279,15 @@
                 isValid = false;
                 password.classList.add('border-danger');
             }
+            const phoneField = this.querySelector('input[name="phone"]');
+            if (phoneField && !/^[6-9]\d{9}$/.test(phoneField.value)) {
+                isValid = false;
+                phoneField.classList.add('border-danger');
+            }
+            ['owner_name', 'shop_name'].forEach(n => {
+                const f = this.querySelector(`input[name="${n}"]`);
+                if (f && !f.value.trim()) { isValid = false; f.classList.add('border-danger'); }
+            });
             const termsCheckbox = document.getElementById('terms');
             if (termsCheckbox && !termsCheckbox.checked) {
                 isValid = false;
@@ -288,7 +295,7 @@
             }
             if (!isValid) {
                 e.preventDefault();
-                alert('Please fill all required fields (password min 6 chars) and accept terms & conditions.');
+                alert('Please check: your name, a valid 10-digit mobile number, shop name, password (at least 6 characters) and tick the Terms box.');
                 return;
             }
             document.getElementById('loading-overlay').classList.remove('hidden');
@@ -298,10 +305,10 @@
         // Phone number formatting
         document.querySelector('input[type="tel"]').addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
-            if (value.length > 10) {
-                value = value.slice(0, 10);
-            }
-            e.target.value = value;
+            // "+91 99887 76655" / "099887 76655": drop the country code or leading 0.
+            if (value.length > 10 && value.startsWith('91')) value = value.slice(2);
+            else if (value.length > 10 && value.startsWith('0')) value = value.slice(1);
+            e.target.value = value.slice(0, 10);
         });
 
         // Real-time validation

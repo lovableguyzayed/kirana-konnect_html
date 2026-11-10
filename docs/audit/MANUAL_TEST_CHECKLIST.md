@@ -17,6 +17,16 @@ Tick each on a real phone after deploying this branch.
 - [ ] Forgot Password → "Get OTP on my mobile" → new password works.
 - [ ] Never leave `SMS_PROVIDER=console` on the live server (it writes codes to the log).
 
+## Native feel, scanner, WhatsApp, UPI (real phone)
+- [ ] Bottom bar: Home · Stock · Scan · Bill · Udhar on every main screen; screens change with a short slide, no white flash; Back is instant.
+- [ ] Scan: camera opens, reads a real barcode, phone vibrates, product sheet appears; torch button works; unknown barcode → Add new product.
+- [ ] Profile → set your real UPI ID. Cart → Online → customer scans the QR with GPay/PhonePe/Paytm: amount and shop name are correct. Money reaches your account.
+- [ ] Receipt → Share on WhatsApp: the PDF (or bill text) reaches the customer's chat.
+- [ ] Udhar → Remind: WhatsApp opens the right customer with the Hindi reminder.
+- [ ] Receipt → Cancel bill on a test bill: stock returns, udhar and today's sales go down.
+- [ ] Profile → Download stock / bills / udhar (Excel): file opens in Google Sheets with ₹ and Hindi readable.
+- [ ] Inside the Android app: WhatsApp and UPI links open the other apps (Cordova `allow-intent`; see note in report).
+
 ## Staff mode & Hindi
 - [ ] Profile → Turn on staff mode → set PIN → profit shows 🔒, Profile/Reports are blocked, billing still works; badge → PIN unlocks.
 - [ ] Sign-in → Preferred Language → हिंदी: menus, buttons and messages in Hindi at max font size.

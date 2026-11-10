@@ -170,12 +170,24 @@ Severity: P0 Blocker · P1 Critical · P2 Major · P3 Minor · P4 Polish. Person
 | KK-046 | Dashboard | stat cards | Amounts without Indian grouping; big amounts ran into icons | R, A | P3 | en-IN format + shrink-to-fit | S | ✅ Round 3, Verified |
 | KK-047 | UI | splash, cart, dashboard, profile defaults | Made-up shop "Sharma Kirana Store" + fake GSTIN/Udyam shown before real data loads (and on splash always) | All | P2 | Blank defaults; splash card hidden | S | ✅ Round 4 |
 | KK-048 | UI | product details, receipt, sales report | Broken-image icon; "GST (5%) ₹0.00" on non-GST bills; amounts without Indian grouping | R | P3 | Grey box, hide zero rows, en-IN format | S | ✅ Round 4 |
+| KK-049 | Native feel | every screen | 14 different hand-copied bottom bars (wrong active tab, fixed cart badge "7"); full page reloads with a white flash; no tap feedback; Back re-downloaded every screen | All | P1 | One shared bar `templates/_nav.html` (Home · Stock · Scan · Bill · Udhar), view transitions, prefetch on touch, `no-cache` + bfcache, progress bar | M | ✅ Round 5, Verified |
+| KK-050 | Scanner | dashboard, sales report, refill pages | Scan buttons called functions that did not exist (nothing happened); 5 separate scanner copies | R | P1 | One scanner `static/js/scanner.js` with product sheet (Add to bill / Refill / Open / Add new) | M | ✅ Round 5, Verified |
+| KK-051 | Auth | `signup.html` | Sign-up could not be submitted without picking "Your Role" (never saved); "+91 99887-76655" became 9199887766; fake 5-language picker | R | P0 | Role removed, number cleaning, real English/हिंदी picker. **Verified** by end-to-end test | S | ✅ Round 5 |
+| KK-052 | Features | — | No bill history/search, no way to cancel a wrong bill, no WhatsApp sharing or reminders, no UPI QR, no Excel export | R, A | P1 | `/bills`, cancel bill, WhatsApp, UPI QR (cart, receipt, collect), CSV exports | L | ✅ Round 5, Verified |
+| KK-053 | Udhar | `pending_credits.html` | Collect used a browser prompt box; Call/Remind/Report/Credit-limit buttons only logged | R | P2 | Collect bottom sheet (Cash/UPI + QR), WhatsApp reminders, Excel list | M | ✅ Round 5, Verified |
+| KK-054 | Images | dashboard, inventory, expiry, staff | A stranger's avatar and product photos loaded from an outside design website (data cost, fail offline) | R | P2 | Local images | S | ✅ Round 5 |
 | KK-036 | Auth | `app.py` `/logout` (GET) | Logout by GET link (minor CSRF nuisance); single shared login for owner + staff (no per-staff accounts) | F | P3 | POST logout; staff PINs later | M | Open |
 
 ### Before / after screenshots
 Gallery: [`mockups/index.html`](mockups/index.html). Every screen of the app: `docs/audit/screens/` (made by `docs/audit/tools/all_screens.js`), also in the PDF. Files: `KK-020_privacy_after`, `KK-020_account-deletion_after`, `KK-022_ledger-details_after`, `KK-035_invoice-hindi_after`, `D4_cart-gst_after`, `KK-003_cart_*`, `KK-006_refill_*`, `KK-007_invoice-pdf_after`, `KK-008_export-pdf_*`, `KK-013_signin_*`, `KK-014_receipt-sample_before`, `KK-017_profile_*`, `KK-020_dashboard_before`.
 
 ---
+
+## 3b. Backend check (round 5): does every screen really work?
+
+- **Wiring check** (`docs/audit/tools/check_wiring.py`): every server call and link in every screen points at a real route, and every button handler exists. Result: **0 broken**. Remaining log-only handlers belong to hidden demo markup (not reachable on screen; checked in the browser).
+- **"One shop day" end-to-end test** (`docs/audit/tools/e2e_shop_day.js`, real phone-size browser, fresh database): sign up → save UPI + address → add a product → scan → cash bill → stock down → invoice PDF → new customer → udhar bill → collect part payment (UPI QR) → history → refill → search bills → cancel bill (stock back) → dashboard and sales totals → add staff → logout → Back does not reopen private screens. **25/25 steps pass; 134 server calls, none failed; no JavaScript errors.**
+- 20 automatic backend tests pass; 21 screens × 4 sizes: no errors, no sideways scroll.
 
 ## 4. QA walkthrough highlights (desi personas)
 
@@ -211,6 +223,8 @@ Gallery: [`mockups/index.html`](mockups/index.html). Every screen of the app: `d
 
 ## 6. Missing-features backlog
 
+- **Done in round 5:** all bills + search, cancel bill, WhatsApp bill/reminders, UPI QR, Excel export, one scanner, shared bottom bar.
+- **Still missing (Indian kirana essentials, need your go-ahead):** supplier/purchase khata (what you owe wholesalers), expenses (rent, bijli) for true profit, daily cash-box closing (galla), bill returns/partial refund, thermal 58 mm printer layout, MRP + discount per item, per-product GST/HSN for GST returns, low-stock "order list" to WhatsApp to the supplier, automatic daily backup, works-offline billing.
 - **Must-have:** account deletion (D1) · privacy/terms/contact pages (D7) · real OTP for password recovery (D2) · GST correctness (D4) · ledger "Add payment" (KK-022) · offline banner & retry in the Android shell.
 - **Should-have:** Hindi (D6) · WhatsApp share of invoice PDF with prefilled message · udhar reminder via WhatsApp link (the SMS functions only log; nothing is sent) · daily backup/export to phone · in-app toasts instead of `alert()` (KK-028) · crash reporting / error logging (none today).
 - **Nice-to-have:** staff PINs (D11) · dark mode · thermal-printer (58 mm) receipt layout · app update prompt · rate the app.
