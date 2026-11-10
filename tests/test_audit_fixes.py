@@ -123,3 +123,10 @@ def test_sales_report_counts_udhar(auth):  # D5
     assert round(after['totalRevenue'] - before['totalRevenue'], 2) == 100
     assert round(after['udharSales'] - before['udharSales'], 2) == 100
     assert round(after['cashReceived'] - before['cashReceived'], 2) == 0
+
+
+def test_hindi_names_use_devanagari_font(auth):  # D8
+    num = _bill(auth, items=[{'name': 'अरहर दाल', 'quantity': 1, 'unit_price': 100,
+                              'total_price': 100}]).get_json()['bill_number']
+    data = auth.get(f'/api/bills/{num}/pdf').data
+    assert data[:4] == b'%PDF' and b'NotoSansDevanagari' in data

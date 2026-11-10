@@ -61,22 +61,58 @@ def inr(amount, decimals=2):
         whole = ','.join(groups + [tail])
     return f"{sign}₹{whole}" + (f".{frac}" if decimals else '')
 
+import re as _re
+_DEVANAGARI_RUN = _re.compile(r'([\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+(?:[ \u0964\u0965]+[\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+)*)')
+
 def pdf_text(value):
-    """Escape user-entered text for ReportLab Paragraph markup (&, <, >)."""
+    """Escape user text for ReportLab markup and switch Hindi/Devanagari runs
+    to the bundled Noto Sans Devanagari font (DejaVu has no Hindi letters,
+    so names like 'अरहर दाल' printed as empty boxes)."""
     from xml.sax.saxutils import escape
-    return escape(str(value or ''))
+    text = escape(str(value or ''))
+    if _PDF_FONTS.get('deva'):
+        text = _DEVANAGARI_RUN.sub(r'<font name="NotoDeva">\1</font>', text)
+    return text
+
+_PDF_FONTS = {}
 
 def register_pdf_fonts():
-    """Register DejaVu (has the ₹ glyph); Helvetica prints ₹ as a black box."""
+    """Register DejaVu (has the ₹ glyph; Helvetica prints ₹ as a black box)
+    and Noto Sans Devanagari for Hindi. If the 'uharfbuzz' package is
+    installed, text is shaped so Hindi conjuncts (क्ष, श्री) join correctly."""
+    if _PDF_FONTS.get('done'):
+        return
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    from reportlab.lib.styles import ParagraphStyle
+    try:
+        import uharfbuzz  # noqa: F401
+        shaping = True
+    except ImportError:
+        shaping = False
+    kw = {'shapable': True} if shaping else {}
+    if shaping:
+        try:  # older ReportLab without shaping support
+            TTFont('DejaVuProbe', os.path.join(app.root_path, 'static', 'vendor', 'fonts', 'DejaVuSans.ttf'), shapable=True)
+        except TypeError:
+            shaping, kw = False, {}
     font_dir = os.path.join(app.root_path, 'static', 'vendor', 'fonts')
-    if 'DejaVu' not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf')))
-        pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf')))
-        registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
-                           italic='DejaVu', boldItalic='DejaVu-Bold')
+    pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf'), **kw))
+    pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf'), **kw))
+    registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
+                       italic='DejaVu', boldItalic='DejaVu-Bold')
+    try:
+        pdfmetrics.registerFont(TTFont('NotoDeva', os.path.join(font_dir, 'NotoSansDevanagari-Regular.ttf'), **kw))
+        pdfmetrics.registerFont(TTFont('NotoDeva-Bold', os.path.join(font_dir, 'NotoSansDevanagari-Bold.ttf'), **kw))
+        registerFontFamily('NotoDeva', normal='NotoDeva', bold='NotoDeva-Bold',
+                           italic='NotoDeva', boldItalic='NotoDeva-Bold')
+        _PDF_FONTS['deva'] = True
+    except Exception as font_error:
+        app.logger.warning(f"Devanagari PDF font unavailable: {font_error}")
+    if shaping:
+        ParagraphStyle.defaults['shaping'] = 1
+    _PDF_FONTS['done'] = True
 
 def sold_quantity(item):
     """Quantity in stock units (kg for weight items, pieces otherwise)."""
@@ -2720,6 +2756,11 @@ def export_business_data():
     """Export comprehensive business data as PDF"""
     try:
         register_pdf_fonts()
+        # Name cells go through Paragraph so Hindi names use the Devanagari
+        # font and odd characters (&, <) are escaped.
+        _name_style = ParagraphStyle('NameCell', fontName='DejaVu', fontSize=9, leading=11, alignment=1)
+        def name_cell(text):
+            return Paragraph(pdf_text(text), _name_style)
         # Create PDF buffer
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=0.75*inch, leftMargin=0.75*inch,
@@ -2870,7 +2911,7 @@ def export_business_data():
                 sell_price = product.price if product.price else 0
                 
                 inventory_data.append([
-                    product_name,
+                    name_cell(product_name),
                     inr(buy_price, 0),
                     inr(sell_price, 0),
                     str(product.stock_quantity)
@@ -2915,7 +2956,7 @@ def export_business_data():
                 
                 bills_data.append([
                     bill.bill_number,
-                    customer_name,
+                    name_cell(customer_name),
                     inr(bill.total_amount, 0),
                     ist_str(bill.created_at, '%d/%m/%Y')
                 ])
@@ -2960,7 +3001,7 @@ def export_business_data():
                 customer_name = customer.name[:25] + '...' if len(customer.name) > 25 else customer.name
                 
                 customer_data.append([
-                    customer_name,
+                    name_cell(customer_name),
                     customer.phone,
                     inr(outstanding, 0) if outstanding > 0 else "Paid"
                 ])
