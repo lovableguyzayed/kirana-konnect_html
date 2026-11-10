@@ -49,7 +49,7 @@
         <!-- Product Summary Section -->
         <div class="bg-white mx-4 mt-4 p-4 rounded-lg shadow-sm">
             <div class="flex items-center space-x-3 mb-4">
-                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" src="https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400" alt="Product image">
+                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" alt="Product image">
                 <div class="flex-1">
                     <h2 id="product-name" class="text-lg font-bold text-dark">Rice Basmati</h2>
                     <p id="product-size" class="text-sm text-gray-600">Per kg</p>
@@ -385,7 +385,7 @@
                 reorderLevel: Math.round((stored.stock || 15.5) * 0.2),
                 sellingPrice: stored.price || 90,
                 barcode: stored.barcode || null,
-                image: stored.image || 'https://storage.googleapis.com/uxpilot-auth.appspot.com/9307613d34-298d7bee124789ba3905.png'
+                image: stored.image || ''
             };
         } else {
             productData = null; // filled from the server below

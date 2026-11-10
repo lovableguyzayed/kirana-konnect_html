@@ -35,7 +35,7 @@
         <!-- Product Summary Section -->
         <div class="bg-white mx-4 mt-4 p-4 rounded-lg shadow-sm">
             <div class="flex items-center space-x-3 mb-4">
-                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400" alt="Product image">
+                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" alt="Product image">
                 <div class="flex-1">
                     <h2 id="product-name" class="text-lg font-bold text-dark">Product Name</h2>
                     <p id="product-size" class="text-sm text-gray-600">Size/Unit</p>
@@ -361,7 +361,7 @@
                 reorderLevel: stored.threshold || 5,
                 sellingPrice: stored.sellingPrice || stored.price || 20,
                 barcode: stored.barcode || null,
-                image: stored.image || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'
+                image: stored.image || ''
             };
         } else {
             productData = null; // filled from the server below
