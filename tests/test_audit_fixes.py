@@ -65,3 +65,16 @@ def test_ist_day_boundary():  # KK-009
     start = A.ist_day_start_utc(date(2026, 11, 10))
     assert start == datetime(2026, 11, 9, 18, 30)
     assert A.to_ist(datetime(2026, 11, 9, 19, 30)).date() == date(2026, 11, 10)
+
+
+def test_change_password_and_profile(flask_app):  # KK-016 / KK-017
+    c = flask_app.test_client()
+    c.post('/signin', data={'identifier': '9876543210', 'password': 'secret123'})
+    assert c.post('/api/auth/change-password', json={'current_password': 'nope', 'new_password': 'abcdef'}).status_code == 400
+    assert c.post('/api/auth/change-password', json={'current_password': 'secret123', 'new_password': 'secret123'}).status_code == 200
+    r = c.put('/api/auth/profile', json={'owner_name': 'R. K. Sharma', 'phone': '9876543210', 'shop_name': 'Sharma Kirana',
+                                         'gst_number': '27ABCDE1234F1Z5'})
+    assert r.status_code == 200
+    st = c.get('/api/auth/status').get_json()
+    assert st['owner_name'] == 'R. K. Sharma' and st['gst_number'] == '27ABCDE1234F1Z5'
+    assert c.put('/api/auth/profile', json={'owner_name': 'x', 'phone': '12345', 'shop_name': 'y'}).status_code == 400

@@ -1697,6 +1697,21 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Check for highlight parameter on page load
             checkHighlightParam();
+
+            // Show the signed-in owner's real details (the page used to show a
+            // made-up "Rajesh" profile with a fake GSTIN).
+            fetch('/api/auth/status', { cache: 'no-store' })
+                .then(r => r.json())
+                .then(u => {
+                    if (!u.authenticated) return;
+                    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+                    set('editName', u.owner_name); set('editPhone', u.phone); set('editEmail', u.email);
+                    set('editShopName', u.shop_name); set('editGST', u.gst_number); set('editUdyam', u.udyam_number);
+                    set('editAddress', '');
+                    updateProfileDisplay(u.owner_name || '', u.phone ? '+91 ' + u.phone : '', u.email || '',
+                                         u.shop_name || '', u.gst_number || 'Not added', u.udyam_number || 'Not added', 'Not added');
+                })
+                .catch(() => {});
             
             const form = document.getElementById('changePasswordForm');
             form.addEventListener('submit', function(e) {
@@ -1722,10 +1737,21 @@
                     return;
                 }
                 
-                // Simulate password change (in real app, this would call an API)
-                // For demo purposes, we'll just show success
-                alert('Password updated successfully!');
-                closePasswordModal();
+                fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+                })
+                .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                .then(({ ok, d }) => {
+                    if (ok && d.success) {
+                        alert('Password changed. Use the new password next time you sign in.');
+                        closePasswordModal();
+                    } else {
+                        alert(d.error || 'Could not change the password. Please try again.');
+                    }
+                })
+                .catch(() => alert('No internet. Password was NOT changed - please try again.'));
             });
         });
 
@@ -1761,12 +1787,23 @@
                 }
             }
 
-            // Update the profile display with new values
-            updateProfileDisplay(name, phone, email, shopName, gst, udyam, address);
-            
-            // Close modal and show success message
-            closeEditProfile();
-            alert('Profile updated successfully!');
+            fetch('/api/auth/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ owner_name: name, phone: phone, email: email,
+                                       shop_name: shopName, gst_number: gst, udyam_number: udyam })
+            })
+            .then(r => r.json().then(d => ({ ok: r.ok, d })))
+            .then(({ ok, d }) => {
+                if (ok && d.success) {
+                    updateProfileDisplay(name, phone, email, shopName, gst, udyam, address);
+                    closeEditProfile();
+                    alert('Profile saved.');
+                } else {
+                    alert(d.error || 'Could not save the profile. Please try again.');
+                }
+            })
+            .catch(() => alert('No internet. Profile was NOT saved - please try again.'));
         }
 
         function updateProfileDisplay(name, phone, email, shopName, gst, udyam, address) {

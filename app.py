@@ -222,6 +222,8 @@ def auth_status():
     if current_user.is_authenticated:
         payload['phone'] = current_user.phone
         payload['gst_number'] = current_user.gst_number
+        payload['email'] = current_user.email
+        payload['udyam_number'] = current_user.udyam_number
     return jsonify(payload)
 
 @app.route('/api/auth/signup', methods=['POST'])
@@ -395,6 +397,53 @@ def auth_reset_password():
         db.session.rollback()
         app.logger.error(f"Password reset error: {e}")
         return jsonify({'success': False, 'error': 'Could not reset the password'}), 500
+
+@app.route('/api/auth/profile', methods=['PUT'])
+def auth_update_profile():
+    """Save the owner's profile (name, phone, email, shop name, GSTIN, Udyam)."""
+    data = request.get_json() or {}
+    user = current_user
+    owner_name = (data.get('owner_name') or '').strip()
+    shop_name = (data.get('shop_name') or '').strip()
+    phone = ''.join(ch for ch in (data.get('phone') or '') if ch.isdigit())[-10:]
+    email = (data.get('email') or '').strip().lower() or None
+    gst = (data.get('gst_number') or '').strip().upper() or None
+    if not owner_name or not shop_name:
+        return jsonify({'success': False, 'error': 'Name and shop name are required'}), 400
+    if len(phone) != 10 or phone[0] not in '6789':
+        return jsonify({'success': False, 'error': 'Enter a valid 10-digit mobile number'}), 400
+    if gst and len(gst) != 15:
+        return jsonify({'success': False, 'error': 'GSTIN must be 15 characters'}), 400
+    other = User.query.filter(User.id != user.id,
+                              db.or_(User.phone == phone, User.email == email if email else False)).first()
+    if other:
+        return jsonify({'success': False, 'error': 'This phone or email is already used by another account'}), 409
+    try:
+        user.owner_name, user.shop_name, user.phone, user.email = owner_name, shop_name, phone, email
+        user.gst_number = gst
+        user.udyam_number = (data.get('udyam_number') or '').strip() or None
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Profile update error: {e}")
+        return jsonify({'success': False, 'error': 'Could not save the profile'}), 500
+
+@app.route('/api/auth/change-password', methods=['POST'])
+def auth_change_password():
+    """Change password; the current password must be entered first."""
+    data = request.get_json() or {}
+    if _rate_limited('chpw', current_user.id, limit=5, window=900):
+        return jsonify({'success': False, 'error': 'Too many attempts. Please wait 15 minutes.'}), 429
+    if not current_user.check_password(data.get('current_password') or ''):
+        _rate_hit('chpw', current_user.id)
+        return jsonify({'success': False, 'error': 'Current password is wrong'}), 400
+    new_password = data.get('new_password') or ''
+    if len(new_password) < 6:
+        return jsonify({'success': False, 'error': 'New password must be at least 6 characters'}), 400
+    current_user.set_password(new_password)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/logout')
 def logout():
