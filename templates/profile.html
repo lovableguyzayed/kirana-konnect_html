@@ -158,6 +158,7 @@
     opacity: 1;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
 </head>
 <body class="font-inter bg-gray-100">
     <!-- Header Section -->
@@ -2666,8 +2667,13 @@
         }
 
         function selectLanguage(language) {
-            alert(`Language changed to ${language}`);
-            closeLanguageModal();
+            // Was a fake "Language changed" message. English and Hindi work now.
+            if (language === 'Hindi' || language === 'English') {
+                closeLanguageModal();
+                KK.setLang(language === 'Hindi' ? 'hi' : 'en');
+            } else {
+                alert('Only English and हिंदी are available right now.');
+            }
         }
 
         function helpSupport() {

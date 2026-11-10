@@ -41,6 +41,7 @@
     scrollbar-width: none;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
 </head>
 <body class="font-poppins bg-light min-h-screen">
     
@@ -131,15 +132,12 @@
             </div>
 
             <!-- Language Selection -->
-            <!-- Hidden: the selector did nothing yet (no translations). See audit KK-030. -->
-            <div id="language-selection" class="space-y-2 hidden" aria-hidden="true">
-                <label class="text-dark text-sm font-medium">Preferred Language</label>
-                <select class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
-                    <option value="english">English</option>
-                    <option value="hindi">हिंदी (Hindi)</option>
-                    <option value="tamil">தமிழ் (Tamil)</option>
-                    <option value="bengali">বাংলা (Bengali)</option>
-                    <option value="marathi">मराठी (Marathi)</option>
+            <!-- English / Hindi (static/js/app-ui.js). Other languages come later. -->
+            <div id="language-selection" class="space-y-2">
+                <label for="kk-lang-select" class="text-dark text-sm font-medium">Preferred Language</label>
+                <select id="kk-lang-select" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी (Hindi)</option>
                 </select>
             </div>
 

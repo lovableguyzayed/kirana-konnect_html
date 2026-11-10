@@ -42,6 +42,7 @@
     scrollbar-width: none;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
 </head>
 <body class="font-poppins bg-gray-50">
     <!-- Header Section -->
@@ -188,7 +189,7 @@
                     <div class="flex items-center justify-between">
                         <div class="flex-1" style="min-width:0">
                             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total Sales</p>
-                            <p class="text-2xl font-bold text-secondary mt-1" id="total-sales" style="overflow-wrap:anywhere">₹0</p>
+                            <p class="text-2xl font-bold text-secondary mt-1" id="total-sales">₹0</p>
                             <p class="text-xs text-gray-500 mt-1" id="transaction-count">0 transactions</p>
                         </div>
                         <div class="bg-secondary/10 p-3 rounded-full" style="flex-shrink:0">
@@ -631,7 +632,7 @@
                 hour12: true
             };
             
-            document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
+            document.getElementById('current-date').textContent = now.toLocaleDateString('en-IN', options);
             document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', timeOptions);
         }
 
@@ -1066,6 +1067,13 @@
             }, 3000);
         }
 
+        // ₹ with Indian grouping, no stray decimals: 124830 -> ₹1,24,830
+        window.inrAmount = function (n) {
+            const v = Number(n || 0);
+            const frac = Math.round(v * 100) % 100 !== 0;
+            return '₹' + v.toLocaleString('en-IN', frac ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
+        };
+
         // Report and ledger button handlers
         // These buttons used to pop "feature coming soon!" even though the
         // screens exist (and then navigated anyway). Route them directly.
@@ -1314,7 +1322,7 @@
                 const stats = await response.json();
                 
                 // Update Today's Profit
-                document.getElementById('today-profit').textContent = `₹${stats.today_profit}`;
+                document.getElementById('today-profit').textContent = inrAmount(stats.today_profit);
                 const profitGrowthElement = document.getElementById('profit-growth');
                 const growth = parseFloat(stats.profit_growth);
                 
@@ -1333,12 +1341,12 @@
                 }
                 
                 // Update Total Sales
-                document.getElementById('total-sales').textContent = `₹${stats.total_sales}`;
+                document.getElementById('total-sales').textContent = inrAmount(stats.total_sales);
                 document.getElementById('transaction-count').textContent = `${stats.transaction_count} transactions`;
                 
                 // Update Udhar Ledger
                 document.getElementById('customers-with-credit').textContent = `${stats.customers_with_credit} Customers`;
-                document.getElementById('outstanding-amount').textContent = `₹${stats.outstanding_amount}`;
+                document.getElementById('outstanding-amount').textContent = inrAmount(stats.outstanding_amount);
                 
                 // Update Inventory
                 document.getElementById('total-products').textContent = `${stats.total_products} Items`;
@@ -1415,9 +1423,9 @@
                 const profit = stats.today_profit || 0;
                 const profitMargin = revenue > 0 ? ((profit / revenue) * 100) : 0;
                 
-                document.getElementById('modal-sales').textContent = `₹${revenue.toFixed(2)}`;
-                document.getElementById('modal-cost').textContent = `₹${actualCost.toFixed(2)}`;
-                document.getElementById('modal-profit').textContent = `₹${profit.toFixed(2)}`;
+                document.getElementById('modal-sales').textContent = inrAmount(revenue);
+                document.getElementById('modal-cost').textContent = inrAmount(actualCost);
+                document.getElementById('modal-profit').textContent = inrAmount(profit);
                 document.getElementById('modal-margin').textContent = `${profitMargin.toFixed(1)}%`;
                 
             } catch (error) {

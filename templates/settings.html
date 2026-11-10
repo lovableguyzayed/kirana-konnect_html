@@ -51,6 +51,7 @@
             transform: translateX(24px);
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
 </head>
 <body class="font-inter bg-gray-50">
     <!-- Header Section -->
@@ -491,8 +492,10 @@
         }
 
         function changeLanguage() {
-            // Navigate to language selection
-            console.log('Opening language selection');
+            const toHindi = KK.lang() !== 'hi';
+            if (confirm(toHindi ? 'Switch the app to हिंदी (Hindi)?' : 'Switch the app to English?')) {
+                KK.setLang(toHindi ? 'hi' : 'en');
+            }
         }
 
         function changeCurrency() {
