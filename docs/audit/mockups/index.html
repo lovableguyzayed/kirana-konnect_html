@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audit Before/After</title><style>
+:root{--bg:#f6f7f6;--card:#fff;--ink:#1f2933;--muted:#5f6b76;--brand:#4CAF50}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--card:#1c1f1d;--ink:#e8ece9;--muted:#a3ada6}}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+h1{font-size:20px;margin:0 0 4px} h1+p{color:var(--muted);margin:0 0 16px}
+section{background:var(--card);border-radius:12px;padding:16px;margin:0 0 16px;border-top:4px solid var(--brand)}
+h2{font-size:16px;margin:0} section p{color:var(--muted);margin:4px 0 12px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px} figure{margin:0} img{width:100%;height:auto;border:1px solid #ccc;border-radius:8px}
+figcaption{font-size:13px;color:var(--muted);text-align:center} .none{display:flex;align-items:center;justify-content:center;border:1px dashed #aaa;border-radius:8px;min-height:120px}
+</style></head><body><h1>Kirana Konnect: before / after</h1><p>Fixes from docs/audit/APP_AUDIT_REPORT.md, captured at 360×800 in a headless phone browser.</p>
+<section><h2>KK-003 · cart</h2><p>Cart started with 6 fake items that could be billed → now starts empty with a clear message</p><div class="pair"><figure><img src="KK-003_cart_before.png" alt="Before" loading="lazy"><figcaption>Before</figcaption></figure><figure><img src="KK-003_cart_after.png" alt="After" loading="lazy"><figcaption>After</figcaption></figure></div></section>
+<section><h2>KK-006 · refill</h2><p>Refill showed a sample product (Frooti) for ?id=1 → now loads the real product</p><div class="pair"><figure><img src="KK-006_refill_before.png" alt="Before" loading="lazy"><figcaption>Before</figcaption></figure><figure><img src="KK-006_refill_after.png" alt="After" loading="lazy"><figcaption>After</figcaption></figure></div></section>
+<section><h2>KK-008 · export-pdf</h2><p>₹ printed as ■ and buy price = sell price → correct font, real buy price, shop name</p><div class="pair"><figure><img src="KK-008_export-pdf_before.png" alt="Before" loading="lazy"><figcaption>Before</figcaption></figure><figure><img src="KK-008_export-pdf_after.png" alt="After" loading="lazy"><figcaption>After</figcaption></figure></div></section>
+<section><h2>KK-007 · invoice-pdf</h2><p>Invoice now escapes names, uses ₹1,25,000.00 grouping and IST date</p><div class="pair"><figure class="none"><figcaption>Before: not captured</figcaption></figure><figure><img src="KK-007_invoice-pdf_after.png" alt="After" loading="lazy"><figcaption>After</figcaption></figure></div></section>
+<section><h2>KK-013 · signin</h2><p>Fake "Login with OTP" and do-nothing language picker hidden</p><div class="pair"><figure><img src="KK-013_signin_before.png" alt="Before" loading="lazy"><figcaption>Before</figcaption></figure><figure><img src="KK-013_signin_after.png" alt="After" loading="lazy"><figcaption>After</figcaption></figure></div></section>
+<section><h2>KK-017 · profile</h2><p>Profile showed a made-up owner and GSTIN → now the signed-in owner, and edits save</p><div class="pair"><figure><img src="KK-017_profile_before.png" alt="Before" loading="lazy"><figcaption>Before</figcaption></figure><figure><img src="KK-017_profile_after.png" alt="After" loading="lazy"><figcaption>After</figcaption></figure></div></section>
+<section><h2>KK-014 · receipt-sample</h2><p>Receipt without a bill number showed a fake receipt → now goes to dashboard</p><div class="pair"><figure><img src="KK-014_receipt-sample_before.png" alt="Before" loading="lazy"><figcaption>Before</figcaption></figure><figure class="none"><figcaption>After: not captured</figcaption></figure></div></section>
+<section><h2>KK-020 · dashboard</h2><p>Reference: dashboard before fixes (₹-480 "sales" came from an accepted negative bill)</p><div class="pair"><figure><img src="KK-020_dashboard_before.png" alt="Before" loading="lazy"><figcaption>Before</figcaption></figure><figure class="none"><figcaption>After: not captured</figcaption></figure></div></section>
+</body></html>
