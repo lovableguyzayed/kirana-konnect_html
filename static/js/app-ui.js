@@ -192,6 +192,11 @@
         } catch (e) {}
     })();
 
+    // Cache CSS/fonts/scripts on the phone and show a friendly page when offline.
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+    }
+
     // Thin progress bar while the next screen loads (instant feedback on tap).
     function startProgress() {
         var b = document.getElementById('kk-progress');

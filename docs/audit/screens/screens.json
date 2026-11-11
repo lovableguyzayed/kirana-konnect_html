@@ -282,7 +282,54 @@
   },
   {
     "files": [
-      "30_staff.png"
+      "30_khata_galla_1.png",
+      "30_khata_galla_2.png"
+    ],
+    "title": "Khata – Galla (day closing)",
+    "note": "Cash that should be in the drawer; count and close the day.",
+    "url": "/khata?tab=galla",
+    "more": false
+  },
+  {
+    "files": [
+      "31_khata_expenses_1.png",
+      "31_khata_expenses_2.png"
+    ],
+    "title": "Khata – Expenses",
+    "note": "Rent, bijli, salary… cash or UPI; today / this month.",
+    "url": "/khata?tab=kharcha",
+    "more": false
+  },
+  {
+    "files": [
+      "32_khata_suppliers.png"
+    ],
+    "title": "Khata – Suppliers",
+    "note": "What you owe each wholesaler.",
+    "url": "/khata?tab=supplier",
+    "more": false
+  },
+  {
+    "files": [
+      "33_khata_supplier_sheet.png"
+    ],
+    "title": "Supplier ledger",
+    "note": "Maal liya / paisa diya entries and history.",
+    "url": "/khata?tab=supplier",
+    "more": false
+  },
+  {
+    "files": [
+      "34_offline.png"
+    ],
+    "title": "No internet screen",
+    "note": "Shown instead of the browser error page; reloads by itself when internet returns.",
+    "url": "/offline",
+    "more": false
+  },
+  {
+    "files": [
+      "35_staff.png"
     ],
     "title": "My Team",
     "note": "Add / remove staff members.",
@@ -291,8 +338,8 @@
   },
   {
     "files": [
-      "31_profile_1.png",
-      "31_profile_2.png"
+      "36_profile_1.png",
+      "36_profile_2.png"
     ],
     "title": "Profile",
     "note": "Owner and shop details, export, language, staff mode, delete account.",
@@ -301,7 +348,7 @@
   },
   {
     "files": [
-      "32_dashboard_staff_mode.png"
+      "37_dashboard_staff_mode.png"
     ],
     "title": "Dashboard – staff mode",
     "note": "Profit locked; badge asks for owner PIN.",
@@ -310,7 +357,7 @@
   },
   {
     "files": [
-      "33_dashboard_hindi.png"
+      "38_dashboard_hindi.png"
     ],
     "title": "Dashboard – हिंदी",
     "note": "Hindi labels and buttons.",
@@ -319,7 +366,7 @@
   },
   {
     "files": [
-      "34_cart_hindi.png"
+      "39_cart_hindi.png"
     ],
     "title": "Cart – हिंदी",
     "note": "Billing in Hindi.",

@@ -216,7 +216,7 @@ PUBLIC_ENDPOINTS = {
     'auth_login', 'auth_signup', 'auth_status', 'logout',
     'form_login', 'form_signup', 'healthz', 'auth_reset_password',
     'privacy', 'terms', 'contact', 'account_deletion',
-    'otp_send', 'otp_verify'
+    'otp_send', 'otp_verify', 'service_worker', 'offline_page'
 }
 
 @app.before_request
@@ -263,7 +263,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-11-10-audit-round5"
+APP_VERSION = "2026-11-11-audit-round6"
 
 NAV_TABS = {
     'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
@@ -277,6 +277,17 @@ NAV_TABS = {
 def inject_nav():
     """Which bottom-bar tab is highlighted on this screen (templates/_nav.html)."""
     return {'nav_active': NAV_TABS.get(request.endpoint, '')}
+
+@app.route('/sw.js')
+def service_worker():
+    """Service worker must be served from the site root to cover every screen."""
+    resp = send_file(os.path.join(app.root_path, 'static', 'js', 'sw.js'), mimetype='application/javascript')
+    resp.headers['Service-Worker-Allowed'] = '/'
+    return resp
+
+@app.route('/offline')
+def offline_page():
+    return render_template('offline.html')
 
 @app.route('/healthz')
 def healthz():

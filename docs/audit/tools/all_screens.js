@@ -85,6 +85,11 @@ const list = [];
   await go('/customer-ledger');
   await page.click('text=View Details >> nth=0'); await shot('ledger_details', 'Customer history', 'Bills and payments, tap to call, collect.', { viewportOnly: true, wait: 1200 });
   await go('/sales-report'); await shot('sales_report', 'Sales report', 'Sales (incl. udhar), profit, payment modes, top items.', { wait: 1800 });
+  await go('/khata?tab=galla'); await shot('khata_galla', 'Khata – Galla (day closing)', 'Cash that should be in the drawer; count and close the day.', { wait: 1000 });
+  await go('/khata?tab=kharcha'); await shot('khata_expenses', 'Khata – Expenses', 'Rent, bijli, salary… cash or UPI; today / this month.', { wait: 1000 });
+  await go('/khata?tab=supplier'); await shot('khata_suppliers', 'Khata – Suppliers', 'What you owe each wholesaler.', { viewportOnly: true, wait: 1000 });
+  if (await page.$('.sup')) { await page.click('.sup >> nth=0'); await shot('khata_supplier_sheet', 'Supplier ledger', 'Maal liya / paisa diya entries and history.', { viewportOnly: true, wait: 900 }); }
+  await go('/offline'); await shot('offline', 'No internet screen', 'Shown instead of the browser error page; reloads by itself when internet returns.', { viewportOnly: true });
   await go('/staff'); await shot('staff', 'My Team', 'Add / remove staff members.', { wait: 1000 });
   await go('/profile'); await shot('profile', 'Profile', 'Owner and shop details, export, language, staff mode, delete account.', { wait: 1200 });
 

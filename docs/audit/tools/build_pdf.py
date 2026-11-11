@@ -77,6 +77,7 @@ SINGLES = [
     ('D6 Hindi, in-app message, offline strip', 'D6_hindi-toast-offline_after.png'),
     ('Round 5: bottom bar, scanner, product sheet', 'R5_nav-scanner_after.png'),
     ('Round 5: All Bills, UPI QR, collect payment', 'R5_bills-upi-collect_after.png'),
+    ('Round 6: Khata (galla, expenses, suppliers), net profit', 'R6_khata_after.png'),
 ]
 
 parts = []

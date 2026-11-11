@@ -27,6 +27,14 @@ Tick each on a real phone after deploying this branch.
 - [ ] Profile → Download stock / bills / udhar (Excel): file opens in Google Sheets with ₹ and Hindi readable.
 - [ ] Inside the Android app: WhatsApp and UPI links open the other apps (Cordova `allow-intent`; see note in report).
 
+## Khata, printing, offline (real phone)
+- [ ] Home → Galla: set opening cash, make a cash sale, add a cash expense, pay a supplier in cash → "Should be in galla" matches your own sum. Enter counted cash → shows matches / short / extra.
+- [ ] Next morning: opening cash equals last night's counted cash.
+- [ ] Sales report → Net profit = profit from sales − expenses.
+- [ ] Low Stock → Send order list on WhatsApp → pick the wholesaler → list is readable.
+- [ ] Receipt → Print on your 58 mm or 80 mm thermal printer: nothing cut off on the right, no buttons printed.
+- [ ] Turn on airplane mode and open any screen → "No internet" page; turn it off → the screen opens by itself.
+
 ## Staff mode & Hindi
 - [ ] Profile → Turn on staff mode → set PIN → profit shows 🔒, Profile/Reports are blocked, billing still works; badge → PIN unlocks.
 - [ ] Sign-in → Preferred Language → हिंदी: menus, buttons and messages in Hindi at max font size.
