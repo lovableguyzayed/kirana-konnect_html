@@ -1075,6 +1075,26 @@
             }
         };
 
+        // Gentle weekly reminder to download a backup (owner only, not in staff mode).
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(function () {
+                try {
+                    if (window.KK_STAFF_MODE) return;
+                    const last = Number(localStorage.getItem('kk_last_backup') || 0);
+                    const nagged = Number(localStorage.getItem('kk_backup_nag') || 0);
+                    if (Date.now() - last > 7 * 864e5 && Date.now() - nagged > 864e5) {
+                        localStorage.setItem('kk_backup_nag', Date.now());
+                        const bar = document.createElement('a');
+                        bar.href = '/profile';
+                        bar.style.cssText = 'display:block;margin:0 16px 16px;padding:12px 14px;border-radius:12px;background:#FFF8E1;color:#6D4C00;text-decoration:none;font-size:14px;font-weight:600';
+                        bar.textContent = '🛡️ ' + KK.t('Backup reminder: download a copy of your shop data (Profile → Download full backup).');
+                        const anchor = document.getElementById('quick-actions');
+                        if (anchor) anchor.parentElement.insertBefore(bar, anchor);
+                    }
+                } catch (e) {}
+            }, 2000);
+        });
+
         // Report and ledger button handlers
         // These buttons used to pop "feature coming soon!" even though the
         // screens exist (and then navigated anyway). Route them directly.

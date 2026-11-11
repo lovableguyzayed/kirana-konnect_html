@@ -146,8 +146,17 @@
   },
   {
     "files": [
-      "16_refill_stock_1.png",
-      "16_refill_stock_2.png"
+      "16_product_edit.png"
+    ],
+    "title": "Edit product",
+    "note": "Name, prices, low-stock level, barcode, expiry, GST %, HSN.",
+    "url": "/product-details?id=80",
+    "more": false
+  },
+  {
+    "files": [
+      "17_refill_stock_1.png",
+      "17_refill_stock_2.png"
     ],
     "title": "Refill stock (pieces)",
     "note": "Adds stock to the product that was tapped.",
@@ -156,8 +165,8 @@
   },
   {
     "files": [
-      "17_refill_stock_weight_1.png",
-      "17_refill_stock_weight_2.png"
+      "18_refill_stock_weight_1.png",
+      "18_refill_stock_weight_2.png"
     ],
     "title": "Refill stock (kg)",
     "note": "Loose items in kg / grams.",
@@ -166,7 +175,7 @@
   },
   {
     "files": [
-      "18_low_stock.png"
+      "19_low_stock.png"
     ],
     "title": "Low stock",
     "note": "Products at or below their reorder level.",
@@ -175,8 +184,8 @@
   },
   {
     "files": [
-      "19_expiry_alert_1.png",
-      "19_expiry_alert_2.png"
+      "20_expiry_alert_1.png",
+      "20_expiry_alert_2.png"
     ],
     "title": "Expiry alerts",
     "note": "Expired and expiring-this-week items.",
@@ -185,8 +194,8 @@
   },
   {
     "files": [
-      "20_cart_empty_1.png",
-      "20_cart_empty_2.png"
+      "21_cart_empty_1.png",
+      "21_cart_empty_2.png"
     ],
     "title": "Cart – empty",
     "note": "Starts empty (fake demo items removed).",
@@ -195,8 +204,8 @@
   },
   {
     "files": [
-      "21_cart_1.png",
-      "21_cart_2.png"
+      "22_cart_1.png",
+      "22_cart_2.png"
     ],
     "title": "Cart / billing",
     "note": "Items, GST only with GSTIN, cash / online / udhar, Generate Bill.",
@@ -205,8 +214,8 @@
   },
   {
     "files": [
-      "22_receipt_1.png",
-      "22_receipt_2.png"
+      "23_receipt_1.png",
+      "23_receipt_2.png"
     ],
     "title": "Receipt",
     "note": "Bill with PDF download, share, print.",
@@ -215,8 +224,17 @@
   },
   {
     "files": [
-      "23_bills_1.png",
-      "23_bills_2.png"
+      "24_receipt_return.png"
+    ],
+    "title": "Return items",
+    "note": "Part return: stock comes back, refund by cash / UPI or less udhar.",
+    "url": "/receipt?bill=KK-2026-000049",
+    "more": false
+  },
+  {
+    "files": [
+      "25_bills_1.png",
+      "25_bills_2.png"
     ],
     "title": "All Bills",
     "note": "Search by bill no., name or phone; Today / Udhar / Paid / Cancelled; Excel download.",
@@ -225,7 +243,7 @@
   },
   {
     "files": [
-      "24_scan_product.png"
+      "26_scan_product.png"
     ],
     "title": "Scan → product sheet",
     "note": "Scan from any screen: price, stock, quantity, Add to bill / Refill.",
@@ -234,8 +252,8 @@
   },
   {
     "files": [
-      "25_pending_credits_1.png",
-      "25_pending_credits_2.png"
+      "27_pending_credits_1.png",
+      "27_pending_credits_2.png"
     ],
     "title": "Pending credits (udhar)",
     "note": "Who owes how much; call, collect.",
@@ -244,8 +262,8 @@
   },
   {
     "files": [
-      "26_customer_ledger_1.png",
-      "26_customer_ledger_2.png"
+      "28_customer_ledger_1.png",
+      "28_customer_ledger_2.png"
     ],
     "title": "Udhar ledger",
     "note": "All customers with balance; search.",
@@ -254,7 +272,7 @@
   },
   {
     "files": [
-      "27_collect_payment.png"
+      "29_collect_payment.png"
     ],
     "title": "Collect udhar payment",
     "note": "Amount, Cash / UPI, payment QR.",
@@ -263,7 +281,7 @@
   },
   {
     "files": [
-      "28_ledger_details.png"
+      "30_ledger_details.png"
     ],
     "title": "Customer history",
     "note": "Bills and payments, tap to call, collect.",
@@ -272,8 +290,8 @@
   },
   {
     "files": [
-      "29_sales_report_1.png",
-      "29_sales_report_2.png"
+      "31_sales_report_1.png",
+      "31_sales_report_2.png"
     ],
     "title": "Sales report",
     "note": "Sales (incl. udhar), profit, payment modes, top items.",
@@ -282,8 +300,8 @@
   },
   {
     "files": [
-      "30_khata_galla_1.png",
-      "30_khata_galla_2.png"
+      "32_khata_galla_1.png",
+      "32_khata_galla_2.png"
     ],
     "title": "Khata – Galla (day closing)",
     "note": "Cash that should be in the drawer; count and close the day.",
@@ -292,8 +310,8 @@
   },
   {
     "files": [
-      "31_khata_expenses_1.png",
-      "31_khata_expenses_2.png"
+      "33_khata_expenses_1.png",
+      "33_khata_expenses_2.png"
     ],
     "title": "Khata – Expenses",
     "note": "Rent, bijli, salary… cash or UPI; today / this month.",
@@ -302,7 +320,7 @@
   },
   {
     "files": [
-      "32_khata_suppliers.png"
+      "34_khata_suppliers.png"
     ],
     "title": "Khata – Suppliers",
     "note": "What you owe each wholesaler.",
@@ -311,7 +329,7 @@
   },
   {
     "files": [
-      "33_khata_supplier_sheet.png"
+      "35_khata_supplier_sheet.png"
     ],
     "title": "Supplier ledger",
     "note": "Maal liya / paisa diya entries and history.",
@@ -320,7 +338,7 @@
   },
   {
     "files": [
-      "34_offline.png"
+      "36_offline.png"
     ],
     "title": "No internet screen",
     "note": "Shown instead of the browser error page; reloads by itself when internet returns.",
@@ -329,7 +347,7 @@
   },
   {
     "files": [
-      "35_staff.png"
+      "37_staff.png"
     ],
     "title": "My Team",
     "note": "Add / remove staff members.",
@@ -338,8 +356,8 @@
   },
   {
     "files": [
-      "36_profile_1.png",
-      "36_profile_2.png"
+      "38_profile_1.png",
+      "38_profile_2.png"
     ],
     "title": "Profile",
     "note": "Owner and shop details, export, language, staff mode, delete account.",
@@ -348,7 +366,7 @@
   },
   {
     "files": [
-      "37_dashboard_staff_mode.png"
+      "39_dashboard_staff_mode.png"
     ],
     "title": "Dashboard – staff mode",
     "note": "Profit locked; badge asks for owner PIN.",
@@ -357,7 +375,7 @@
   },
   {
     "files": [
-      "38_dashboard_hindi.png"
+      "40_dashboard_hindi.png"
     ],
     "title": "Dashboard – हिंदी",
     "note": "Hindi labels and buttons.",
@@ -366,7 +384,7 @@
   },
   {
     "files": [
-      "39_cart_hindi.png"
+      "41_cart_hindi.png"
     ],
     "title": "Cart – हिंदी",
     "note": "Billing in Hindi.",

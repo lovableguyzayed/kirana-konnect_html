@@ -244,7 +244,7 @@ STAFF_BLOCKED_API = {
     ('staff_api', 'POST'), ('staff_delete', 'DELETE'), ('delete_product', 'DELETE'),
     ('update_product', 'PUT'), ('update_product', 'PATCH'), ('seed_demo_data', 'POST'),
     ('seed_demo_data', 'GET'), ('update_notification_settings_api', 'POST'),
-    ('cancel_bill', 'POST'), ('export_csv', 'GET'),
+    ('cancel_bill', 'POST'), ('export_csv', 'GET'), ('return_bill_items', 'POST'), ('export_backup', 'GET'),
 }
 
 def staff_mode_on():
@@ -263,7 +263,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-11-11-audit-round6"
+APP_VERSION = "2026-11-11-audit-round7"
 
 NAV_TABS = {
     'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
@@ -718,7 +718,8 @@ def contact():
 
 def delete_all_shop_data():
     """Erase the shop: this is a single-shop instance, so every table goes."""
-    for model in (Notification, Payment, BillItem, Bill, Customer, Product,
+    # Children before parents (PostgreSQL enforces foreign keys).
+    for model in (Notification, Payment, BillReturn, BillItem, Bill, Customer, Product,
                   Staff, NotificationSettings, OtpCode, Expense, SupplierEntry, Supplier,
                   DayClose, User):
         model.query.delete(synchronize_session=False)
@@ -881,6 +882,8 @@ class BillItem(db.Model):
     # For weight-based items
     weight = db.Column(db.Float)
     price_per_kg = db.Column(db.Float)
+    gst_rate = db.Column(db.Float)       # % charged on this line (None = no GST)
+    hsn_code = db.Column(db.String(12))
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -911,6 +914,8 @@ class Product(db.Model):
     stock_quantity = db.Column(db.Float, default=0)
     reorder_level = db.Column(db.Float, default=10)
     expiry_date = db.Column(db.Date)
+    gst_rate = db.Column(db.Float)       # % (0, 5, 12, 18, 28); None = use the bill's rate
+    hsn_code = db.Column(db.String(12))
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -962,6 +967,15 @@ class NotificationSettings(db.Model):
 
 # --- Khata: expenses, suppliers, day book (galla closing) ----------------------
 # Added Nov 2026. New tables only (created automatically by db.create_all()).
+class BillReturn(db.Model):
+    """One return against a bill: what was refunded and how (for the galla)."""
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)          # value of goods returned (incl. GST)
+    refund_mode = db.Column(db.String(20))                 # cash | upi | udhar (reduces due)
+    note = db.Column(db.String(300))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
 class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(40), nullable=False, default='Other')
@@ -1145,7 +1159,14 @@ def _daybook(day):
             .order_by(DayClose.day.desc()).first()
         if prev:
             opening = prev.counted_cash
-    expected = opening + cash_sales + udhar_cash - exp_cash - sup_cash
+    rets = BillReturn.query.filter(BillReturn.created_at >= start, BillReturn.created_at < end).all()
+    refund_cash = sum(x.amount for x in rets if x.refund_mode == 'cash')
+    refund_online = sum(x.amount for x in rets if x.refund_mode == 'upi')
+    # A same-day cash sale already shrank when goods came back, so only refunds
+    # for bills made on EARLIER days take extra cash out of today's galla.
+    old_refund_cash = sum(x.amount for x in rets if x.refund_mode == 'cash'
+                          and db.session.get(Bill, x.bill_id) and db.session.get(Bill, x.bill_id).created_at < start)
+    expected = opening + cash_sales + udhar_cash - exp_cash - sup_cash - old_refund_cash
     r = lambda v: round(v or 0, 2)
     return {
         'day': day.strftime('%Y-%m-%d'), 'day_label': day.strftime('%d/%m/%Y'), 'bill_count': len(bills),
@@ -1153,6 +1174,7 @@ def _daybook(day):
         'udhar_given': r(udhar_given), 'udhar_collected_cash': r(udhar_cash), 'udhar_collected_online': r(udhar_online),
         'expenses_cash': r(exp_cash), 'expenses_online': r(exp_online),
         'supplier_paid_cash': r(sup_cash), 'supplier_paid_online': r(sup_online),
+        'refunds_cash': r(refund_cash), 'refunds_online': r(refund_online), 'old_bill_refunds_cash': r(old_refund_cash),
         'total_sales': r(cash_sales + online_sales + udhar_given),
         'online_received': r(online_sales + udhar_online),
         'expected_cash': r(expected),
@@ -1832,6 +1854,14 @@ def _parse_date(value):
             continue
     return None
 
+def _gst_rate(value):
+    """GST % for a product: one of the legal slabs, or None when not set."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if v in (0, 5, 12, 18, 28) else None
+
 def _product_to_dict(product):
     is_low_stock = product.stock_quantity <= product.reorder_level
     is_expired = bool(product.expiry_date and product.expiry_date < ist_today())
@@ -1849,6 +1879,8 @@ def _product_to_dict(product):
         'expiry_date': product.expiry_date.strftime('%d/%m/%Y') if product.expiry_date else None,
         'is_low_stock': is_low_stock,
         'is_expired': is_expired,
+        'gst_rate': product.gst_rate,
+        'hsn_code': product.hsn_code,
         'unit': 'kg' if product.is_weight_based else 'Piece'
     }
 
@@ -1880,7 +1912,9 @@ def create_product():
             is_weight_based=is_weight_based,
             stock_quantity=stock_quantity,
             reorder_level=float(data.get('reorder_level') or 10),
-            expiry_date=_parse_date(data.get('expiry_date'))
+            expiry_date=_parse_date(data.get('expiry_date')),
+            gst_rate=_gst_rate(data.get('gst_rate')),
+            hsn_code=(str(data.get('hsn_code') or '').strip()[:12] or None)
         )
         db.session.add(product)
         db.session.commit()
@@ -1917,6 +1951,10 @@ def update_product(product_id):
                 setattr(product, field, float(data[field]))
         if 'expiry_date' in data:
             product.expiry_date = _parse_date(data['expiry_date'])
+        if 'gst_rate' in data:
+            product.gst_rate = _gst_rate(data.get('gst_rate'))
+        if 'hsn_code' in data:
+            product.hsn_code = str(data.get('hsn_code') or '').strip()[:12] or None
         if 'is_weight_based' in data:
             product.is_weight_based = bool(data['is_weight_based'])
         product.updated_at = datetime.utcnow()
@@ -2311,7 +2349,9 @@ def create_bill():
                 unit_price=item_data['unit_price'],
                 total_price=item_data['total_price'],
                 weight=item_data.get('weight'),
-                price_per_kg=item_data.get('price_per_kg')
+                price_per_kg=item_data.get('price_per_kg'),
+                gst_rate=_gst_rate(item_data.get('gst_rate')) if tax_amount else None,
+                hsn_code=(str(item_data.get('hsn_code') or '').strip()[:12] or None)
             )
             db.session.add(bill_item)
 
@@ -2443,7 +2483,10 @@ def api_get_bill(bill_number):
                 'unit_price': item.unit_price,
                 'total_price': item.total_price,
                 'weight': item.weight,
-                'price_per_kg': item.price_per_kg
+                'price_per_kg': item.price_per_kg,
+                'id': item.id,
+                'gst_rate': item.gst_rate,
+                'hsn_code': item.hsn_code
             } for item in items]
         })
     except Exception as e:
@@ -2514,6 +2557,94 @@ def cancel_bill(bill_number):
         db.session.rollback()
         app.logger.error(f"Cancel bill failed: {e}")
         return jsonify({'success': False, 'error': 'Could not cancel the bill'}), 500
+
+@app.route('/api/bills/<bill_number>/return', methods=['POST'])
+def return_bill_items(bill_number):
+    """Customer brings back part of a bill. Stock goes back, the bill shrinks
+    (GST and discount in proportion) and the refund is recorded: cash/UPI for
+    a paid bill, or simply less udhar for a credit bill."""
+    bill = Bill.query.filter_by(bill_number=bill_number).first()
+    if not bill:
+        return jsonify({'success': False, 'error': 'Bill not found'}), 404
+    if bill.payment_status == 'cancelled':
+        return jsonify({'success': False, 'error': 'This bill is cancelled'}), 400
+    data = request.get_json() or {}
+    wanted = data.get('items') or []
+    by_id = {it.id: it for it in bill.items}
+    plan, lines = [], []
+    try:
+        for w in wanted:
+            item = by_id.get(int(w.get('id')))
+            qty = float(w.get('quantity'))
+            if item is None or not (0 < qty <= item.quantity + 1e-9):
+                raise ValueError
+            plan.append((item, qty))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Return quantity is not valid'}), 400
+    if not plan:
+        return jsonify({'success': False, 'error': 'Choose at least one item to return'}), 400
+    old_total, old_sub = bill.total_amount, bill.subtotal or 0
+    try:
+        for item, qty in plan:
+            share = qty / item.quantity
+            product = Product.query.filter(Product.name.ilike(item.item_name.strip())).first()
+            back = (item.weight * share) if item.weight else qty
+            if product is not None:
+                product.stock_quantity = (product.stock_quantity or 0) + back
+                product.updated_at = datetime.utcnow()
+            lines.append(f"{item.item_name} x {qty:g}")
+            item.total_price = round(item.total_price * (1 - share), 2)
+            if item.weight:
+                item.weight = round(item.weight * (1 - share), 3)
+            item.quantity = round(item.quantity - qty, 3)
+            if item.quantity <= 1e-9:
+                db.session.delete(item)
+        db.session.flush()
+        new_sub = round(sum(i.total_price for i in BillItem.query.filter_by(bill_id=bill.id).all()), 2)
+        ratio = (new_sub / old_sub) if old_sub > 0 else 0
+        bill.subtotal = new_sub
+        bill.tax_amount = round((bill.tax_amount or 0) * ratio, 2)
+        bill.discount_amount = round((bill.discount_amount or 0) * ratio, 2)
+        bill.total_amount = round(new_sub + bill.tax_amount - bill.discount_amount, 2)
+        refund = round(old_total - bill.total_amount, 2)
+        was_paid = bill.payment_status == 'paid'
+        mode = (data.get('refund_mode') if data.get('refund_mode') in ('cash', 'upi') else 'cash') if was_paid else 'udhar'
+        if new_sub <= 0:
+            bill.payment_status = 'cancelled'
+        db.session.add(BillReturn(bill_id=bill.id, amount=refund, refund_mode=mode, note='; '.join(lines)[:300]))
+        db.session.commit()
+        return jsonify({'success': True, 'refund_amount': refund, 'refund_mode': mode,
+                        'new_total': bill.total_amount, 'payment_status': bill.payment_status})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Return failed: {e}")
+        return jsonify({'success': False, 'error': 'Could not save the return'}), 500
+
+@app.route('/export/backup.json')
+def export_backup():
+    """Full copy of the shop's data in one file (keep it on the phone / Drive)."""
+    import json
+    from flask import Response
+    def rows(model, skip=()):
+        out = []
+        for r in model.query.all():
+            d = {}
+            for c in model.__table__.columns:
+                if c.name in skip:
+                    continue
+                v = getattr(r, c.name)
+                d[c.name] = v.isoformat() if hasattr(v, 'isoformat') else v
+            out.append(d)
+        return out
+    dump = {'app': 'Kirana Konnect', 'version': APP_VERSION, 'exported_at_ist': ist_now().strftime('%d/%m/%Y %I:%M %p'),
+            'shop': rows(User, skip=('password_hash', 'owner_pin_hash')),
+            'products': rows(Product), 'customers': rows(Customer, skip=('aadhar_number',)), 'bills': rows(Bill),
+            'bill_items': rows(BillItem), 'payments': rows(Payment), 'bill_returns': rows(BillReturn),
+            'expenses': rows(Expense), 'suppliers': rows(Supplier), 'supplier_entries': rows(SupplierEntry),
+            'day_closings': rows(DayClose), 'staff': rows(Staff)}
+    name = f"KiranaKonnect_Backup_{ist_now().strftime('%d-%b-%Y')}.json"
+    return Response(json.dumps(dump, ensure_ascii=False, indent=1), mimetype='application/json',
+                    headers={'Content-Disposition': f'attachment; filename="{name}"'})
 
 @app.route('/bills')
 def bills_page():
@@ -2692,7 +2823,13 @@ def bill_pdf(bill_number):
     rows = [[Paragraph(h, head) for h in ('#', 'ITEM', 'QTY', 'RATE', 'AMOUNT')]]
     for i, item in enumerate(bill.items, 1):
         qty = f"{item.quantity:g} kg" if item.weight else f"{item.quantity:g}"
-        rows.append([Paragraph(str(i), cell), Paragraph(pdf_text(item.item_name), cell),
+        extra = []
+        if item.hsn_code:
+            extra.append(f"HSN {pdf_text(item.hsn_code)}")
+        if bill.tax_amount and item.gst_rate is not None:
+            extra.append(f"GST {item.gst_rate:g}%")
+        name_html = pdf_text(item.item_name) + (f"<br/><font size='7.5' color='#777777'>{' · '.join(extra)}</font>" if extra else '')
+        rows.append([Paragraph(str(i), cell), Paragraph(name_html, cell),
                      Paragraph(qty, cell_r), Paragraph(inr(item.unit_price), cell_r),
                      Paragraph(inr(item.total_price), cell_r)])
     items_table = Table(rows, colWidths=[0.4 * inch, 3.5 * inch, 0.9 * inch, 1.15 * inch, 1.15 * inch],
@@ -2714,10 +2851,10 @@ def bill_pdf(bill_number):
     grand_l = ParagraphStyle('GrL', parent=styles['Normal'], fontSize=13, alignment=2,
                              textColor=colors.white, fontName='DejaVu-Bold')
     totals_rows = [[Paragraph('Subtotal', tot_lbl), Paragraph(inr(bill.subtotal), tot_val)]]
-    if bill.tax_amount:
-        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(inr(bill.tax_amount), tot_val)])
     if bill.discount_amount:
         totals_rows.append([Paragraph('Discount', tot_lbl), Paragraph(f"- {inr(bill.discount_amount)}", tot_val)])
+    if bill.tax_amount:
+        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(inr(bill.tax_amount), tot_val)])
     totals_rows.append([Paragraph('TOTAL', grand_l), Paragraph(inr(bill.total_amount), grand_l)])
     totals = Table(totals_rows, colWidths=[1.4 * inch, 2.0 * inch], hAlign='RIGHT')
     totals.setStyle(TableStyle([

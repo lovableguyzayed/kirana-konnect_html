@@ -35,6 +35,12 @@ Tick each on a real phone after deploying this branch.
 - [ ] Receipt → Print on your 58 mm or 80 mm thermal printer: nothing cut off on the right, no buttons printed.
 - [ ] Turn on airplane mode and open any screen → "No internet" page; turn it off → the screen opens by itself.
 
+## Discount, GST per item, returns, backup (real phone)
+- [ ] Stock → open a product → Edit → change price, set GST % and HSN → Save. New bills use the new price.
+- [ ] Cart → Add Offer → ₹ or % discount → total goes down; with Add Tax, GST is charged after the discount. Invoice PDF shows Discount, GST, HSN.
+- [ ] Receipt → Return items → return 1 of several → stock +1, bill smaller, message tells how much to give back; udhar bill → due goes down.
+- [ ] Profile → Download full backup → file saves on the phone; keep a copy on Google Drive.
+
 ## Staff mode & Hindi
 - [ ] Profile → Turn on staff mode → set PIN → profit shows 🔒, Profile/Reports are blocked, billing still works; badge → PIN unlocks.
 - [ ] Sign-in → Preferred Language → हिंदी: menus, buttons and messages in Hindi at max font size.

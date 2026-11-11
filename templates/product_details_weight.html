@@ -26,6 +26,7 @@
     </style>
     <script src="/static/js/app-ui.js"></script>
     <script src="/static/js/scanner.js" defer></script>
+    <script src="/static/js/product-edit.js" defer></script>
 </head>
 <body class="font-inter bg-gray-100">
     <!-- Header Section -->
@@ -124,7 +125,7 @@
 
     <!-- Fixed Bottom Actions -->
     <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-4 gap-2">
             <button class="flex items-center justify-center space-x-1 bg-blue-600 text-white py-3 px-3 rounded-lg hover:bg-blue-700 transition-colors" onclick="refillStock()">
                 <i class="fa-solid fa-plus text-sm"></i>
                 <span class="font-medium text-sm">Refill</span>
@@ -132,6 +133,10 @@
             <button id="add-to-cart-btn" class="flex items-center justify-center space-x-1 bg-green-600 text-white py-3 px-3 rounded-lg hover:bg-green-700 transition-colors">
                 <i class="fa-solid fa-shopping-cart text-sm"></i>
                 <span class="font-medium text-sm">Add Cart</span>
+            </button>
+            <button type="button" class="flex items-center justify-center space-x-1 text-white py-3 px-3 rounded-lg" style="background:#455A64" onclick="KKEditProduct(new URLSearchParams(location.search).get('id'))">
+                <i class="fa-solid fa-pen text-sm"></i>
+                <span class="font-medium text-sm">Edit</span>
             </button>
             <button class="flex items-center justify-center space-x-1 bg-red-600 text-white py-3 px-3 rounded-lg hover:bg-red-700 transition-colors" onclick="deleteProduct()">
                 <i class="fa-solid fa-trash text-sm"></i>

@@ -246,3 +246,33 @@ def test_khata_expenses_suppliers_daybook(auth):  # round 6
     assert closed['success'] and closed['counted_cash'] is not None and closed['difference'] is not None
     assert auth.delete(f'/api/expenses/{eid}').status_code == 200
     assert auth.get('/khata').status_code == 200
+
+
+def test_part_return_gst_and_backup(auth):  # round 7
+    prod = auth.post('/api/products', json={'name': 'Return Test Soap', 'price': 40, 'stock_quantity': 20,
+                                           'gst_rate': 18, 'hsn_code': '3401'}).get_json()['product']
+    assert prod['gst_rate'] == 18 and prod['hsn_code'] == '3401'
+    assert auth.put(f'/api/products/{prod["id"]}', json={'price': 45, 'gst_rate': 99}).get_json()['product']['gst_rate'] is None
+    auth.put(f'/api/products/{prod["id"]}', json={'gst_rate': 18})
+    # 4 soaps @45 = 180, discount 20, GST 18% on 160 = 28.8 -> total 188.8
+    r = _bill(auth, subtotal=180, discount_amount=20, tax_amount=28.8, total_amount=188.8,
+              items=[{'product_id': prod['id'], 'name': 'Return Test Soap', 'quantity': 4, 'unit_price': 45,
+                      'total_price': 180, 'gst_rate': 18, 'hsn_code': '3401'}])
+    assert r.status_code == 201
+    num = r.get_json()['bill_number']
+    bill = auth.get(f'/api/bills/{num}').get_json()
+    item = bill['items'][0]
+    assert item['gst_rate'] == 18 and item['hsn_code'] == '3401' and bill['discount_amount'] == 20
+    assert auth.get(f'/api/products/{prod["id"]}').get_json()['product']['stock_quantity'] == 16
+    assert auth.post(f'/api/bills/{num}/return', json={'items': [{'id': item['id'], 'quantity': 9}]}).status_code == 400
+    ret = auth.post(f'/api/bills/{num}/return', json={'items': [{'id': item['id'], 'quantity': 1}], 'refund_mode': 'cash'}).get_json()
+    assert ret['success'] and ret['refund_amount'] == 47.2 and ret['new_total'] == 141.6   # a quarter of everything
+    assert auth.get(f'/api/products/{prod["id"]}').get_json()['product']['stock_quantity'] == 17
+    pdf = auth.get(f'/api/bills/{num}/pdf').data
+    assert pdf[:4] == b'%PDF'
+    rest = auth.post(f'/api/bills/{num}/return', json={'items': [{'id': item['id'], 'quantity': 3}]}).get_json()
+    assert rest['payment_status'] == 'cancelled' and rest['new_total'] == 0
+    backup = auth.get('/export/backup.json')
+    assert backup.status_code == 200
+    data = backup.get_json()
+    assert data['products'] and data['bills'] and 'password_hash' not in data['shop'][0]

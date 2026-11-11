@@ -33,6 +33,7 @@ function ok(name, cond, extra) { steps.push((cond ? 'PASS ' : 'FAIL ') + name + 
   await p.click('button[aria-label="Edit profile"]');
   await p.waitForTimeout(400);
   await p.fill('#editUpi', 'yadavkirana@ybl');
+  await p.fill('#editGST', '09ABCDE1234F1Z5');
   await p.fill('#editAddress', 'Near Hanuman Mandir, Main Bazaar, Sitapur 261001');
   await p.evaluate(() => saveProfile()); await p.waitForTimeout(800);
   const st = await api('/api/auth/status');
@@ -151,6 +152,35 @@ function ok(name, cond, extra) { steps.push((cond ? 'PASS ' : 'FAIL ') + name + 
   ok('Galla closing matches', /matches/.test(await p.textContent('#close-result')), await p.textContent('#close-result'));
   const rep = await api('/api/sales-data?period=daily');
   ok('Net profit = profit - expenses', Math.round(rep.data.netProfit) === Math.round(rep.data.totalProfit - 120), `${rep.data.totalProfit} - 120 = ${rep.data.netProfit}`);
+
+  // 10c. Edit product (price + GST), bill with discount + per-item GST, part return
+  await go(`/product-details?id=${prod.id}`);
+  await p.click('button:has-text("Edit")'); await p.waitForTimeout(700);
+  await p.fill('#pe-price', '12'); await p.selectOption('#pe-gst', '18'); await p.fill('#pe-hsn', '1905');
+  await Promise.all([p.waitForNavigation(), p.click('.kkpe button[type=submit]')]); await p.waitForTimeout(600);
+  const edited = (await api(`/api/products/${prod.id}`)).product;
+  ok('Edit product saves price, GST %, HSN', edited.price === 12 && edited.gst_rate === 18 && edited.hsn_code === '1905', JSON.stringify([edited.price, edited.gst_rate, edited.hsn_code]));
+  const stockBefore = edited.stock_quantity;
+  await p.evaluate(id => localStorage.setItem('kiranakonnect_cart', JSON.stringify([{ product_id: id, name: 'Parle-G Biscuit 100g', quantity: 4, unit: 'Piece', price: 48 }])), prod.id);
+  await go('/cart'); await p.waitForTimeout(600);
+  await p.evaluate(() => toggleOffer()); await p.fill('#disc-rs', '8');
+  await p.click('#tax-btn'); await p.waitForTimeout(400);
+  const shown = await p.textContent('#total');
+  ok('Cart: ₹48 − ₹8 discount + 18% GST = ₹47.2', /47\.2/.test(shown), shown);
+  await Promise.all([p.waitForNavigation(), p.evaluate(() => generateBill())]); await p.waitForTimeout(1200);
+  const bill3 = new URL(p.url()).searchParams.get('bill');
+  const b3 = await api(`/api/bills/${bill3}`);
+  ok('Bill saved with discount, GST and HSN', b3.discount_amount === 8 && b3.tax_amount === 7.2 && b3.total_amount === 47.2 && b3.items[0].gst_rate === 18 && b3.items[0].hsn_code === '1905',
+     JSON.stringify([b3.discount_amount, b3.tax_amount, b3.total_amount, b3.items[0].gst_rate, b3.items[0].hsn_code]));
+  await p.click('#return-btn'); await p.waitForTimeout(400);
+  await p.click('[data-step="1"]');
+  await Promise.all([p.waitForNavigation(), p.click('form button[type=submit]:has-text("Save return")')]); await p.waitForTimeout(900);
+  const b3b = await api(`/api/bills/${bill3}`);
+  const afterRet = (await api(`/api/products/${prod.id}`)).product.stock_quantity;
+  ok('Part return: bill ₹47.2 → ₹35.4, 1 packet back in stock', b3b.total_amount === 35.4 && b3b.items[0].quantity === 3 && afterRet === stockBefore - 3,
+     JSON.stringify([b3b.total_amount, b3b.items[0].quantity, stockBefore, afterRet]));
+  const bk = await p.evaluate(() => fetch('/export/backup.json').then(r => r.json()).then(d => [d.products.length > 0, d.bills.length > 0, !('password_hash' in d.shop[0])]));
+  ok('Full backup downloads (no passwords inside)', bk.every(Boolean), JSON.stringify(bk));
 
   // 11. Staff: add a team member
   await go('/staff');

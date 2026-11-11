@@ -174,8 +174,12 @@
                         <span class="text-gray-600 text-sm">Subtotal</span>
                         <span class="font-medium text-sm" id="subtotal">₹955</span>
                     </div>
+                    <div id="disc-row" class="flex justify-between hidden">
+                        <span class="text-gray-600 text-sm">Discount</span>
+                        <span class="font-medium text-sm" id="disc-amt" style="color:#C62828">− ₹0</span>
+                    </div>
                     <div id="gst-row" class="flex justify-between items-center hidden">
-                        <label for="gst-rate" class="text-gray-600 text-sm">GST
+                        <label for="gst-rate" class="text-gray-600 text-sm" title="Used for items that have no GST % of their own">GST
                             <select id="gst-rate" onchange="calculateTotals()" class="ml-1 border border-gray-300 rounded-md px-2 py-1 text-sm">
                                 <option value="5">5%</option>
                                 <option value="12">12%</option>
@@ -189,9 +193,12 @@
 
             <!-- Offer Section -->
             <div id="offer-section" class="mt-3 hidden">
+                <!-- Bill discount: type rupees OR percent (the other box clears). -->
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="number" placeholder="Discount ₹" class="p-2 border border-gray-200 rounded-lg text-sm" onchange="calculateDiscount()">
-                    <input type="number" placeholder="Discount %" class="p-2 border border-gray-200 rounded-lg text-sm" onchange="calculateDiscount()">
+                    <div><label for="disc-rs" class="text-xs text-gray-600">Discount ₹</label>
+                        <input type="text" inputmode="decimal" id="disc-rs" placeholder="e.g. 20" class="w-full p-2 border border-gray-200 rounded-lg text-sm" oninput="document.getElementById('disc-pct').value='';calculateTotals()"></div>
+                    <div><label for="disc-pct" class="text-xs text-gray-600">Discount %</label>
+                        <input type="text" inputmode="decimal" id="disc-pct" placeholder="e.g. 5" class="w-full p-2 border border-gray-200 rounded-lg text-sm" oninput="document.getElementById('disc-rs').value='';calculateTotals()"></div>
                 </div>
             </div>
         </div>
@@ -530,17 +537,43 @@
         }
 
         // Calculate totals
+        // One place for the bill maths (screen and saved bill use the same numbers).
+        // Discount comes off first; GST is charged on what is left. Each item
+        // uses its own GST % when the product has one, else the rate chosen here.
+        let productTax = {};   // product id -> { gst_rate, hsn_code }
+        fetch('/api/products', { credentials: 'same-origin' }).then(r => r.json()).then(d => {
+            (d.products || []).forEach(p => { productTax[String(p.id)] = { gst_rate: p.gst_rate, hsn_code: p.hsn_code }; });
+            calculateTotals();
+        }).catch(() => {});
+        function itemTax(item) {
+            const t = productTax[String(item.product_id)] || {};
+            const rate = (t.gst_rate === null || t.gst_rate === undefined) ? gstRate() * 100 : t.gst_rate;
+            return { rate: rate, hsn: t.hsn_code || null };
+        }
+        function billMaths() {
+            const r2 = v => Math.round(v * 100) / 100;
+            const subtotal = r2(cartItems.reduce((sum, item) => sum + item.price, 0));
+            let discount = 0;
+            if (offerEnabled) {
+                const rs = parseFloat((document.getElementById('disc-rs') || {}).value);
+                const pct = parseFloat((document.getElementById('disc-pct') || {}).value);
+                if (rs > 0) discount = rs; else if (pct > 0) discount = subtotal * Math.min(pct, 100) / 100;
+            }
+            discount = r2(Math.min(Math.max(discount, 0), subtotal));
+            const keep = subtotal > 0 ? (subtotal - discount) / subtotal : 0;
+            let gst = 0;
+            if (taxEnabled) cartItems.forEach(item => { gst += item.price * keep * itemTax(item).rate / 100; });
+            gst = r2(gst);
+            return { subtotal, discount, gst, total: r2(subtotal - discount + gst) };
+        }
         function calculateTotals() {
-            const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-            const gst = taxEnabled ? subtotal * gstRate() : 0;
-            const total = subtotal + gst;
-
-            document.getElementById('subtotal').textContent = `₹${subtotal.toFixed(2)}`;
-            document.getElementById('gst').textContent = `₹${gst.toFixed(2)}`;
-            document.getElementById('total').textContent = KK.inr(total);
-            document.getElementById('subtotal').textContent = KK.inr(subtotal);
-            document.getElementById('gst').textContent = KK.inr(gst);
-            if (selectedPaymentType === 'online') drawCartUpi(total);
+            const m = billMaths();
+            document.getElementById('subtotal').textContent = KK.inr(m.subtotal);
+            document.getElementById('gst').textContent = KK.inr(m.gst);
+            document.getElementById('total').textContent = KK.inr(m.total);
+            document.getElementById('disc-row').classList.toggle('hidden', !(m.discount > 0));
+            document.getElementById('disc-amt').textContent = '− ' + KK.inr(m.discount);
+            if (selectedPaymentType === 'online') drawCartUpi(m.total);
         }
         function drawCartUpi(total) {
             const box = document.getElementById('cart-upi-qr'), txt = document.getElementById('cart-upi-text');
@@ -642,6 +675,7 @@
             offerEnabled = !offerEnabled;
             const section = document.getElementById('offer-section');
             section.classList.toggle('hidden', !offerEnabled);
+            calculateTotals();
         }
 
         // Other functions
@@ -759,12 +793,15 @@
                     unit_price: parseFloat(unitPrice.toFixed(2)),
                     total_price: item.price,
                     weight: isWeight ? qtyInKg : null,
-                    price_per_kg: isWeight ? parseFloat(unitPrice.toFixed(2)) : null
+                    price_per_kg: isWeight ? parseFloat(unitPrice.toFixed(2)) : null,
+                    gst_rate: taxEnabled ? itemTax(item).rate : null,
+                    hsn_code: itemTax(item).hsn
                 };
             });
 
             const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-            const gst = taxEnabled ? Math.round(subtotal * gstRate() * 100) / 100 : 0;
+            const maths = billMaths();
+            const gst = maths.gst;
             const generatorSelect = document.getElementById('bill-generator');
             const billButton = document.querySelector('[onclick="generateBill()"]');
             if (billButton) { billButton.disabled = true; billButton.textContent = 'Generating...'; }
@@ -775,10 +812,10 @@
                 body: JSON.stringify({
                     customer_id: selectedCustomer ? selectedCustomer.id : null,
                     customer_name: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
-                    subtotal: parseFloat(subtotal.toFixed(2)),
-                    tax_amount: parseFloat(gst.toFixed(2)),
-                    discount_amount: 0,
-                    total_amount: parseFloat((subtotal + gst).toFixed(2)),
+                    subtotal: maths.subtotal,
+                    tax_amount: gst,
+                    discount_amount: maths.discount,
+                    total_amount: maths.total,
                     payment_mode: selectedPaymentType,
                     reference_number: (document.getElementById('payment-ref') || {}).value || null,
                     generated_by: generatorSelect ? generatorSelect.options[generatorSelect.selectedIndex].text : 'Owner',

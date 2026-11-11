@@ -213,6 +213,9 @@
                 <p id="upi-text" style="margin:8px 0 0;color:#52606D;font-size:14px"></p>
             </div>
             <div id="cancelled-banner" hidden style="margin-top:12px;background:#ECEFF1;color:#37474F;border-radius:12px;padding:12px;text-align:center;font-weight:700">This bill is CANCELLED. Stock was returned.</div>
+            <button type="button" id="return-btn" hidden onclick="returnItems()" style="width:100%;min-height:48px;margin-top:10px;border:1px solid #CBD2D9;border-radius:12px;background:#fff;color:#1F2933;font-weight:700">
+                <i class="fa-solid fa-rotate-left" style="margin-right:6px"></i>Return items
+            </button>
             <button type="button" id="cancel-bill-btn" hidden onclick="cancelBill()" style="width:100%;min-height:48px;margin-top:10px;border:0;background:none;color:#C62828;font-weight:600;text-decoration:underline">Cancel bill</button>
         </div>
     </main>
@@ -340,6 +343,62 @@
             KK.whatsapp(KKR.phone, billText());
         }
         function shareReceipt() { whatsAppBill(); }
+        // Customer brings some items back: choose quantities, stock returns,
+        // the bill shrinks and the refund (cash / UPI, or less udhar) is saved.
+        function returnItems() {
+            const b = KKR.bill;
+            if (!b || !b.items || !b.items.length) return;
+            const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            const paid = b.payment_status === 'paid';
+            const w = document.createElement('div');
+            w.setAttribute('role', 'dialog');
+            w.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+            w.innerHTML = `<form style="background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px 22px">
+                <h3 style="font-size:18px;font-weight:700;margin:0">Return items</h3>
+                <p style="color:#52606D;font-size:14px;margin:2px 0 8px">Choose how much came back.</p>
+                ${b.items.map(i => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #eee">
+                    <div style="flex:1;min-width:0"><b style="overflow-wrap:anywhere">${esc(i.item_name)}</b><br><span style="color:#52606D;font-size:13px">Sold: ${+i.quantity}${i.weight ? ' (' + (+i.weight) + ' kg)' : ''} · ${KK.inr(i.total_price)}</span></div>
+                    <button type="button" data-step="-1" data-id="${i.id}" aria-label="Less" style="width:44px;height:44px;border-radius:10px;border:1px solid #CBD2D9;background:#fff;font-size:20px">−</button>
+                    <input data-id="${i.id}" data-max="${+i.quantity}" inputmode="decimal" value="0" aria-label="Quantity to return" style="width:64px;text-align:center;font-size:17px;padding:8px;border:1px solid #9AA5B1;border-radius:10px">
+                    <button type="button" data-step="1" data-id="${i.id}" aria-label="More" style="width:44px;height:44px;border-radius:10px;border:1px solid #CBD2D9;background:#fff;font-size:20px">+</button></div>`).join('')}
+                ${paid ? `<p style="font-weight:600;font-size:14px;margin:12px 0 4px">Refund given by</p>
+                <div style="display:flex;gap:8px"><label style="flex:1;min-height:46px;border:2px solid #CBD2D9;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px"><input type="radio" name="rm" value="cash" checked> Cash</label>
+                <label style="flex:1;min-height:46px;border:2px solid #CBD2D9;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px"><input type="radio" name="rm" value="upi"> UPI</label></div>`
+                : '<p style="color:#52606D;font-size:14px;margin:12px 0 0">This is an udhar bill: the customer\'s due will go down.</p>'}
+                <p data-err role="alert" style="color:#B71C1C;min-height:20px;margin:8px 0 0"></p>
+                <button type="submit" style="width:100%;min-height:52px;border:0;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700;font-size:16px">Save return</button>
+                <button type="button" data-close style="width:100%;min-height:48px;margin-top:6px;border:0;background:none;font-size:16px">Cancel</button></form>`;
+            document.body.appendChild(w);
+            const step = i => { const m = b.items.find(x => x.id === i); return m && m.weight ? 0.25 : 1; };
+            w.addEventListener('click', e => {
+                if (e.target === w || e.target.closest('[data-close]')) { w.remove(); return; }
+                const s = e.target.closest('[data-step]');
+                if (s) {
+                    const inp = w.querySelector(`input[data-id="${s.dataset.id}"]`), max = parseFloat(inp.dataset.max);
+                    const v = Math.min(max, Math.max(0, (parseFloat(inp.value) || 0) + Number(s.dataset.step) * step(Number(s.dataset.id))));
+                    inp.value = +v.toFixed(3);
+                }
+            });
+            let saving = false;
+            w.querySelector('form').addEventListener('submit', async e => {
+                e.preventDefault(); if (saving) return;
+                const err = w.querySelector('[data-err]');
+                const items = [...w.querySelectorAll('input[data-id]')].map(i => ({ id: Number(i.dataset.id), quantity: parseFloat(i.value) || 0, max: parseFloat(i.dataset.max) })).filter(i => i.quantity > 0);
+                if (!items.length) { err.textContent = 'Choose at least one item.'; return; }
+                if (items.some(i => i.quantity > i.max + 1e-9)) { err.textContent = 'You cannot return more than was sold.'; return; }
+                saving = true;
+                try {
+                    const r = await fetch(`/api/bills/${encodeURIComponent(b.bill_number)}/return`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items, refund_mode: (w.querySelector('input[name=rm]:checked') || {}).value }) });
+                    const d = await r.json().catch(() => ({}));
+                    if (r.ok && d.success) {
+                        alert(d.refund_mode === 'udhar' ? `Return saved. Udhar reduced by ${KK.inr(d.refund_amount)}.` : `Return saved. Give back ${KK.inr(d.refund_amount)} (${d.refund_mode === 'upi' ? 'UPI' : 'cash'}).`);
+                        location.reload();
+                    } else { err.textContent = d.error || 'Could not save the return.'; saving = false; }
+                } catch (x) { err.textContent = 'No internet. Return was NOT saved.'; saving = false; }
+            });
+        }
+
         async function cancelBill() {
             const b = KKR.bill;
             if (!b || !confirm(`Cancel bill ${b.bill_number} for ${KK.inr(b.total_amount)}?\n\nStock will be returned and it will be removed from sales and udhar. This cannot be undone.`)) return;
@@ -354,6 +413,7 @@
             const cancelled = billData.payment_status === 'cancelled';
             document.getElementById('cancelled-banner').hidden = !cancelled;
             document.getElementById('cancel-bill-btn').hidden = cancelled;
+            document.getElementById('return-btn').hidden = cancelled;
             showUpi();
             // Update bill details
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(1) .text-sm.text-gray-700').textContent = `#${billData.bill_number}`;

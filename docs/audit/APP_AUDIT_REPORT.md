@@ -180,6 +180,11 @@ Severity: P0 Blocker · P1 Critical · P2 Major · P3 Minor · P4 Polish. Person
 | KK-056 | Network | all screens | Offline showed the browser's error page; CSS/fonts re-downloaded on weak signal | R | P2 | Service worker: static files cached, friendly "No internet · Retry" page; screens and data are never cached | S | ✅ Round 6, Verified |
 | KK-057 | Print | `receipt.html` | Print layout was A4-only with buttons and bars | R | P3 | 58/80 mm thermal-friendly print CSS | S | ✅ Round 6 (needs a real printer test) |
 | KK-058 | Stock | `low_stock.html` | No way to send the wholesaler an order | R | P3 | "Send order list on WhatsApp" | S | ✅ Round 6 |
+| KK-059 | Billing | `cart.html:193` "Add Offer" | Discount boxes did nothing; every bill was saved with discount 0. **Verified** | R | P1 | Working ₹ / % discount (GST charged after discount); shown on receipt and invoice | S | ✅ Round 7, Verified |
+| KK-060 | Inventory | product details | No way to change a product's name, price, barcode or expiry after adding it | R | P1 | Edit sheet (`static/js/product-edit.js`) | M | ✅ Round 7, Verified |
+| KK-061 | GST | cart, invoice | One GST % for the whole bill; no HSN | A | P2 | Per-product GST % and HSN (new nullable columns), per-line GST on bills, HSN + GST % on the invoice | M | ✅ Round 7, Verified |
+| KK-062 | Billing | receipt | Only whole-bill cancel; no part return | R | P2 | "Return items": stock back, bill shrinks in proportion, refund by cash / UPI or less udhar; cash refunds for older bills reduce the galla | M | ✅ Round 7, Verified |
+| KK-063 | Data safety | — | No backup the owner can keep | R | P2 | Profile → Download full backup (one JSON file, no passwords); weekly reminder on Home | S | ✅ Round 7 |
 | KK-036 | Auth | `app.py` `/logout` (GET) | Logout by GET link (minor CSRF nuisance); single shared login for owner + staff (no per-staff accounts) | F | P3 | POST logout; staff PINs later | M | Open |
 
 ### Before / after screenshots
@@ -190,8 +195,8 @@ Gallery: [`mockups/index.html`](mockups/index.html). Every screen of the app: `d
 ## 3b. Backend check (round 5): does every screen really work?
 
 - **Wiring check** (`docs/audit/tools/check_wiring.py`): every server call and link in every screen points at a real route, and every button handler exists. Result: **0 broken**. Remaining log-only handlers belong to hidden demo markup (not reachable on screen; checked in the browser).
-- **"One shop day" end-to-end test** (`docs/audit/tools/e2e_shop_day.js`, real phone-size browser, fresh database): sign up → save UPI + address → add a product → scan → cash bill → stock down → invoice PDF → new customer → udhar bill → collect part payment (UPI QR) → history → refill → search bills → cancel bill (stock back) → dashboard and sales totals → add staff → logout → Back does not reopen private screens. **30/30 steps pass (round 6 adds expenses, supplier ledger, galla closing, net profit); 158 server calls, none failed; no JavaScript errors.**
-- 21 automatic backend tests pass; 21 screens × 4 sizes: no errors, no sideways scroll.
+- **"One shop day" end-to-end test** (`docs/audit/tools/e2e_shop_day.js`, real phone-size browser, fresh database): sign up → save UPI + address → add a product → scan → cash bill → stock down → invoice PDF → new customer → udhar bill → collect part payment (UPI QR) → history → refill → search bills → cancel bill (stock back) → dashboard and sales totals → add staff → logout → Back does not reopen private screens. **35/35 steps pass (rounds 6–7 add expenses, supplier ledger, galla closing, net profit, product edit, discount + per-item GST, part return, backup); 194 server calls, none failed; no JavaScript errors.**
+- 22 automatic backend tests pass; 21 screens × 4 sizes: no errors, no sideways scroll.
 
 ## 4. QA walkthrough highlights (desi personas)
 
@@ -229,7 +234,8 @@ Gallery: [`mockups/index.html`](mockups/index.html). Every screen of the app: `d
 
 - **Done in round 5:** all bills + search, cancel bill, WhatsApp bill/reminders, UPI QR, Excel export, one scanner, shared bottom bar.
 - **Done in round 6:** supplier khata, expenses + net profit, daily galla closing, thermal print layout, WhatsApp order list, offline page + cached static files.
-- **Still missing:** part return of a bill (whole-bill cancel exists), MRP + discount per item, per-product GST/HSN for GST returns, automatic daily backup, billing while fully offline.
+- **Done in round 7:** part returns, bill discount, per-product GST % + HSN, product editing, full backup download + weekly reminder.
+- **Still missing:** billing while fully offline, automatic (unattended) cloud backup and restore-from-backup, MRP / per-item discount, GST return reports (GSTR-1 summary), per-staff logins.
 - **Must-have:** account deletion (D1) · privacy/terms/contact pages (D7) · real OTP for password recovery (D2) · GST correctness (D4) · ledger "Add payment" (KK-022) · offline banner & retry in the Android shell.
 - **Should-have:** Hindi (D6) · WhatsApp share of invoice PDF with prefilled message · udhar reminder via WhatsApp link (the SMS functions only log; nothing is sent) · daily backup/export to phone · in-app toasts instead of `alert()` (KK-028) · crash reporting / error logging (none today).
 - **Nice-to-have:** staff PINs (D11) · dark mode · thermal-printer (58 mm) receipt layout · app update prompt · rate the app.

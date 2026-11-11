@@ -62,6 +62,8 @@ const list = [];
   await go('/add-item'); await shot('add_item', 'Add item', 'New product: name, category, unit or weight, prices, barcode.');
   await go('/product-details?id=80'); await shot('product_details', 'Product details (pieces)', 'Stock, prices, dates; refill / add to cart.', { wait: 1200 });
   await go('/product-details-weight?id=10'); await shot('product_details_weight', 'Product details (loose / kg)', 'Weight-based product.', { wait: 1200 });
+  await go('/product-details?id=80'); await page.click('button:has-text("Edit")');
+  await shot('product_edit', 'Edit product', 'Name, prices, low-stock level, barcode, expiry, GST %, HSN.', { viewportOnly: true, wait: 900 });
   await go('/refill-stock?id=80'); await shot('refill_stock', 'Refill stock (pieces)', 'Adds stock to the product that was tapped.', { wait: 1200 });
   await go('/refill-stock-weight?id=10'); await shot('refill_stock_weight', 'Refill stock (kg)', 'Loose items in kg / grams.', { wait: 1200 });
   await go('/low-stock'); await shot('low_stock', 'Low stock', 'Products at or below their reorder level.', { wait: 1000 });
@@ -75,6 +77,8 @@ const list = [];
     { id: 3, product_id: null, name: 'Toor Dal Unpolished', quantity: 1, unit: 'Kg', price: 155 }])));
   await go('/cart'); await shot('cart', 'Cart / billing', 'Items, GST only with GSTIN, cash / online / udhar, Generate Bill.', { wait: 1000 });
   if (bill) { await go('/receipt?bill=' + bill); await shot('receipt', 'Receipt', 'Bill with PDF download, share, print.', { wait: 1200 }); }
+  if (bill) { await go('/receipt?bill=' + bill); await page.evaluate(() => document.getElementById('return-btn').click());
+    await shot('receipt_return', 'Return items', 'Part return: stock comes back, refund by cash / UPI or less udhar.', { viewportOnly: true, wait: 700 }); }
   await go('/bills'); await page.click('.chip[data-f="all"]'); await shot('bills', 'All Bills', 'Search by bill no., name or phone; Today / Udhar / Paid / Cancelled; Excel download.', { wait: 1000 });
   await page.click('.kk-scan-btn'); await page.fill('#kk-scan input', process.env.AUDIT_BARCODE || ''); await page.click('#kk-scan form button');
   await shot('scan_product', 'Scan → product sheet', 'Scan from any screen: price, stock, quantity, Add to bill / Refill.', { viewportOnly: true, wait: 1200 });
