@@ -222,3 +222,27 @@ def test_upi_id_validation(auth):  # round 5
     assert auth.put('/api/auth/profile', json=dict(base, upi_id='not a upi')).status_code == 400
     assert auth.put('/api/auth/profile', json=dict(base, upi_id='9876543210@ybl')).status_code == 200
     assert auth.get('/api/auth/status').get_json()['upi_id'] == '9876543210@ybl'
+
+
+def test_khata_expenses_suppliers_daybook(auth):  # round 6
+    A._RATE_BUCKETS.clear()
+    before = auth.get('/api/daybook').get_json()
+    assert auth.post('/api/expenses', json={'amount': -5}).status_code == 400
+    eid = auth.post('/api/expenses', json={'amount': 120, 'category': 'Electricity', 'note': 'bijli'}).get_json()['id']
+    auth.post('/api/expenses', json={'amount': 80, 'category': 'Transport', 'payment_mode': 'upi'})
+    ex = auth.get('/api/expenses').get_json()
+    assert ex['total'] >= 200 and ex['by_category']['Electricity'] >= 120
+    sid = auth.post('/api/suppliers', json={'name': 'Gupta Traders', 'phone': '98110 22334'}).get_json()['id']
+    assert auth.post('/api/suppliers', json={'name': 'gupta traders'}).status_code == 409
+    assert auth.post(f'/api/suppliers/{sid}/entries', json={'kind': 'purchase', 'amount': 5000}).get_json()['balance'] == 5000
+    assert auth.post(f'/api/suppliers/{sid}/entries', json={'kind': 'payment', 'amount': 1500, 'payment_mode': 'cash'}).get_json()['balance'] == 3500
+    assert auth.delete(f'/api/suppliers/{sid}').status_code == 400      # still owes money
+    assert auth.get('/api/suppliers').get_json()['total_due'] >= 3500
+    _bill(auth)                                                          # ₹100 cash sale
+    after = auth.get('/api/daybook').get_json()
+    # cash: +100 sale, -120 cash expense, -1500 supplier; the ₹80 UPI expense must not touch the galla
+    assert round(after['expected_cash'] - before['expected_cash'], 2) == 100 - 120 - 1500
+    closed = auth.post('/api/daybook/close', json={'counted_cash': after['expected_cash'] + 50 if after['expected_cash'] > -50 else 0}).get_json()
+    assert closed['success'] and closed['counted_cash'] is not None and closed['difference'] is not None
+    assert auth.delete(f'/api/expenses/{eid}').status_code == 200
+    assert auth.get('/khata').status_code == 200

@@ -235,7 +235,9 @@ def require_login():
 # owner-only screens and actions: profit and reports, profile/password,
 # account deletion, data export, team changes, deleting products and editing
 # prices. Billing, stock refill and collecting udhar keep working.
-STAFF_BLOCKED_PAGES = {'profile', 'sales_report', 'staff', 'settings', 'export_business_data',
+STAFF_BLOCKED_PAGES = {'profile', 'sales_report', 'staff', 'settings', 'export_business_data', 'khata_page',
+                       'expenses_api', 'expense_delete', 'suppliers_api', 'supplier_detail', 'supplier_entry',
+                       'daybook_api', 'daybook_close',
                        'account_deletion'}
 STAFF_BLOCKED_API = {
     ('api_sales_data', 'GET'), ('auth_update_profile', 'PUT'), ('auth_change_password', 'POST'),
@@ -268,7 +270,7 @@ NAV_TABS = {
     'inventory': 'stock', 'add_item': 'stock', 'product_details': 'stock', 'product_details_weight': 'stock',
     'refill_stock': 'stock', 'refill_stock_weight': 'stock', 'low_stock': 'stock', 'expiry_alert': 'stock',
     'cart': 'bill', 'receipt': 'bill', 'bills_page': 'bill',
-    'pending_credits': 'udhar', 'customer_ledger': 'udhar',
+    'pending_credits': 'udhar', 'customer_ledger': 'udhar', 'khata_page': 'home', 'bills_page': 'bill',
 }
 
 @app.context_processor
@@ -706,7 +708,8 @@ def contact():
 def delete_all_shop_data():
     """Erase the shop: this is a single-shop instance, so every table goes."""
     for model in (Notification, Payment, BillItem, Bill, Customer, Product,
-                  Staff, NotificationSettings, User):
+                  Staff, NotificationSettings, OtpCode, Expense, SupplierEntry, Supplier,
+                  DayClose, User):
         model.query.delete(synchronize_session=False)
     db.session.commit()
 
@@ -945,6 +948,243 @@ class NotificationSettings(db.Model):
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# --- Khata: expenses, suppliers, day book (galla closing) ----------------------
+# Added Nov 2026. New tables only (created automatically by db.create_all()).
+class Expense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(40), nullable=False, default='Other')
+    amount = db.Column(db.Float, nullable=False)
+    note = db.Column(db.String(200))
+    payment_mode = db.Column(db.String(20), default='cash')  # cash | upi
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class Supplier(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(15))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    entries = db.relationship('SupplierEntry', backref='supplier', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def balance(self):
+        """What the shop still owes this supplier (purchases - payments)."""
+        total = 0.0
+        for e in self.entries:
+            total += e.amount if e.kind == 'purchase' else -e.amount
+        return round(total, 2)
+
+class SupplierEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    kind = db.Column(db.String(10), nullable=False)  # purchase | payment
+    amount = db.Column(db.Float, nullable=False)
+    note = db.Column(db.String(200))
+    payment_mode = db.Column(db.String(20))  # for payments: cash | upi
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class DayClose(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.Date, unique=True, nullable=False)
+    opening_cash = db.Column(db.Float, default=0)
+    counted_cash = db.Column(db.Float)
+    note = db.Column(db.String(200))
+    closed_at = db.Column(db.DateTime)
+
+EXPENSE_CATEGORIES = ['Rent', 'Electricity', 'Salary', 'Transport', 'Tea / Snacks', 'Packing', 'Repair', 'Other']
+
+def _amount(value, limit=1e8):
+    try:
+        v = round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
+    return v if 0 < v <= limit else None
+
+def _day_arg():
+    raw = (request.args.get('day') or '').strip()
+    return (_parse_date(raw) if raw and raw != 'today' else None) or ist_today()
+
+def _day_range(day):
+    start = ist_day_start_utc(day)
+    return start, start + timedelta(days=1)
+
+@app.route('/khata')
+def khata_page():
+    return render_template('khata.html', expense_categories=EXPENSE_CATEGORIES)
+
+@app.route('/api/expenses', methods=['GET', 'POST'])
+def expenses_api():
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        amount = _amount(data.get('amount'))
+        if amount is None:
+            return jsonify({'success': False, 'error': 'Enter the amount spent'}), 400
+        category = (data.get('category') or 'Other').strip()[:40] or 'Other'
+        mode = data.get('payment_mode') if data.get('payment_mode') in ('cash', 'upi') else 'cash'
+        e = Expense(category=category, amount=amount, note=(data.get('note') or '').strip()[:200] or None,
+                    payment_mode=mode)
+        db.session.add(e)
+        db.session.commit()
+        return jsonify({'success': True, 'id': e.id}), 201
+    day = _day_arg()
+    month = request.args.get('month') == '1'
+    if month:
+        start = ist_day_start_utc(day.replace(day=1))
+        end = ist_day_start_utc(day) + timedelta(days=1)
+    else:
+        start, end = _day_range(day)
+    rows = Expense.query.filter(Expense.created_at >= start, Expense.created_at < end) \
+        .order_by(Expense.created_at.desc()).all()
+    by_cat = {}
+    for e in rows:
+        by_cat[e.category] = round(by_cat.get(e.category, 0) + e.amount, 2)
+    return jsonify({'expenses': [{'id': e.id, 'category': e.category, 'amount': e.amount, 'note': e.note,
+                                  'payment_mode': e.payment_mode, 'created_at': utc_iso(e.created_at)} for e in rows],
+                    'total': round(sum(e.amount for e in rows), 2), 'by_category': by_cat})
+
+@app.route('/api/expenses/<int:expense_id>', methods=['DELETE'])
+def expense_delete(expense_id):
+    e = db.session.get(Expense, expense_id)
+    if not e:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(e)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/suppliers', methods=['GET', 'POST'])
+def suppliers_api():
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        name = (data.get('name') or '').strip()[:100]
+        if not name:
+            return jsonify({'success': False, 'error': 'Supplier name is required'}), 400
+        phone = None
+        if (data.get('phone') or '').strip():
+            phone = _clean_mobile(data.get('phone'))
+            if not phone:
+                return jsonify({'success': False, 'error': 'Enter a valid 10-digit mobile number'}), 400
+        if Supplier.query.filter(db.func.lower(Supplier.name) == name.lower(), Supplier.is_active.is_(True)).first():
+            return jsonify({'success': False, 'error': 'A supplier with this name already exists'}), 409
+        s = Supplier(name=name, phone=phone)
+        db.session.add(s)
+        db.session.commit()
+        return jsonify({'success': True, 'id': s.id}), 201
+    rows = Supplier.query.filter_by(is_active=True).order_by(Supplier.name).all()
+    out = [{'id': s.id, 'name': s.name, 'phone': s.phone, 'balance': s.balance} for s in rows]
+    return jsonify({'suppliers': out, 'total_due': round(sum(max(x['balance'], 0) for x in out), 2)})
+
+@app.route('/api/suppliers/<int:supplier_id>', methods=['GET', 'DELETE'])
+def supplier_detail(supplier_id):
+    s = db.session.get(Supplier, supplier_id)
+    if not s or not s.is_active:
+        return jsonify({'success': False, 'error': 'Supplier not found'}), 404
+    if request.method == 'DELETE':
+        if abs(s.balance) > 0.5:
+            return jsonify({'success': False, 'error': 'Clear the balance before removing this supplier'}), 400
+        s.is_active = False
+        db.session.commit()
+        return jsonify({'success': True})
+    entries = sorted(s.entries, key=lambda e: e.created_at, reverse=True)
+    return jsonify({'id': s.id, 'name': s.name, 'phone': s.phone, 'balance': s.balance,
+                    'entries': [{'id': e.id, 'kind': e.kind, 'amount': e.amount, 'note': e.note,
+                                 'payment_mode': e.payment_mode, 'created_at': utc_iso(e.created_at)} for e in entries]})
+
+@app.route('/api/suppliers/<int:supplier_id>/entries', methods=['POST'])
+def supplier_entry(supplier_id):
+    s = db.session.get(Supplier, supplier_id)
+    if not s or not s.is_active:
+        return jsonify({'success': False, 'error': 'Supplier not found'}), 404
+    data = request.get_json() or {}
+    kind = data.get('kind')
+    if kind not in ('purchase', 'payment'):
+        return jsonify({'success': False, 'error': 'Choose purchase or payment'}), 400
+    amount = _amount(data.get('amount'))
+    if amount is None:
+        return jsonify({'success': False, 'error': 'Enter the amount'}), 400
+    mode = (data.get('payment_mode') if data.get('payment_mode') in ('cash', 'upi') else 'cash') if kind == 'payment' else None
+    db.session.add(SupplierEntry(supplier_id=s.id, kind=kind, amount=amount, payment_mode=mode,
+                                 note=(data.get('note') or '').strip()[:200] or None))
+    db.session.commit()
+    return jsonify({'success': True, 'balance': s.balance}), 201
+
+def _daybook(day):
+    """Money in / out for one IST day and the cash that should be in the galla."""
+    start, end = _day_range(day)
+    bills = Bill.query.filter(Bill.created_at >= start, Bill.created_at < end,
+                              Bill.payment_status != 'cancelled').all()
+    cash_sales = sum(b.total_amount for b in bills if b.payment_status == 'paid' and b.payment_mode == 'cash')
+    online_sales = sum(b.total_amount for b in bills if b.payment_status == 'paid' and b.payment_mode != 'cash')
+    udhar_given = sum(b.total_amount for b in bills if b.payment_status in ('pending', 'partial'))
+    # Udhar collections = payments not tied to a paid cash/online sale
+    pays = Payment.query.filter(Payment.created_at >= start, Payment.created_at < end, Payment.bill_id.is_(None)).all()
+    udhar_cash = sum(p.amount for p in pays if p.payment_mode == 'cash')
+    udhar_online = sum(p.amount for p in pays if p.payment_mode != 'cash')
+    exps = Expense.query.filter(Expense.created_at >= start, Expense.created_at < end).all()
+    exp_cash = sum(e.amount for e in exps if e.payment_mode == 'cash')
+    exp_online = sum(e.amount for e in exps if e.payment_mode != 'cash')
+    sups = SupplierEntry.query.filter(SupplierEntry.created_at >= start, SupplierEntry.created_at < end,
+                                      SupplierEntry.kind == 'payment').all()
+    sup_cash = sum(e.amount for e in sups if e.payment_mode == 'cash')
+    sup_online = sum(e.amount for e in sups if e.payment_mode != 'cash')
+    close = DayClose.query.filter_by(day=day).first()
+    opening = close.opening_cash if close and close.opening_cash is not None else 0
+    if not close:  # carry yesterday's counted cash forward as today's opening
+        prev = DayClose.query.filter(DayClose.day < day, DayClose.counted_cash.isnot(None)) \
+            .order_by(DayClose.day.desc()).first()
+        if prev:
+            opening = prev.counted_cash
+    expected = opening + cash_sales + udhar_cash - exp_cash - sup_cash
+    r = lambda v: round(v or 0, 2)
+    return {
+        'day': day.strftime('%Y-%m-%d'), 'day_label': day.strftime('%d/%m/%Y'), 'bill_count': len(bills),
+        'opening_cash': r(opening), 'cash_sales': r(cash_sales), 'online_sales': r(online_sales),
+        'udhar_given': r(udhar_given), 'udhar_collected_cash': r(udhar_cash), 'udhar_collected_online': r(udhar_online),
+        'expenses_cash': r(exp_cash), 'expenses_online': r(exp_online),
+        'supplier_paid_cash': r(sup_cash), 'supplier_paid_online': r(sup_online),
+        'total_sales': r(cash_sales + online_sales + udhar_given),
+        'online_received': r(online_sales + udhar_online),
+        'expected_cash': r(expected),
+        'counted_cash': close.counted_cash if close else None,
+        'difference': r(close.counted_cash - expected) if close and close.counted_cash is not None else None,
+        'note': close.note if close else None,
+        'closed_at': utc_iso(close.closed_at) if close and close.closed_at else None,
+    }
+
+@app.route('/api/daybook', methods=['GET'])
+def daybook_api():
+    return jsonify(_daybook(_day_arg()))
+
+@app.route('/api/daybook/close', methods=['POST'])
+def daybook_close():
+    """Save opening cash and/or the cash counted at closing for a day."""
+    data = request.get_json() or {}
+    day = _parse_date(data.get('day')) or ist_today()
+    if day > ist_today():
+        return jsonify({'success': False, 'error': 'Cannot close a future day'}), 400
+    close = DayClose.query.filter_by(day=day).first()
+    if not close:
+        close = DayClose(day=day, opening_cash=_daybook(day)['opening_cash'])
+        db.session.add(close)
+    try:
+        if data.get('opening_cash') is not None:
+            v = float(data['opening_cash'])
+            if not (0 <= v <= 1e8):
+                raise ValueError
+            close.opening_cash = round(v, 2)
+        if data.get('counted_cash') is not None:
+            v = float(data['counted_cash'])
+            if not (0 <= v <= 1e8):
+                raise ValueError
+            close.counted_cash = round(v, 2)
+            close.closed_at = datetime.utcnow()
+    except (TypeError, ValueError):
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Enter a valid amount'}), 400
+    if 'note' in data:
+        close.note = (data.get('note') or '').strip()[:200] or None
+    db.session.commit()
+    return jsonify(dict(_daybook(day), success=True))
 
 # Notification helper functions
 def get_notification_settings():
@@ -3064,6 +3304,11 @@ def api_sales_data():
         # Calculate remaining investment (simplified calculation)
         remaining_investment = max(0, total_combined_investment - period_sold_amount)
         
+        # Shop expenses (rent, bijli, salary...) in the same period -> true profit
+        period_expenses = round(sum(e.amount for e in Expense.query.filter(
+            Expense.created_at >= from_datetime - IST_OFFSET,
+            Expense.created_at <= to_datetime - IST_OFFSET).all()), 2)
+
         return jsonify({
             'success': True,
             'data': {
@@ -3078,6 +3323,8 @@ def api_sales_data():
                 'profitPercentage': round((total_profit / total_revenue) * 100) if total_revenue > 0 else 0,
                 'avgBillValue': total_revenue / total_bills if total_bills > 0 else 0,
                 'paymentModes': payment_modes,
+                'expenses': period_expenses,
+                'netProfit': round(total_profit - period_expenses, 2),
                 'udharSales': payment_modes['credit']['amount'],
                 'cashReceived': total_revenue - payment_modes['credit']['amount'],
                 'categories': categories,

@@ -120,13 +120,37 @@ function ok(name, cond, extra) { steps.push((cond ? 'PASS ' : 'FAIL ') + name + 
   ok('Cancel returns stock', back.stock_quantity === 45, `stock ${back.stock_quantity}`);
 
   // 10. Every other screen loads with live data
-  for (const path of ['/dashboard', '/inventory', '/low-stock', '/expiry-alert', '/notifications', '/sales-report', '/staff', '/profile', '/bills']) {
+  for (const path of ['/khata', '/dashboard', '/inventory', '/low-stock', '/expiry-alert', '/notifications', '/sales-report', '/staff', '/profile', '/bills']) {
     await go(path);
   }
   const stats = await api('/api/dashboard/stats');
   ok('Dashboard sales = cash bill cancelled + udhar ₹50', Math.round(stats.total_sales) === 50, `total_sales ${stats.total_sales}`);
   const sales = await api('/api/sales-data?period=daily');
   ok('Sales report counts udhar', Math.round(sales.data.totalRevenue) === 50, `revenue ${sales.data.totalRevenue}`);
+
+  // 10b. Khata: expense, supplier purchase + payment, galla closing
+  await go('/khata?tab=kharcha');
+  await p.fill('#exp-amount', '120'); await p.click('#exp-cats button[data-c="Electricity"]');
+  await p.click('#exp-form button[type=submit]'); await p.waitForTimeout(900);
+  ok('Expense saved and listed', await p.isVisible('#exp-list >> text=Electricity'));
+  await p.click('.tab[data-tab="supplier"]'); await p.waitForTimeout(400);
+  await p.click('#sup-add'); await p.fill('#sn', 'Gupta Traders'); await p.fill('#sp', '98110 22334');
+  await p.click('.sheet button[type=submit]'); await p.waitForTimeout(800);
+  await p.click('.sup >> nth=0'); await p.waitForTimeout(500);
+  await p.fill('#se-amt', '5000'); await p.click('#se button[type=submit]'); await p.waitForTimeout(1200);
+  await p.click('#se-kind button[data-k="payment"]'); await p.fill('#se-amt', '10'); await p.click('#se button[type=submit]'); await p.waitForTimeout(1200);
+  const sup = await api('/api/suppliers');
+  ok('Supplier balance = purchase - payment', sup.total_due === 4990, `due ${sup.total_due}`);
+  const bookNow = await api('/api/daybook');
+  // cash: +20 udhar collected by UPI is NOT cash; -120 expense; -10 supplier
+  ok('Galla expected cash is right', bookNow.expected_cash === -130 && bookNow.udhar_given === 50 && bookNow.udhar_collected_online === 20,
+     JSON.stringify([bookNow.expected_cash, bookNow.udhar_given, bookNow.udhar_collected_online]));
+  await p.click('.sheet [data-close]'); await p.click('.tab[data-tab="galla"]'); await p.waitForTimeout(500);
+  await p.click('#edit-opening'); await p.fill('#op-amt', '1000'); await p.click('.sheet button[type=submit]'); await p.waitForTimeout(700);
+  await p.fill('#counted', '870'); await p.click('#close-btn'); await p.waitForTimeout(800);
+  ok('Galla closing matches', /matches/.test(await p.textContent('#close-result')), await p.textContent('#close-result'));
+  const rep = await api('/api/sales-data?period=daily');
+  ok('Net profit = profit - expenses', Math.round(rep.data.netProfit) === Math.round(rep.data.totalProfit - 120), `${rep.data.totalProfit} - 120 = ${rep.data.netProfit}`);
 
   // 11. Staff: add a team member
   await go('/staff');

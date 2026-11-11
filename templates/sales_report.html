@@ -335,6 +335,7 @@
             
             // Update main metrics cards with period-based data
             document.getElementById('total-sales').textContent = inrRound(data.totalRevenue || 0);
+            showNetProfit(data);
             document.getElementById('total-profit').textContent = inrRound(totalProfit);
             document.getElementById('total-cost').textContent = inrRound(totalInvestment);
             
@@ -368,7 +369,24 @@
 
 
         // Update metrics cards with real data
+        function showNetProfit(data) {
+            // True profit after shop expenses (Khata -> Expenses)
+            let net = document.getElementById('net-profit-card');
+            if (!net) {
+                net = document.createElement('a');
+                net.id = 'net-profit-card'; net.href = '/khata?tab=kharcha';
+                net.style.cssText = 'display:block;margin:12px 16px;padding:14px;border-radius:14px;background:#fff;border:1px solid #E4E7EB;text-decoration:none;color:#1F2933';
+                const anchor = document.getElementById('total-sales').closest('.grid') || document.getElementById('total-sales').parentElement;
+                anchor.parentElement.insertBefore(net, anchor.nextSibling);
+            }
+            const np = Number(data.netProfit || 0);
+            net.innerHTML = `<div style="display:flex;justify-content:space-between;font-size:14px;color:#52606D"><span>Profit from sales</span><span>${inrRound(data.totalProfit || 0)}</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:14px;color:#52606D"><span>Expenses (rent, bijli…)</span><span>− ${inrRound(data.expenses || 0)}</span></div>
+                <div style="display:flex;justify-content:space-between;font-weight:800;font-size:17px;margin-top:6px;padding-top:6px;border-top:1px solid #E4E7EB"><span>Net profit</span><span style="color:${np < 0 ? '#C62828' : '#2E7D32'}">${np < 0 ? '− ' : ''}${inrRound(Math.abs(np))}</span></div>`;
+        }
+
         function updateMetricsCards(data) {
+            showNetProfit(data);
             // Total Sales
             const totalSalesElement = document.getElementById('total-sales');
             if (totalSalesElement) {

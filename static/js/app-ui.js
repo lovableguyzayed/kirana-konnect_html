@@ -83,6 +83,20 @@
         'Choose a 4-6 digit owner PIN': '4-6 अंकों का मालिक PIN चुनें', 'Wrong PIN': 'PIN गलत है',
         'Owner PIN needed for that screen.': 'इस स्क्रीन के लिए मालिक का PIN चाहिए।',
         'Staff mode': 'स्टाफ़ मोड',
+        'Khata': 'खाता', 'Galla': 'गल्ला', 'Expenses': 'ख़र्चे', 'Suppliers': 'सप्लायर',
+        'Cash in the galla': 'गल्ले में नकद', 'Opening cash': 'शुरुआती नकद', 'Cash sales': 'नकद बिक्री',
+        'Udhar received (cash)': 'उधार वापस मिला (नकद)', 'Expenses (cash)': 'ख़र्चे (नकद)',
+        'Paid to suppliers (cash)': 'सप्लायर को दिया (नकद)', 'Should be in galla': 'गल्ले में होना चाहिए',
+        'Other money today': 'आज का बाकी हिसाब', 'UPI / online received': 'UPI / ऑनलाइन मिला', 'Udhar given': 'उधार दिया',
+        'Close the day': 'दिन बंद करें', 'Save closing': 'क्लोज़िंग सेव करें', 'Add expense': 'ख़र्चा जोड़ें',
+        'Save expense': 'ख़र्चा सेव करें', 'What for?': 'किस लिए?', 'Paid by': 'कैसे दिया', 'Rent': 'किराया',
+        'Electricity': 'बिजली', 'Salary': 'तनख़्वाह', 'Transport': 'भाड़ा', 'Tea / Snacks': 'चाय / नाश्ता',
+        'Packing': 'पैकिंग', 'Repair': 'मरम्मत', 'Other': 'अन्य', 'This month': 'इस महीने',
+        'You owe suppliers': 'सप्लायर को देना है', '+ Add supplier': '+ सप्लायर जोड़ें', 'Add supplier': 'सप्लायर जोड़ें',
+        'Save supplier': 'सप्लायर सेव करें', 'Maal liya (purchase)': 'माल लिया', 'Paisa diya (payment)': 'पैसा दिया',
+        'Remove supplier': 'सप्लायर हटाएँ', 'Net profit': 'शुद्ध मुनाफ़ा', 'Profit from sales': 'बिक्री से मुनाफ़ा',
+        'Send order list on WhatsApp': 'ऑर्डर लिस्ट WhatsApp पर भेजें', 'Save payment': 'भुगतान सेव करें',
+        'Closing saved.': 'क्लोज़िंग सेव हो गई।', 'Saved.': 'सेव हो गया।',
         'Stock': 'स्टॉक', 'All Bills': 'सारे बिल', 'bills': 'बिल', 'Today': 'आज', 'Paid': 'भुगतान हुआ',
         'Cancelled': 'रद्द', 'Part paid': 'आंशिक भुगतान', 'Load more': 'और दिखाएँ',
         'No bills here yet': 'अभी कोई बिल नहीं', 'No bills match your search': 'खोज से कोई बिल नहीं मिला',
@@ -268,7 +282,7 @@
         var sc = document.createElement('script'); sc.src = '/static/vendor/js/qrcode.js'; sc.onload = draw;
         document.head.appendChild(sc);
     }
-    function inrText(n) { return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+    function inrText(n) { var v = Number(n || 0); return (v < 0 ? '− ' : '') + '₹' + Math.abs(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
     function udharReminder(shop, name, amount, upiId) {
         return 'Namaste ' + name + ' ji 🙏\n' + (shop || 'Hamari dukaan') + ' par aapka ' + inrText(amount) + ' baaki hai.\n' +
                'Kripya jaldi bhugtan karein.' + (upiId ? '\nUPI: ' + upiId : '') + '\nDhanyavaad!';
