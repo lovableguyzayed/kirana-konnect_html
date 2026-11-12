@@ -244,7 +244,7 @@ STAFF_BLOCKED_API = {
     ('staff_api', 'POST'), ('staff_delete', 'DELETE'), ('delete_product', 'DELETE'),
     ('update_product', 'PUT'), ('update_product', 'PATCH'), ('seed_demo_data', 'POST'),
     ('seed_demo_data', 'GET'), ('update_notification_settings_api', 'POST'),
-    ('cancel_bill', 'POST'), ('export_csv', 'GET'), ('return_bill_items', 'POST'), ('export_backup', 'GET'),
+    ('cancel_bill', 'POST'), ('export_csv', 'GET'), ('offers_expiring', 'POST'), ('offers_expiring', 'DELETE'), ('export_gst', 'GET'), ('return_bill_items', 'POST'), ('export_backup', 'GET'),
 }
 
 def staff_mode_on():
@@ -263,7 +263,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-11-11-audit-round7"
+APP_VERSION = "2026-11-12-audit-round8"
 
 NAV_TABS = {
     'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
@@ -916,6 +916,7 @@ class Product(db.Model):
     expiry_date = db.Column(db.Date)
     gst_rate = db.Column(db.Float)       # % (0, 5, 12, 18, 28); None = use the bill's rate
     hsn_code = db.Column(db.String(12))
+    offer_percent = db.Column(db.Float)  # % off for near-expiry stock; None = no offer
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -1881,6 +1882,7 @@ def _product_to_dict(product):
         'is_expired': is_expired,
         'gst_rate': product.gst_rate,
         'hsn_code': product.hsn_code,
+        'offer_percent': None if is_expired else product.offer_percent,
         'unit': 'kg' if product.is_weight_based else 'Piece'
     }
 
@@ -1951,6 +1953,8 @@ def update_product(product_id):
                 setattr(product, field, float(data[field]))
         if 'expiry_date' in data:
             product.expiry_date = _parse_date(data['expiry_date'])
+        if 'offer_percent' in data:
+            product.offer_percent = _offer_pct(data.get('offer_percent'))
         if 'gst_rate' in data:
             product.gst_rate = _gst_rate(data.get('gst_rate'))
         if 'hsn_code' in data:
@@ -2011,6 +2015,7 @@ def refill_product(product_id):
             product.barcode = str(data['barcode']).strip()
         if data.get('expiry_date'):
             product.expiry_date = _parse_date(data['expiry_date'])
+            product.offer_percent = None  # fresh batch: the near-expiry offer ends
         product.updated_at = datetime.utcnow()
         db.session.commit()
         return jsonify({'success': True, 'product': _product_to_dict(product),
@@ -2619,6 +2624,71 @@ def return_bill_items(bill_number):
         db.session.rollback()
         app.logger.error(f"Return failed: {e}")
         return jsonify({'success': False, 'error': 'Could not save the return'}), 500
+
+# --- Offers on items that are about to expire --------------------------------
+def _offer_pct(value):
+    """Offer % for a product (1-90), or None to remove the offer."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(v, 1) if 0 < v <= 90 else None
+
+@app.route('/api/offers/expiring', methods=['POST', 'DELETE'])
+def offers_expiring():
+    """Put the same offer on every product expiring within `days` (default 7,
+    not yet expired, in stock) - or remove all expiry offers with DELETE."""
+    if request.method == 'DELETE':
+        n = Product.query.filter(Product.offer_percent.isnot(None)).update({'offer_percent': None})
+        db.session.commit()
+        return jsonify({'success': True, 'cleared': n})
+    data = request.get_json() or {}
+    pct = _offer_pct(data.get('percent'))
+    if pct is None:
+        return jsonify({'success': False, 'error': 'Choose an offer between 1% and 90%'}), 400
+    try:
+        days = min(max(int(data.get('days', 7)), 1), 60)
+    except (TypeError, ValueError):
+        days = 7
+    today = ist_today()
+    rows = Product.query.filter(Product.expiry_date.isnot(None), Product.expiry_date >= today,
+                                Product.expiry_date <= today + timedelta(days=days),
+                                Product.stock_quantity > 0).all()
+    for p in rows:
+        p.offer_percent = pct
+    db.session.commit()
+    return jsonify({'success': True, 'count': len(rows), 'percent': pct})
+
+@app.route('/export/gst.csv')
+def export_gst():
+    """GST summary for a month, grouped by HSN and rate (for the accountant)."""
+    raw = (request.args.get('month') or '').strip()          # YYYY-MM, default this month
+    today = ist_today()
+    try:
+        y, m = (int(x) for x in raw.split('-')) if raw else (today.year, today.month)
+        first = today.replace(year=y, month=m, day=1)
+    except (ValueError, TypeError):
+        first = today.replace(day=1)
+    nxt = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
+    start, end = ist_day_start_utc(first), ist_day_start_utc(nxt)
+    groups = {}
+    bills = Bill.query.filter(Bill.created_at >= start, Bill.created_at < end,
+                              Bill.payment_status != 'cancelled').all()
+    for b in bills:
+        keep = ((b.subtotal - (b.discount_amount or 0)) / b.subtotal) if b.subtotal else 0
+        for it in b.items:
+            rate = it.gst_rate if (b.tax_amount and it.gst_rate is not None) else 0
+            key = (it.hsn_code or '', rate)
+            g = groups.setdefault(key, [0.0, 0.0])
+            taxable = it.total_price * keep
+            g[0] += taxable
+            g[1] += taxable * rate / 100
+    rows = [[hsn or '(no HSN)', f'{rate:g}%', round(t, 2), round(g / 2, 2), round(g / 2, 2), round(g, 2), round(t + g, 2)]
+            for (hsn, rate), (t, g) in sorted(groups.items())]
+    rows.append(['TOTAL', '', round(sum(r[2] for r in rows), 2), round(sum(r[3] for r in rows), 2),
+                 round(sum(r[4] for r in rows), 2), round(sum(r[5] for r in rows), 2), round(sum(r[6] for r in rows), 2)])
+    return _csv_response(f"GST_Summary_{first.strftime('%b-%Y')}.csv",
+                         ['HSN', 'GST rate', 'Taxable value (Rs)', 'CGST (Rs)', 'SGST (Rs)', 'Total GST (Rs)', 'Total (Rs)'], rows)
 
 @app.route('/export/backup.json')
 def export_backup():
@@ -3881,7 +3951,11 @@ def api_expired_products():
         from datetime import date, timedelta
         
         today = ist_today()
-        next_week = today + timedelta(days=7)
+        try:
+            window_days = min(max(int(request.args.get('days', 7)), 1), 90)
+        except (TypeError, ValueError):
+            window_days = 7
+        next_week = today + timedelta(days=window_days)
         
         # Get expired products
         expired_products = Product.query.filter(
@@ -3918,6 +3992,9 @@ def api_expired_products():
                 'name': product.name,
                 'price': product.price,
                 'expiry_date': product.expiry_date.strftime('%d/%m/%Y'),
+                'offer_percent': product.offer_percent,
+                'is_weight_based': product.is_weight_based,
+                'sell_price': (product.price_per_kg or product.price) if product.is_weight_based else product.price,
                 'status': 'expiring',
                 'days_info': f"Expires in {days_to_expire} days",
                 'level': 'low',

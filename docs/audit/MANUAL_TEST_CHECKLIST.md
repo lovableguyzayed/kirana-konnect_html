@@ -41,6 +41,13 @@ Tick each on a real phone after deploying this branch.
 - [ ] Receipt → Return items → return 1 of several → stock +1, bill smaller, message tells how much to give back; udhar bill → due goes down.
 - [ ] Profile → Download full backup → file saves on the phone; keep a copy on Google Drive.
 
+## Expiry offers (real phone)
+- [ ] Home → Expiring Soon → Set offer on one item (e.g. 20%) → price shows crossed out with the offer price.
+- [ ] Scan that item → sheet shows the offer; add to bill → cart shows "Expiry offer" and the total is lower; receipt and PDF show the discount.
+- [ ] "Offer on all" sets the same % on every item expiring in 30 days; "Remove offer" clears it.
+- [ ] "Send offers to customers" opens WhatsApp with the offer list.
+- [ ] Refill the item with a new expiry date → the offer is gone.
+
 ## Staff mode & Hindi
 - [ ] Profile → Turn on staff mode → set PIN → profit shows 🔒, Profile/Reports are blocked, billing still works; badge → PIN unlocks.
 - [ ] Sign-in → Preferred Language → हिंदी: menus, buttons and messages in Hindi at max font size.

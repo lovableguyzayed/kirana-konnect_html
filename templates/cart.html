@@ -500,6 +500,7 @@
                                 <span class="text-sm text-gray-700 font-medium">${item.quantity} ${item.unit}</span>
                                 <span class="text-lg font-bold text-primary">₹${item.price}</span>
                             </div>
+                            ${((typeof productTax !== 'undefined' && productTax[String(item.product_id)]) || {}).offer ? `<span style="display:inline-block;margin-top:4px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;background:#FFF3E0;color:#E65100">Expiry offer ${productTax[String(item.product_id)].offer}% OFF</span>` : ''}
                 `;
                 
                 if (item.showDates && item.mfgDate && item.expDate) {
@@ -542,7 +543,8 @@
         // uses its own GST % when the product has one, else the rate chosen here.
         let productTax = {};   // product id -> { gst_rate, hsn_code }
         fetch('/api/products', { credentials: 'same-origin' }).then(r => r.json()).then(d => {
-            (d.products || []).forEach(p => { productTax[String(p.id)] = { gst_rate: p.gst_rate, hsn_code: p.hsn_code }; });
+            (d.products || []).forEach(p => { productTax[String(p.id)] = { gst_rate: p.gst_rate, hsn_code: p.hsn_code, offer: p.offer_percent || 0 }; });
+            if (typeof renderCart === 'function') renderCart();
             calculateTotals();
         }).catch(() => {});
         function itemTax(item) {
@@ -559,12 +561,16 @@
                 const pct = parseFloat((document.getElementById('disc-pct') || {}).value);
                 if (rs > 0) discount = rs; else if (pct > 0) discount = subtotal * Math.min(pct, 100) / 100;
             }
-            discount = r2(Math.min(Math.max(discount, 0), subtotal));
+            // Near-expiry offers set on the Expiry screen come off automatically.
+            let offer = 0;
+            cartItems.forEach(item => { offer += item.price * ((productTax[String(item.product_id)] || {}).offer || 0) / 100; });
+            offer = r2(offer);
+            discount = r2(Math.min(Math.max(discount + offer, 0), subtotal));
             const keep = subtotal > 0 ? (subtotal - discount) / subtotal : 0;
             let gst = 0;
             if (taxEnabled) cartItems.forEach(item => { gst += item.price * keep * itemTax(item).rate / 100; });
             gst = r2(gst);
-            return { subtotal, discount, gst, total: r2(subtotal - discount + gst) };
+            return { subtotal, discount, offer: Math.min(offer, discount), gst, total: r2(subtotal - discount + gst) };
         }
         function calculateTotals() {
             const m = billMaths();
@@ -573,6 +579,7 @@
             document.getElementById('total').textContent = KK.inr(m.total);
             document.getElementById('disc-row').classList.toggle('hidden', !(m.discount > 0));
             document.getElementById('disc-amt').textContent = '− ' + KK.inr(m.discount);
+            document.getElementById('disc-row').firstElementChild.textContent = m.offer > 0 ? (m.discount > m.offer ? 'Offer + discount' : 'Expiry offer') : 'Discount';
             if (selectedPaymentType === 'online') drawCartUpi(m.total);
         }
         function drawCartUpi(total) {

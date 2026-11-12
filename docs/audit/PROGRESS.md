@@ -29,8 +29,9 @@ Local run: `DATABASE_URL=sqlite:///kk.db SESSION_SECRET=x gunicorn app:app --bin
 - [x] Round 5: shared bottom bar, one scanner, native-feel layer, /bills, cancel bill, WhatsApp, UPI QR, CSV, signup fix, collect sheet; e2e 25/25
 - [x] Round 6: Khata (galla closing, expenses, suppliers), net profit, order list, thermal print CSS, service worker + offline page; e2e 30/30
 - [x] Round 7: bill discount, product edit sheet, per-product GST/HSN, part returns, full backup; e2e 35/35
-- [ ] Still open: fully-offline billing, unattended cloud backup + restore, MRP/per-item discount, GSTR-1 summary, real-device checks, KK-027 escape all innerHTML, KK-032 N+1 queries, real-device checks
+- [x] Round 8: expiry offers (item / all, auto-applied in cart), WhatsApp offers, GST summary CSV; e2e 39/39
+- [ ] Still open: fully-offline billing, unattended cloud backup + restore, per-staff logins, real-device checks, KK-027 escape all innerHTML, KK-032 N+1 queries, real-device checks
 - [x] KK-022, KK-029 built (owner said go ahead); KK-028 toasts still open
 ## Phase 4
 - [x] MANUAL_TEST_CHECKLIST.md
-- [x] tests: `pytest tests` (22 passing); wiring: `python docs/audit/tools/check_wiring.py`; e2e: `node docs/audit/tools/e2e_shop_day.js <url>` on a fresh DB; PDFs: `python docs/audit/tools/check_pdfs.py`
+- [x] tests: `pytest tests` (23 passing); wiring: `python docs/audit/tools/check_wiring.py`; e2e: `node docs/audit/tools/e2e_shop_day.js <url>` on a fresh DB; PDFs: `python docs/audit/tools/check_pdfs.py`

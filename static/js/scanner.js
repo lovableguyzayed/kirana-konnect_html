@@ -165,6 +165,7 @@
                     '<p class="muted">' + inr(unitPrice) + (kg ? ' / kg' : '') + ' · ' + esc(t('Stock')) + ': ' + esc(p.stock_quantity) + (kg ? ' kg' : '') +
                     (p.is_low_stock ? ' · <b style="color:#B71C1C">' + esc(t('Low Stock')) + '</b>' : '') +
                     (p.is_expired ? ' · <b style="color:#B71C1C">' + esc(t('Expired')) + '</b>' : '') + '</p>' +
+                    (p.offer_percent ? '<p style="margin:6px 0 0;font-weight:700;color:#E65100">' + esc(t('Expiry offer')) + ' ' + p.offer_percent + '% OFF → ' + inr(unitPrice * (100 - p.offer_percent) / 100) + (kg ? ' / kg' : '') + '</p>' : '') +
                     '<div class="kk-qty"><button class="kk-minus" aria-label="Less">−</button>' +
                     '<input class="kk-q" inputmode="decimal" value="1" aria-label="Quantity"><button class="kk-plus" aria-label="More">+</button></div>' +
                     (kg ? '<div class="kk-chips"><button data-q="0.25">250 g</button><button data-q="0.5">500 g</button><button data-q="1">1 kg</button><button data-q="2">2 kg</button><button data-q="5">5 kg</button></div>' : '') +
@@ -173,7 +174,7 @@
                     '<div class="kk-row"><button class="kk-b s kk-next">' + esc(t('Add & scan next')) + '</button><button class="kk-b p kk-add">' + esc(t('Add to bill')) + '</button></div>');
                 var q = s.querySelector('.kk-q'), step = kg ? 0.25 : 1;
                 function qty() { var v = parseFloat(q.value); return v > 0 ? v : 0; }
-                function upd() { s.querySelector('.kk-total').textContent = t('Total') + ': ' + inr(unitPrice * qty()); }
+                function upd() { s.querySelector('.kk-total').textContent = t('Total') + ': ' + inr(unitPrice * qty() * (100 - (p.offer_percent || 0)) / 100); }
                 s.querySelector('.kk-minus').onclick = function () { q.value = Math.max(step, +(qty() - step).toFixed(3)); upd(); };
                 s.querySelector('.kk-plus').onclick = function () { q.value = +(qty() + step).toFixed(3); upd(); };
                 q.oninput = upd;

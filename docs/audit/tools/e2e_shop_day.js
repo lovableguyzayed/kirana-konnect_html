@@ -182,6 +182,29 @@ function ok(name, cond, extra) { steps.push((cond ? 'PASS ' : 'FAIL ') + name + 
   const bk = await p.evaluate(() => fetch('/export/backup.json').then(r => r.json()).then(d => [d.products.length > 0, d.bills.length > 0, !('password_hash' in d.shop[0])]));
   ok('Full backup downloads (no passwords inside)', bk.every(Boolean), JSON.stringify(bk));
 
+  // 10d. Expiry offer: set on the Expiry screen, applied automatically in the cart
+  const in5 = new Date(Date.now() + 5.5 * 3600e3 + 5 * 864e5).toISOString().slice(0, 10);
+  const bread = (await api('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Modern Bread 400g', price: 40, stock_quantity: 10, expiry_date: in5 }) })).product;
+  await go('/expiry-alert'); await p.waitForTimeout(600);
+  await p.click(`.expiry-item:has-text("Modern Bread") button:has-text("Set offer")`); await p.waitForTimeout(300);
+  await p.click('[data-pct="20"]'); await p.waitForTimeout(1000);
+  ok('Expiry screen shows 20% OFF and offer price ₹32', await p.isVisible('.expiry-item:has-text("Modern Bread") >> text=20% OFF') && await p.isVisible('.expiry-item:has-text("Modern Bread") >> text=₹32'));
+  await p.screenshot({ path: (process.env.SHOT_DIR || '.') + '/offer_expiry.png' });
+  await p.evaluate(() => { localStorage.setItem('kiranakonnect_persistent_cart', '[]'); });
+  await go('/dashboard');
+  await p.click('.kk-scan-btn'); await p.waitForTimeout(300);
+  await p.evaluate(id => { KKScan.close(); return fetch('/api/products/' + id).then(r => r.json()).then(d => { localStorage.setItem('kiranakonnect_cart', JSON.stringify([{ product_id: d.product.id, name: d.product.name, quantity: 2, unit: 'Piece', price: 80 }])); }); }, bread.id);
+  await go('/cart'); await p.waitForTimeout(900);
+  const offTotal = await p.textContent('#total');
+  ok('Cart applies the offer: 2 × ₹40 − 20% = ₹64', /₹64$/.test(offTotal.trim()) && await p.isVisible('text=Expiry offer 20% OFF'), offTotal);
+  await p.screenshot({ path: (process.env.SHOT_DIR || '.') + '/offer_cart.png' });
+  await Promise.all([p.waitForNavigation(), p.evaluate(() => generateBill())]); await p.waitForTimeout(1000);
+  const b4 = await api(`/api/bills/${new URL(p.url()).searchParams.get('bill')}`);
+  ok('Offer bill saved: discount ₹16, total ₹64', b4.discount_amount === 16 && b4.total_amount === 64, JSON.stringify([b4.discount_amount, b4.total_amount]));
+  const gstCsv = await p.evaluate(() => fetch('/export/gst.csv').then(r => r.text()));
+  ok('GST summary export has the 18% / HSN 1905 line', /1905,18%/.test(gstCsv), gstCsv.split('\n').slice(0, 3).join(' | '));
+
   // 11. Staff: add a team member
   await go('/staff');
   const sres = await api('/api/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Raju', role: 'Helper' }) });

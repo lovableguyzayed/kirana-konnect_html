@@ -276,3 +276,34 @@ def test_part_return_gst_and_backup(auth):  # round 7
     assert backup.status_code == 200
     data = backup.get_json()
     assert data['products'] and data['bills'] and 'password_hash' not in data['shop'][0]
+
+
+def test_expiry_offers_and_gst_summary(auth):  # round 8
+    from datetime import timedelta
+    soon = (A.ist_today() + timedelta(days=5)).strftime('%Y-%m-%d')
+    p = auth.post('/api/products', json={'name': 'Offer Test Bread', 'price': 40, 'stock_quantity': 10,
+                                         'expiry_date': soon, 'gst_rate': 5, 'hsn_code': '1905'}).get_json()['product']
+    old = auth.post('/api/products', json={'name': 'Offer Test Old Milk', 'price': 30, 'stock_quantity': 5,
+                                           'expiry_date': (A.ist_today() - timedelta(days=2)).strftime('%Y-%m-%d')}).get_json()['product']
+    assert auth.put(f'/api/products/{p["id"]}', json={'offer_percent': 150}).get_json()['product']['offer_percent'] is None
+    assert auth.put(f'/api/products/{p["id"]}', json={'offer_percent': 20}).get_json()['product']['offer_percent'] == 20
+    listed = [x for x in auth.get('/api/expired-products?days=30').get_json()['products'] if x['id'] == int(p['id'])][0]
+    assert listed['offer_percent'] == 20 and listed['sell_price'] == 40
+    assert auth.post('/api/offers/expiring', json={'percent': 0}).status_code == 400
+    bulk = auth.post('/api/offers/expiring', json={'percent': 30, 'days': 30}).get_json()
+    assert bulk['success'] and bulk['count'] >= 1
+    assert auth.get(f'/api/products/{p["id"]}').get_json()['product']['offer_percent'] == 30
+    assert auth.get(f'/api/products/{old["id"]}').get_json()['product']['offer_percent'] is None   # expired: never on offer
+    # bill: 2 breads = 80, offer 30% = 24 off, GST 5% on 56 = 2.8 -> 58.8
+    r = _bill(auth, subtotal=80, discount_amount=24, tax_amount=2.8, total_amount=58.8,
+              items=[{'product_id': p['id'], 'name': 'Offer Test Bread', 'quantity': 2, 'unit_price': 40,
+                      'total_price': 80, 'gst_rate': 5, 'hsn_code': '1905'}])
+    assert r.status_code == 201
+    csv = auth.get('/export/gst.csv').data.decode('utf-8-sig')
+    row = [l for l in csv.splitlines() if l.startswith('1905,5%')][0].split(',')
+    assert float(row[2]) >= 56 and float(row[5]) >= 2.8
+    # refill with a new expiry date (fresh batch) ends the offer
+    far = (A.ist_today() + timedelta(days=200)).strftime('%Y-%m-%d')
+    auth.post(f'/api/products/{p["id"]}/refill', json={'quantity': 5, 'expiry_date': far})
+    assert auth.get(f'/api/products/{p["id"]}').get_json()['product']['offer_percent'] is None
+    assert auth.delete('/api/offers/expiring').get_json()['success']

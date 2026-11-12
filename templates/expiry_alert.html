@@ -288,13 +288,16 @@
             <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
                 <h3 class="font-semibold text-dark mb-3">Quick Actions</h3>
                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="bulkDiscount()" hidden class="bg-orange-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-percent mr-2"></i>Bulk Discount
+                    <button onclick="bulkDiscount()" class="bg-orange-500 text-white p-3 rounded-lg font-medium">
+                        <i class="fa-solid fa-percent mr-2"></i>Offer on all
                     </button>
                     <button onclick="generateReport()" class="bg-blue-500 text-white p-3 rounded-lg font-medium">
                         <i class="fa-solid fa-file-csv mr-2"></i>Expiry Report
                     </button>
                 </div>
+                <button onclick="shareOffers()" class="w-full mt-3 text-white p-3 rounded-lg font-medium" style="background:#25D366">
+                    <i class="fa-brands fa-whatsapp mr-2"></i>Send offers to customers
+                </button>
                 <button onclick="setupAlerts()" class="w-full mt-3 bg-green-500 text-white p-3 rounded-lg font-medium">
                     <i class="fa-solid fa-bell mr-2"></i>Setup Expiry Alerts
                 </button>
@@ -418,13 +421,14 @@
         // expiring products, and lets the shopkeeper remove expired stock.
         (function () {
             function loadExpiry() {
-                fetch('/api/expired-products')
+                fetch('/api/expired-products?days=30')
                     .then(r => r.json())
                     .then(data => {
                         const products = data.products || [];
                         const list = document.querySelector('main .px-4.space-y-3');
                         if (!list) return;
 
+                        window.KK_EXPIRY = products;
                         const expired = products.filter(p => p.status === 'expired');
                         const soon = products.filter(p => p.status !== 'expired');
                         const summary = document.querySelectorAll('main .grid.grid-cols-3 .text-xl');
@@ -461,7 +465,11 @@
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <p class="font-bold text-dark">₹${p.price}</p>
+                                        ${p.offer_percent ? `<p class="text-xs text-gray-500" style="text-decoration:line-through">${KK.inr(p.sell_price)}</p>
+                                            <p class="font-bold" style="color:#2E7D32">${KK.inr(offerPrice(p))}</p>
+                                            <span class="inline-block text-xs px-2 py-0.5 rounded-full" style="background:#E8F5E9;color:#1B5E20;font-weight:700">${p.offer_percent}% OFF</span>`
+                                          : `<p class="font-bold text-dark">${KK.inr(p.sell_price || p.price)}</p>`}
+                                        ${!isExp ? `<br><button onclick="setOffer(${p.id})" class="mt-1 text-xs px-3 py-2 rounded-lg font-medium" style="background:#FFF3E0;color:#E65100;min-height:36px;white-space:nowrap">${p.offer_percent ? 'Change offer' : 'Set offer'}</button>` : ''}
                                         ${isExp ? `<button onclick="removeExpired(${p.id}, '${p.name.replace(/'/g, "&#39;")}')" class="mt-1 text-xs bg-red-50 text-red-600 px-2 py-1 rounded-lg font-medium">Remove</button>` : ''}
                                     </div>
                                 </div>
@@ -470,6 +478,76 @@
                     })
                     .catch(() => {});
             }
+
+            // ---- Offers on items that will expire soon ----
+            window.offerPrice = p => Math.round((p.sell_price || p.price) * (100 - (p.offer_percent || 0))) / 100;
+            function offerSheet(title, sub, current, onPick, canRemove) {
+                const w = document.createElement('div');
+                w.setAttribute('role', 'dialog');
+                w.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+                w.innerHTML = `<div style="background:#fff;width:100%;border-radius:16px 16px 0 0;padding:18px 16px 22px">
+                    <h3 style="font-size:18px;font-weight:700;margin:0">${title}</h3>
+                    <p style="color:#52606D;font-size:14px;margin:2px 0 12px">${sub}</p>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                        ${[10, 20, 30, 50].map(v => `<button data-pct="${v}" style="min-height:52px;border-radius:12px;font-weight:800;font-size:17px;border:2px solid ${current === v ? '#2E7D32' : '#CBD2D9'};background:${current === v ? '#E8F5E9' : '#fff'}">${v}%</button>`).join('')}
+                    </div>
+                    <label for="offer-custom" style="display:block;font-weight:600;font-size:14px;margin:12px 0 4px">Or type your own %</label>
+                    <div style="display:flex;gap:8px"><input id="offer-custom" inputmode="decimal" placeholder="e.g. 15" style="flex:1;min-width:0;font-size:17px;padding:12px;border:1px solid #9AA5B1;border-radius:12px">
+                        <button data-custom style="min-height:48px;padding:0 18px;border:0;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700">Set</button></div>
+                    <p data-err role="alert" style="color:#B71C1C;min-height:20px;margin:8px 0 0;font-size:14px"></p>
+                    ${canRemove ? '<button data-remove style="width:100%;min-height:48px;border:0;border-radius:12px;background:#FDECEA;color:#B71C1C;font-weight:700">Remove offer</button>' : ''}
+                    <button data-close style="width:100%;min-height:48px;margin-top:6px;border:0;background:none;font-size:16px">Cancel</button></div>`;
+                w.addEventListener('click', e => {
+                    if (e.target === w || e.target.closest('[data-close]')) { w.remove(); return; }
+                    const b = e.target.closest('[data-pct]');
+                    if (b) { w.remove(); onPick(Number(b.dataset.pct)); return; }
+                    if (e.target.closest('[data-remove]')) { w.remove(); onPick(null); return; }
+                    if (e.target.closest('[data-custom]')) {
+                        const v = parseFloat(w.querySelector('#offer-custom').value);
+                        if (!(v > 0 && v <= 90)) { w.querySelector('[data-err]').textContent = 'Enter a number from 1 to 90.'; return; }
+                        w.remove(); onPick(v);
+                    }
+                });
+                document.body.appendChild(w);
+            }
+            window.setOffer = function (id) {
+                const p = (window.KK_EXPIRY || []).find(x => x.id === id);
+                if (!p) return;
+                const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+                offerSheet('Offer on ' + esc(p.name), `Price ${KK.inr(p.sell_price)} · ${esc(p.days_info)}. The offer is taken off automatically in the bill.`, p.offer_percent, pct => {
+                    fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ offer_percent: pct }) })
+                        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                        .then(({ ok, d }) => {
+                            if (ok && d.success) { KK.toast(pct ? `${pct}% offer set on ${p.name}` : `Offer removed from ${p.name}`, 'ok'); loadExpiry(); }
+                            else alert(d.error || 'Could not save the offer.');
+                        })
+                        .catch(() => alert('No internet. Offer was NOT saved.'));
+                }, !!p.offer_percent);
+            };
+            window.bulkDiscount = function () {
+                const soon = (window.KK_EXPIRY || []).filter(p => p.status !== 'expired');
+                if (!soon.length) { alert('No items are expiring soon.'); return; }
+                offerSheet('Offer on all expiring items', `${soon.length} item(s) expiring in the next 30 days will get the same offer.`, null, pct => {
+                    const req = pct
+                        ? fetch('/api/offers/expiring', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ percent: pct, days: 30 }) })
+                        : fetch('/api/offers/expiring', { method: 'DELETE' });
+                    req.then(r => r.json().then(d => ({ ok: r.ok, d })))
+                        .then(({ ok, d }) => {
+                            if (ok && d.success) { KK.toast(pct ? `${pct}% offer set on ${d.count} item(s)` : 'All offers removed', 'ok'); loadExpiry(); }
+                            else alert(d.error || 'Could not save the offer.');
+                        })
+                        .catch(() => alert('No internet. Offer was NOT saved.'));
+                }, soon.some(p => p.offer_percent));
+            };
+            // Tell customers: WhatsApp message listing today's offers.
+            window.shareOffers = function () {
+                const on = (window.KK_EXPIRY || []).filter(p => p.status !== 'expired' && p.offer_percent);
+                if (!on.length) { alert('Set an offer on at least one item first.'); return; }
+                fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).catch(() => ({})).then(st => {
+                    const lines = on.map(p => `• ${p.name}: ${KK.inr(p.sell_price)} → *${KK.inr(offerPrice(p))}*${p.is_weight_based ? ' /kg' : ''} (${p.offer_percent}% OFF)`);
+                    KK.whatsapp('', `🎉 ${st.shop_name || 'Hamari dukaan'} - Aaj ke OFFER!\n\n${lines.join('\n')}\n\nStock khatam hone se pehle le jaiye. 🙏`);
+                });
+            };
 
             window.removeExpired = function (id, name) {
                 if (!confirm(`Remove expired "${name}" from inventory? This deletes the product.`)) return;

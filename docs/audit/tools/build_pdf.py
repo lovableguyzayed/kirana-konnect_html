@@ -79,6 +79,7 @@ SINGLES = [
     ('Round 5: All Bills, UPI QR, collect payment', 'R5_bills-upi-collect_after.png'),
     ('Round 6: Khata (galla, expenses, suppliers), net profit', 'R6_khata_after.png'),
     ('Round 7: edit product, return items, GST invoice', 'R7_edit-return-gst_after.png'),
+    ('Round 8: expiry offers', 'R8_expiry-offer_after.png'),
 ]
 
 parts = []
