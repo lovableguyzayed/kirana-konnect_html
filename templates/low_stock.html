@@ -24,6 +24,8 @@
             scrollbar-width: none;
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-50">
     <!-- Header Section -->
@@ -81,28 +83,14 @@
         
         <!-- Dynamic stock items will be inserted here -->
     </div>
+    <div class="px-4" style="margin:12px 0 16px">
+        <button type="button" onclick="sendOrderList()" style="width:100%;min-height:52px;border:0;border-radius:12px;background:#25D366;color:#fff;font-weight:700;font-size:16px">
+            <i class="fa-brands fa-whatsapp" style="font-size:20px;margin-right:6px"></i>Send order list on WhatsApp
+        </button>
+    </div>
 
     <!-- Bottom Navigation -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-        <div class="flex justify-around items-center">
-            <a href="/dashboard" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-house text-xl"></i>
-                <span class="text-xs">Home</span>
-            </a>
-            <a href="/inventory" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-boxes-stacked text-xl"></i>
-                <span class="text-xs">Inventory</span>
-            </a>
-            <a href="/cart" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-shopping-cart text-xl"></i>
-                <span class="text-xs">Cart</span>
-            </a>
-            <a href="/profile" class="flex flex-col items-center space-y-1 text-gray-600">
-                <i class="fa-solid fa-user text-xl"></i>
-                <span class="text-xs">Profile</span>
-            </a>
-        </div>
-    </div>
+    {% include '_nav.html' %}
 
     <script>
         let allProducts = [];
@@ -113,6 +101,17 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadLowStockProducts();
         });
+
+        // Order list for the wholesaler: every low-stock item with a suggested quantity.
+        function sendOrderList() {
+            if (!allProducts.length) { alert('Nothing is low on stock right now.'); return; }
+            const lines = allProducts.map((p, i) => {
+                const want = Math.max(Math.ceil((p.suggested_reorder || p.reorder_level * 3) - p.stock_quantity), 1);
+                return `${i + 1}. ${p.name} - ${want} ${p.unit || ''}`.trim();
+            });
+            const text = `Namaste ji 🙏\nOrder list (${new Date().toLocaleDateString('en-IN')}):\n\n${lines.join('\n')}\n\nKripya rate aur delivery bata dein. Dhanyavaad!`;
+            KK.whatsapp('', text);   // WhatsApp asks which supplier to send it to
+        }
 
         function loadLowStockProducts() {
             fetch('/api/low-stock-products')

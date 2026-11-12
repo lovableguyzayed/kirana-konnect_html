@@ -41,6 +41,8 @@
     scrollbar-width: none;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-poppins bg-gradient-to-br from-primary to-green-600 h-[100vh] flex items-center justify-center">
     
@@ -61,7 +63,8 @@
         </div>
 
         <!-- Store Details Card -->
-        <div id="store-details" class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/20">
+        <!-- Hidden: showed a made-up shop ("Sharma Kirana Store") and fake GSTIN/Udyam before sign-in. -->
+        <div id="store-details" hidden style="display:none" class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/20">
             <div class="text-white space-y-3">
                 <div class="flex items-center justify-center space-x-3">
                     <i class="fa-solid fa-shop text-white/80"></i>
@@ -89,7 +92,7 @@
                 <span class="text-lg">Get Started</span>
             </button>
             
-            <button id="view-pricing-btn" class="w-full bg-white/20 text-white font-semibold py-3 px-6 rounded-xl backdrop-blur-lg border border-white/30 hover:bg-white/30 transition-all duration-300 flex items-center justify-center space-x-3">
+            <button id="view-pricing-btn" hidden class="hidden w-full bg-white/20 text-white font-semibold py-3 px-6 rounded-xl backdrop-blur-lg border border-white/30 hover:bg-white/30 transition-all duration-300 flex items-center justify-center space-x-3">
                 <i class="fa-solid fa-tags text-lg"></i>
                 <span>View Pricing Plans</span>
             </button>

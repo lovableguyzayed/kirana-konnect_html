@@ -1,0 +1,50 @@
+{# One bottom navigation bar for every main screen (audit round 5).
+   Tabs: Home · Stock · [Scan] · Bill · Udhar. The active tab comes from
+   the `nav_active` value set by app.py for each screen. Real links (not
+   onclick) so the phone can prefetch them and Back works naturally. #}
+<style>
+    .kk-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; background: #fff;
+              border-top: 1px solid #E4E7EB; box-shadow: 0 -2px 10px rgba(0,0,0,.06);
+              padding-bottom: env(safe-area-inset-bottom, 0px); view-transition-name: kk-nav; }
+    .kk-nav ul { list-style: none; margin: 0 auto; padding: 0; display: flex; max-width: 640px; height: 64px; align-items: stretch; }
+    .kk-nav li { flex: 1; display: flex; }
+    .kk-nav a, .kk-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+              gap: 3px; text-decoration: none; color: #616E7C; font: 600 11.5px/1.1 Inter, system-ui, sans-serif;
+              background: none; border: 0; min-width: 48px; position: relative; -webkit-tap-highlight-color: transparent; }
+    .kk-nav i { font-size: 20px; }
+    .kk-nav a[aria-current="page"] { color: #2E7D32; }
+    .kk-nav a[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 28%; right: 28%; height: 3px;
+              border-radius: 0 0 3px 3px; background: #2E7D32; }
+    .kk-nav a:active, .kk-nav button:active { background: #F1F8F1; }
+    .kk-nav .kk-scan-btn { margin-top: -22px; flex: 0 0 auto; width: 64px; height: 64px; border-radius: 50%;
+              background: #2E7D32; color: #fff; box-shadow: 0 4px 12px rgba(46,125,50,.45); align-self: flex-start; font-size: 11px; }
+    .kk-nav .kk-scan-btn i { font-size: 22px; }
+    .kk-nav .kk-scan-wrap { flex: 0 0 76px; justify-content: center; }
+    .kk-nav .kk-badge { position: absolute; top: 6px; left: 54%; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+              background: #C62828; color: #fff; font-size: 11px; line-height: 18px; text-align: center; box-sizing: border-box; }
+</style>
+<nav class="kk-nav no-print" aria-label="Main">
+    <ul>
+        <li><a href="/dashboard" {% if nav_active == 'home' %}aria-current="page"{% endif %}><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></a></li>
+        <li><a href="/inventory" {% if nav_active == 'stock' %}aria-current="page"{% endif %}><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i><span>Stock</span></a></li>
+        <li class="kk-scan-wrap"><button type="button" class="kk-scan-btn" onclick="KKScan.open()" aria-label="Scan barcode"><i class="fa-solid fa-barcode" aria-hidden="true"></i><span>Scan</span></button></li>
+        <li><a href="/cart" {% if nav_active == 'bill' %}aria-current="page"{% endif %}><i class="fa-solid fa-receipt" aria-hidden="true"></i><span>Bill</span><span class="kk-badge" id="kk-cart-badge" hidden></span></a></li>
+        <li><a href="/pending-credits" {% if nav_active == 'udhar' %}aria-current="page"{% endif %}><i class="fa-solid fa-book" aria-hidden="true"></i><span>Udhar</span></a></li>
+    </ul>
+</nav>
+<script>
+    window.KKNav = {
+        refreshBadge: function () {
+            var n = 0;
+            try {
+                n += (JSON.parse(localStorage.getItem('kiranakonnect_persistent_cart') || '[]') || []).length;
+                n += (JSON.parse(localStorage.getItem('kiranakonnect_cart') || '[]') || []).length;
+            } catch (e) {}
+            var b = document.getElementById('kk-cart-badge');
+            if (b) { b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n); }
+        }
+    };
+    KKNav.refreshBadge();
+    window.addEventListener('storage', KKNav.refreshBadge);
+    window.addEventListener('pageshow', KKNav.refreshBadge);
+</script>

@@ -17,15 +17,139 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.units import inch
 from io import BytesIO
 
-# Configure logging for debugging
-logging.basicConfig(level=logging.DEBUG)
+# --- India time helpers -------------------------------------------------------
+# The database stores naive UTC timestamps (datetime.utcnow). Shop owners live
+# in IST (UTC+5:30), so "today", report ranges and printed dates must be
+# computed in IST - otherwise sales between 12:00 AM and 5:30 AM IST land on
+# the previous day.
+IST_OFFSET = timedelta(hours=5, minutes=30)
+
+def ist_now():
+    """Current India time as a naive datetime."""
+    return datetime.utcnow() + IST_OFFSET
+
+def ist_today():
+    return ist_now().date()
+
+def to_ist(dt_utc):
+    return dt_utc + IST_OFFSET if dt_utc else None
+
+def ist_day_start_utc(day):
+    """Naive-UTC instant at which the given IST calendar day begins."""
+    return datetime(day.year, day.month, day.day) - IST_OFFSET
+
+def utc_iso(dt_utc):
+    """ISO string marked as UTC so browsers convert it to local (IST) time."""
+    return dt_utc.isoformat() + 'Z' if dt_utc else None
+
+def ist_str(dt_utc, fmt='%d/%m/%Y %I:%M %p'):
+    return to_ist(dt_utc).strftime(fmt) if dt_utc else ''
+
+def inr(amount, decimals=2):
+    """Format rupees with Indian digit grouping: 125000 -> '₹1,25,000.00'."""
+    amount = float(amount or 0)
+    sign = '-' if amount < 0 else ''
+    whole, _, frac = f"{abs(amount):.{decimals}f}".partition('.')
+    if len(whole) > 3:
+        head, tail = whole[:-3], whole[-3:]
+        groups = []
+        while len(head) > 2:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            groups.insert(0, head)
+        whole = ','.join(groups + [tail])
+    return f"{sign}₹{whole}" + (f".{frac}" if decimals else '')
+
+import re as _re
+_DEVANAGARI_RUN = _re.compile(r'([\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+(?:[ \u0964\u0965]+[\u0900-\u097F\uA8E0-\uA8FF\u200C\u200D]+)*)')
+
+def pdf_text(value):
+    """Escape user text for ReportLab markup and switch Hindi/Devanagari runs
+    to the bundled Noto Sans Devanagari font (DejaVu has no Hindi letters,
+    so names like 'अरहर दाल' printed as empty boxes)."""
+    from xml.sax.saxutils import escape
+    text = escape(str(value or ''))
+    if _PDF_FONTS.get('deva'):
+        text = _DEVANAGARI_RUN.sub(r'<font name="NotoDeva">\1</font>', text)
+    return text
+
+_PDF_FONTS = {}
+
+def register_pdf_fonts():
+    """Register DejaVu (has the ₹ glyph; Helvetica prints ₹ as a black box)
+    and Noto Sans Devanagari for Hindi. If the 'uharfbuzz' package is
+    installed, text is shaped so Hindi conjuncts (क्ष, श्री) join correctly."""
+    if _PDF_FONTS.get('done'):
+        return
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    from reportlab.lib.styles import ParagraphStyle
+    try:
+        import uharfbuzz  # noqa: F401
+        shaping = True
+    except ImportError:
+        shaping = False
+    kw = {'shapable': True} if shaping else {}
+    if shaping:
+        try:  # older ReportLab without shaping support
+            TTFont('DejaVuProbe', os.path.join(app.root_path, 'static', 'vendor', 'fonts', 'DejaVuSans.ttf'), shapable=True)
+        except TypeError:
+            shaping, kw = False, {}
+    font_dir = os.path.join(app.root_path, 'static', 'vendor', 'fonts')
+    pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf'), **kw))
+    pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf'), **kw))
+    registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
+                       italic='DejaVu', boldItalic='DejaVu-Bold')
+    try:
+        pdfmetrics.registerFont(TTFont('NotoDeva', os.path.join(font_dir, 'NotoSansDevanagari-Regular.ttf'), **kw))
+        pdfmetrics.registerFont(TTFont('NotoDeva-Bold', os.path.join(font_dir, 'NotoSansDevanagari-Bold.ttf'), **kw))
+        registerFontFamily('NotoDeva', normal='NotoDeva', bold='NotoDeva-Bold',
+                           italic='NotoDeva', boldItalic='NotoDeva-Bold')
+        _PDF_FONTS['deva'] = True
+    except Exception as font_error:
+        app.logger.warning(f"Devanagari PDF font unavailable: {font_error}")
+    if shaping:
+        ParagraphStyle.defaults['shaping'] = 1
+    _PDF_FONTS['done'] = True
+
+def sold_quantity(item):
+    """Quantity in stock units (kg for weight items, pieces otherwise)."""
+    return item.weight if item.weight else item.quantity
+
+# INFO in production; set LOG_LEVEL=DEBUG locally when needed. DEBUG logs can
+# leak customer names, phone numbers and amounts into the host's log store.
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 
 class Base(DeclarativeBase):
     pass
 
 # Create the Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-for-pricing-preview")
+# The session secret signs the login cookie. A well-known fallback would let
+# anyone forge a logged-in session, so if SESSION_SECRET is missing we use a
+# random per-boot key instead (users simply have to sign in again after a
+# restart) and log a loud warning.
+_session_secret = os.environ.get("SESSION_SECRET")
+if not _session_secret:
+    import secrets as _secrets
+    _session_secret = _secrets.token_hex(32)
+    logging.warning("SESSION_SECRET is not set - using a random key; "
+                    "everyone will be signed out on every restart.")
+app.secret_key = _session_secret
+# Cookie hardening: not readable by JS, not sent on cross-site POSTs, and
+# HTTPS-only when the app is served over HTTPS (Render). Locally over plain
+# HTTP set COOKIE_SECURE=0.
+_cookie_secure = os.environ.get("COOKIE_SECURE", "1" if os.environ.get("RENDER") else "0") == "1"
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=_cookie_secure,
+    REMEMBER_COOKIE_HTTPONLY=True,
+    REMEMBER_COOKIE_SAMESITE="Lax",
+    REMEMBER_COOKIE_SECURE=_cookie_secure,
+)
 
 # Render (and most hosts) terminate TLS at a reverse proxy; trust its headers
 # so Flask sees the real scheme/host for cookies and redirects.
@@ -69,6 +193,10 @@ class User(UserMixin, db.Model):
     shop_name = db.Column(db.String(150), nullable=False)
     gst_number = db.Column(db.String(20))
     udyam_number = db.Column(db.String(30))
+    # Added Nov 2026; created on existing databases by _ensure_schema_columns.
+    shop_address = db.Column(db.Text)
+    owner_pin_hash = db.Column(db.String(256))  # staff-mode unlock PIN
+    upi_id = db.Column(db.String(100))  # shop's UPI ID for "Scan to pay" QR
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -86,7 +214,9 @@ def load_user(user_id):
 PUBLIC_ENDPOINTS = {
     'static', 'index', 'pricing', 'splash', 'signin', 'signup',
     'auth_login', 'auth_signup', 'auth_status', 'logout',
-    'form_login', 'form_signup', 'healthz', 'auth_reset_password'
+    'form_login', 'form_signup', 'healthz', 'auth_reset_password',
+    'privacy', 'terms', 'contact', 'account_deletion',
+    'otp_send', 'otp_verify', 'service_worker', 'offline_page'
 }
 
 @app.before_request
@@ -94,12 +224,70 @@ def require_login():
     if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
         return None
     if current_user.is_authenticated:
-        return None
+        return _enforce_staff_mode()
     if request.path.startswith('/api/'):
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
     return redirect(url_for('signin'))
 
-APP_VERSION = "2026-07-21-formauth-migration"
+# --- Staff mode ---------------------------------------------------------------
+# Owner and staff share one login on the shop phone. In staff mode (turned on
+# by the owner, unlocked only with the owner PIN) the server refuses
+# owner-only screens and actions: profit and reports, profile/password,
+# account deletion, data export, team changes, deleting products and editing
+# prices. Billing, stock refill and collecting udhar keep working.
+STAFF_BLOCKED_PAGES = {'profile', 'sales_report', 'staff', 'settings', 'export_business_data', 'khata_page',
+                       'expenses_api', 'expense_delete', 'suppliers_api', 'supplier_detail', 'supplier_entry',
+                       'daybook_api', 'daybook_close',
+                       'account_deletion'}
+STAFF_BLOCKED_API = {
+    ('api_sales_data', 'GET'), ('auth_update_profile', 'PUT'), ('auth_change_password', 'POST'),
+    ('staff_api', 'POST'), ('staff_delete', 'DELETE'), ('delete_product', 'DELETE'),
+    ('update_product', 'PUT'), ('update_product', 'PATCH'), ('seed_demo_data', 'POST'),
+    ('seed_demo_data', 'GET'), ('update_notification_settings_api', 'POST'),
+    ('cancel_bill', 'POST'), ('export_csv', 'GET'), ('offers_expiring', 'POST'), ('offers_expiring', 'DELETE'), ('export_gst', 'GET'), ('return_bill_items', 'POST'), ('export_backup', 'GET'),
+}
+
+def staff_mode_on():
+    from flask import session
+    return bool(session.get('staff_mode'))
+
+def _enforce_staff_mode():
+    if not staff_mode_on():
+        return None
+    if (request.endpoint, request.method) in STAFF_BLOCKED_API:
+        return jsonify({'success': False, 'staff_mode': True,
+                        'error': 'Owner PIN needed. Ask the shop owner to unlock.'}), 403
+    if request.endpoint in STAFF_BLOCKED_PAGES:
+        if request.path.startswith('/api/'):
+            return jsonify({'success': False, 'staff_mode': True, 'error': 'Owner PIN needed.'}), 403
+        return redirect(url_for('dashboard', locked=1))
+    return None
+
+APP_VERSION = "2026-11-12-audit-round8"
+
+NAV_TABS = {
+    'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
+    'inventory': 'stock', 'add_item': 'stock', 'product_details': 'stock', 'product_details_weight': 'stock',
+    'refill_stock': 'stock', 'refill_stock_weight': 'stock', 'low_stock': 'stock', 'expiry_alert': 'stock',
+    'cart': 'bill', 'receipt': 'bill', 'bills_page': 'bill',
+    'pending_credits': 'udhar', 'customer_ledger': 'udhar', 'khata_page': 'home', 'bills_page': 'bill',
+}
+
+@app.context_processor
+def inject_nav():
+    """Which bottom-bar tab is highlighted on this screen (templates/_nav.html)."""
+    return {'nav_active': NAV_TABS.get(request.endpoint, '')}
+
+@app.route('/sw.js')
+def service_worker():
+    """Service worker must be served from the site root to cover every screen."""
+    resp = send_file(os.path.join(app.root_path, 'static', 'js', 'sw.js'), mimetype='application/javascript')
+    resp.headers['Service-Worker-Allowed'] = '/'
+    return resp
+
+@app.route('/offline')
+def offline_page():
+    return render_template('offline.html')
 
 @app.route('/healthz')
 def healthz():
@@ -116,8 +304,10 @@ def healthz():
         info['products'] = Product.query.count()
         info['account_exists'] = db.session.query(User.id).first() is not None
     except Exception as e:
+        # Don't echo raw DB errors (they can include host names) publicly.
+        app.logger.error(f"healthz DB check failed: {e}")
         info['database'] = 'ERROR'
-        info['database_error'] = str(e)[:200]
+
     return jsonify(info)
 
 @app.route('/api/auth/status')
@@ -126,12 +316,19 @@ def auth_status():
     payload = {
         'account_exists': db.session.query(User.id).first() is not None,
         'authenticated': current_user.is_authenticated,
+        'otp_enabled': otp_enabled(),
+        'staff_mode': current_user.is_authenticated and staff_mode_on(),
+        'owner_pin_set': bool(current_user.is_authenticated and current_user.owner_pin_hash),
         'shop_name': current_user.shop_name if current_user.is_authenticated else None,
         'owner_name': current_user.owner_name if current_user.is_authenticated else None
     }
     if current_user.is_authenticated:
         payload['phone'] = current_user.phone
         payload['gst_number'] = current_user.gst_number
+        payload['email'] = current_user.email
+        payload['udyam_number'] = current_user.udyam_number
+        payload['shop_address'] = current_user.shop_address
+        payload['upi_id'] = current_user.upi_id
     return jsonify(payload)
 
 @app.route('/api/auth/signup', methods=['POST'])
@@ -169,6 +366,156 @@ def auth_signup():
         app.logger.error(f"Signup error: {e}")
         return jsonify({'success': False, 'error': 'Could not create the account'}), 500
 
+# --- Simple brute-force protection -------------------------------------------
+# Counts failed attempts per (action, key) in memory. Per worker process, so
+# with 2 gunicorn workers the effective limit is up to 2x; good enough to stop
+# password guessing without adding Redis or a new table.
+import time as _time
+_RATE_BUCKETS = {}
+
+def _rate_hit(action, key):
+    now = _time.time()
+    _RATE_BUCKETS.setdefault((action, key), []).append(now)
+
+def _rate_limited(action, key, limit, window):
+    now = _time.time()
+    hits = [t for t in _RATE_BUCKETS.get((action, key), []) if now - t < window]
+    _RATE_BUCKETS[(action, key)] = hits
+    if len(_RATE_BUCKETS) > 10000:  # bound memory
+        _RATE_BUCKETS.clear()
+    return len(hits) >= limit
+
+# --- SMS OTP (login + forgot password) ---------------------------------------
+# Off until SMS_PROVIDER is set. Supported: 'msg91' (needs MSG91_AUTHKEY and a
+# TRAI-DLT-approved MSG91_OTP_TEMPLATE_ID) and 'console' (TESTING ONLY: writes
+# the code to the server log). Codes: 6 digits, valid 5 minutes, 5 tries,
+# stored hashed; sends are rate limited per number and per IP so nobody can
+# run up the SMS bill ("SMS pumping").
+OTP_TTL = timedelta(minutes=5)
+OTP_RESEND_SECONDS = 30
+
+class OtpCode(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(15), nullable=False, index=True)
+    purpose = db.Column(db.String(10), nullable=False)  # login | reset
+    code_hash = db.Column(db.String(256), nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+def otp_enabled():
+    provider = os.environ.get('SMS_PROVIDER', '').strip().lower()
+    if provider == 'msg91':
+        return bool(os.environ.get('MSG91_AUTHKEY') and os.environ.get('MSG91_OTP_TEMPLATE_ID'))
+    return provider == 'console'
+
+def _send_sms_otp(phone, code):
+    """Send the code; returns True when the provider accepted it."""
+    provider = os.environ.get('SMS_PROVIDER', '').strip().lower()
+    if provider == 'console':
+        app.logger.warning(f"[SMS_PROVIDER=console - testing only] OTP for ...{phone[-4:]}: {code}")
+        return True
+    if provider == 'msg91':
+        import json, urllib.request, urllib.parse
+        query = urllib.parse.urlencode({'template_id': os.environ['MSG91_OTP_TEMPLATE_ID'],
+                                        'mobile': '91' + phone, 'otp': code,
+                                        'otp_expiry': int(OTP_TTL.total_seconds() // 60)})
+        req = urllib.request.Request('https://control.msg91.com/api/v5/otp?' + query, method='POST',
+                                     headers={'authkey': os.environ['MSG91_AUTHKEY'],
+                                              'Content-Type': 'application/json'}, data=b'{}')
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read().decode() or '{}')
+            ok = body.get('type') == 'success'
+            if not ok:
+                app.logger.error(f"MSG91 OTP rejected: {str(body)[:200]}")
+            return ok
+        except Exception as e:
+            app.logger.error(f"MSG91 OTP send failed: {e}")
+            return False
+    return False
+
+def _clean_mobile(value):
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if len(digits) == 12 and digits.startswith('91'):
+        digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith('0'):
+        digits = digits[1:]
+    return digits if len(digits) == 10 and digits[0] in '6789' else None
+
+@app.route('/api/auth/otp/send', methods=['POST'])
+def otp_send():
+    if not otp_enabled():
+        return jsonify({'success': False, 'error': 'OTP by SMS is not set up yet.'}), 503
+    data = request.get_json() or {}
+    purpose = 'reset' if data.get('purpose') == 'reset' else 'login'
+    phone = _clean_mobile(data.get('phone'))
+    if not phone:
+        return jsonify({'success': False, 'error': 'Enter a valid 10-digit mobile number'}), 400
+    if (_rate_limited('otp_ip', request.remote_addr, limit=10, window=3600)
+            or _rate_limited('otp_phone', phone, limit=4, window=900)):
+        return jsonify({'success': False, 'error': 'Too many OTP requests. Please wait 15 minutes.'}), 429
+    user = User.query.filter_by(phone=phone).first()
+    if user is None:
+        _rate_hit('otp_ip', request.remote_addr)
+        return jsonify({'success': False, 'error': 'This number is not registered. Check the number or create an account.'}), 404
+    last = OtpCode.query.filter_by(phone=phone, purpose=purpose).order_by(OtpCode.id.desc()).first()
+    if last and (datetime.utcnow() - last.created_at).total_seconds() < OTP_RESEND_SECONDS:
+        wait = OTP_RESEND_SECONDS - int((datetime.utcnow() - last.created_at).total_seconds())
+        return jsonify({'success': False, 'error': f'Please wait {wait} seconds before asking again.', 'wait': wait}), 429
+    import secrets as _s
+    code = f"{_s.randbelow(1000000):06d}"
+    OtpCode.query.filter_by(phone=phone, purpose=purpose, used=False).update({'used': True})
+    db.session.add(OtpCode(phone=phone, purpose=purpose, code_hash=generate_password_hash(code),
+                           expires_at=datetime.utcnow() + OTP_TTL))
+    db.session.commit()
+    _rate_hit('otp_ip', request.remote_addr)
+    _rate_hit('otp_phone', phone)
+    if not _send_sms_otp(phone, code):
+        return jsonify({'success': False, 'error': 'Could not send the SMS right now. Please try again.'}), 502
+    return jsonify({'success': True, 'resend_after': OTP_RESEND_SECONDS,
+                    'message': f'OTP sent to +91 {phone[:2]}XXXXXX{phone[-2:]}'})
+
+def _check_otp(phone, purpose, code):
+    """Returns (ok, error_message)."""
+    rec = OtpCode.query.filter_by(phone=phone, purpose=purpose, used=False).order_by(OtpCode.id.desc()).first()
+    if rec is None or rec.expires_at < datetime.utcnow():
+        return False, 'OTP has expired. Please ask for a new one.'
+    if rec.attempts >= 5:
+        rec.used = True
+        db.session.commit()
+        return False, 'Too many wrong tries. Please ask for a new OTP.'
+    if not check_password_hash(rec.code_hash, str(code or '').strip()):
+        rec.attempts += 1
+        db.session.commit()
+        left = 5 - rec.attempts
+        return False, f'Wrong OTP. {left} tries left.' if left else 'Too many wrong tries. Please ask for a new OTP.'
+    rec.used = True
+    db.session.commit()
+    return True, None
+
+@app.route('/api/auth/otp/verify', methods=['POST'])
+def otp_verify():
+    if not otp_enabled():
+        return jsonify({'success': False, 'error': 'OTP by SMS is not set up yet.'}), 503
+    data = request.get_json() or {}
+    purpose = 'reset' if data.get('purpose') == 'reset' else 'login'
+    phone = _clean_mobile(data.get('phone'))
+    user = User.query.filter_by(phone=phone).first() if phone else None
+    if user is None:
+        return jsonify({'success': False, 'error': 'This number is not registered.'}), 404
+    if purpose == 'reset' and len(data.get('new_password') or '') < 6:
+        return jsonify({'success': False, 'error': 'New password must be at least 6 characters'}), 400
+    ok, err = _check_otp(phone, purpose, data.get('code'))
+    if not ok:
+        return jsonify({'success': False, 'error': err}), 400
+    if purpose == 'reset':
+        user.set_password(data['new_password'])
+        db.session.commit()
+    login_user(user, remember=True)
+    return jsonify({'success': True, 'shop_name': user.shop_name})
+
 def _find_user(identifier):
     """Look up a user by email or 10-digit phone from a free-form identifier."""
     identifier = (identifier or '').strip().lower()
@@ -191,8 +538,12 @@ def auth_login():
     password = data.get('password') or ''
     if not identifier or not password:
         return jsonify({'success': False, 'error': 'Phone/email and password are required'}), 400
+    if _rate_limited('login', request.remote_addr, limit=10, window=900):
+        return jsonify({'success': False,
+                        'error': 'Too many wrong attempts. Please wait 15 minutes.'}), 429
     user = _find_user(identifier)
     if user is None or not user.check_password(password):
+        _rate_hit('login', request.remote_addr)
         return jsonify({'success': False, 'error': 'Incorrect phone/email or password'}), 401
     login_user(user, remember=bool(data.get('remember', True)))
     return jsonify({'success': True, 'shop_name': user.shop_name})
@@ -206,9 +557,12 @@ def form_login():
     cookie in every browser and in Android WebViews, so the dashboard opens
     instead of bouncing back to sign-in.
     """
+    if _rate_limited('login', request.remote_addr, limit=10, window=900):
+        return redirect(url_for('signin', error='locked'))
     user = _find_user(request.form.get('identifier'))
     password = request.form.get('password') or ''
     if user is None or not user.check_password(password):
+        _rate_hit('login', request.remote_addr)
         return redirect(url_for('signin', error='1'))
     login_user(user, remember=True)
     return redirect(url_for('dashboard'))
@@ -242,17 +596,31 @@ def form_signup():
 
 @app.route('/api/auth/reset-password', methods=['POST'])
 def auth_reset_password():
-    """Reset the owner's password by registered phone/email, then sign in.
+    """Reset the owner's password with a secret recovery code, then sign in.
 
-    Single-shop instance: the registered phone number is the recovery factor.
-    Lets a locked-out owner regain access without email/SMS infrastructure.
+    Knowing the shop's phone number is NOT enough: phone numbers are printed
+    on every bill. The owner must also enter the recovery code stored in the
+    OWNER_RESET_CODE environment variable on the server (Render dashboard ->
+    Environment). Until SMS OTP is added, this is the only safe way to let a
+    locked-out owner back in without email/SMS infrastructure.
     """
+    import hmac
     data = request.get_json() or {}
+    if _rate_limited('reset', request.remote_addr, limit=5, window=900):
+        return jsonify({'success': False,
+                        'error': 'Too many attempts. Please wait 15 minutes and try again.'}), 429
+    expected = os.environ.get('OWNER_RESET_CODE', '').strip()
+    if len(expected) < 6:
+        return jsonify({'success': False,
+                        'error': 'Password reset is not set up for this shop yet. '
+                                 'Please contact Kirana Konnect support.'}), 403
+    code = str(data.get('recovery_code') or '').strip()
     user = _find_user(data.get('identifier'))
     new_password = data.get('new_password') or ''
-    if user is None:
+    if user is None or not hmac.compare_digest(code.encode(), expected.encode()):
+        _rate_hit('reset', request.remote_addr)
         return jsonify({'success': False,
-                        'error': 'No account found for that phone/email'}), 404
+                        'error': 'Phone number or recovery code is wrong'}), 401
     if len(new_password) < 6:
         return jsonify({'success': False,
                         'error': 'New password must be at least 6 characters'}), 400
@@ -265,6 +633,173 @@ def auth_reset_password():
         db.session.rollback()
         app.logger.error(f"Password reset error: {e}")
         return jsonify({'success': False, 'error': 'Could not reset the password'}), 500
+
+@app.route('/api/auth/profile', methods=['PUT'])
+def auth_update_profile():
+    """Save the owner's profile (name, phone, email, shop name, GSTIN, Udyam)."""
+    data = request.get_json() or {}
+    user = current_user
+    owner_name = (data.get('owner_name') or '').strip()
+    shop_name = (data.get('shop_name') or '').strip()
+    phone = ''.join(ch for ch in (data.get('phone') or '') if ch.isdigit())[-10:]
+    email = (data.get('email') or '').strip().lower() or None
+    gst = (data.get('gst_number') or '').strip().upper() or None
+    if not owner_name or not shop_name:
+        return jsonify({'success': False, 'error': 'Name and shop name are required'}), 400
+    if len(phone) != 10 or phone[0] not in '6789':
+        return jsonify({'success': False, 'error': 'Enter a valid 10-digit mobile number'}), 400
+    if gst and len(gst) != 15:
+        return jsonify({'success': False, 'error': 'GSTIN must be 15 characters'}), 400
+    other = User.query.filter(User.id != user.id,
+                              db.or_(User.phone == phone, User.email == email if email else False)).first()
+    if other:
+        return jsonify({'success': False, 'error': 'This phone or email is already used by another account'}), 409
+    try:
+        user.owner_name, user.shop_name, user.phone, user.email = owner_name, shop_name, phone, email
+        user.gst_number = gst
+        user.udyam_number = (data.get('udyam_number') or '').strip() or None
+        if 'upi_id' in data:
+            upi = (data.get('upi_id') or '').strip().lower()
+            if upi and not _re.match(r'^[a-z0-9.\-_]{2,256}@[a-z][a-z0-9.\-]{1,64}$', upi):
+                return jsonify({'success': False, 'error': 'UPI ID looks wrong (example: 9876543210@ybl)'}), 400
+            user.upi_id = upi or None
+        if 'shop_address' in data:
+            user.shop_address = (data.get('shop_address') or '').strip()[:300] or None
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Profile update error: {e}")
+        return jsonify({'success': False, 'error': 'Could not save the profile'}), 500
+
+@app.route('/api/auth/change-password', methods=['POST'])
+def auth_change_password():
+    """Change password; the current password must be entered first."""
+    data = request.get_json() or {}
+    if _rate_limited('chpw', current_user.id, limit=5, window=900):
+        return jsonify({'success': False, 'error': 'Too many attempts. Please wait 15 minutes.'}), 429
+    if not current_user.check_password(data.get('current_password') or ''):
+        _rate_hit('chpw', current_user.id)
+        return jsonify({'success': False, 'error': 'Current password is wrong'}), 400
+    new_password = data.get('new_password') or ''
+    if len(new_password) < 6:
+        return jsonify({'success': False, 'error': 'New password must be at least 6 characters'}), 400
+    current_user.set_password(new_password)
+    db.session.commit()
+    return jsonify({'success': True})
+
+# --- Public policy, help and account-deletion pages ----------------------------
+# Google Play needs a public privacy policy URL and an account-deletion page
+# that works without installing the app. Support contacts come from env vars
+# so the owner can fill them in on Render without a code change.
+POLICY_UPDATED = '10/11/2026'
+
+def _support():
+    digits = lambda v: ''.join(ch for ch in (v or '') if ch.isdigit())[-10:]
+    return {'name': os.environ.get('SUPPORT_NAME', '').strip(),
+            'phone': digits(os.environ.get('SUPPORT_PHONE')),
+            'whatsapp': digits(os.environ.get('SUPPORT_WHATSAPP')),
+            'email': os.environ.get('SUPPORT_EMAIL', '').strip()}
+
+@app.route('/privacy')
+def privacy():
+    return render_template('public_page.html', page='privacy', title='Privacy Policy',
+                           updated=POLICY_UPDATED, support=_support())
+
+@app.route('/terms')
+def terms():
+    return render_template('public_page.html', page='terms', title='Terms of Use',
+                           updated=POLICY_UPDATED, support=_support())
+
+@app.route('/contact')
+def contact():
+    return render_template('public_page.html', page='contact', title='Help & Contact',
+                           support=_support())
+
+def delete_all_shop_data():
+    """Erase the shop: this is a single-shop instance, so every table goes."""
+    # Children before parents (PostgreSQL enforces foreign keys).
+    for model in (Notification, Payment, BillReturn, BillItem, Bill, Customer, Product,
+                  Staff, NotificationSettings, OtpCode, Expense, SupplierEntry, Supplier,
+                  DayClose, User):
+        model.query.delete(synchronize_session=False)
+    db.session.commit()
+
+@app.route('/account-deletion', methods=['GET', 'POST'])
+def account_deletion():
+    """Delete the account and all shop data after password + 'DELETE'."""
+    ctx = dict(page='deletion', title='Delete Account', support=_support(),
+               signed_in=current_user.is_authenticated)
+    if request.method == 'GET':
+        if current_user.is_authenticated:
+            ctx['identifier'] = current_user.phone
+        return render_template('public_page.html', **ctx)
+    identifier = request.form.get('identifier', '')
+    ctx['identifier'] = identifier
+    if _rate_limited('delete', request.remote_addr, limit=5, window=900):
+        ctx['error'] = 'Too many attempts. Please wait 15 minutes and try again.'
+        return render_template('public_page.html', **ctx), 429
+    user = _find_user(identifier)
+    if user is None or not user.check_password(request.form.get('password') or ''):
+        _rate_hit('delete', request.remote_addr)
+        ctx['error'] = 'Mobile number/email or password is wrong.'
+        return render_template('public_page.html', **ctx), 401
+    if (request.form.get('confirm') or '').strip().upper() != 'DELETE':
+        ctx['error'] = 'Please type DELETE in the last box to confirm.'
+        return render_template('public_page.html', **ctx), 400
+    try:
+        logout_user()
+        delete_all_shop_data()
+        app.logger.info("Shop account and data deleted on owner request")
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Account deletion failed: {e}")
+        ctx['error'] = 'Could not delete right now. Please try again or contact us.'
+        return render_template('public_page.html', **ctx), 500
+    return render_template('public_page.html', **dict(ctx, done=True, signed_in=False))
+
+@app.route('/api/staff-mode/lock', methods=['POST'])
+def staff_mode_lock():
+    """Turn staff mode on. First time, the owner chooses a 4-6 digit PIN."""
+    from flask import session
+    data = request.get_json() or {}
+    pin = str(data.get('pin') or '').strip()
+    user = current_user
+    if not user.owner_pin_hash:
+        if not (pin.isdigit() and 4 <= len(pin) <= 6):
+            return jsonify({'success': False, 'need_pin': True,
+                            'error': 'Choose a 4 to 6 digit owner PIN first.'}), 400
+        user.owner_pin_hash = generate_password_hash(pin)
+        db.session.commit()
+    session['staff_mode'] = True
+    return jsonify({'success': True})
+
+@app.route('/api/staff-mode/unlock', methods=['POST'])
+def staff_mode_unlock():
+    from flask import session
+    if _rate_limited('pin', current_user.id, limit=5, window=900):
+        return jsonify({'success': False, 'error': 'Too many wrong PINs. Please wait 15 minutes.'}), 429
+    pin = str((request.get_json() or {}).get('pin') or '').strip()
+    if not current_user.owner_pin_hash or not check_password_hash(current_user.owner_pin_hash, pin):
+        _rate_hit('pin', current_user.id)
+        return jsonify({'success': False, 'error': 'Wrong PIN'}), 400
+    session.pop('staff_mode', None)
+    return jsonify({'success': True})
+
+@app.route('/api/staff-mode/reset-pin', methods=['POST'])
+def staff_mode_reset_pin():
+    """Forgot the PIN: the account password sets a new one (owner only)."""
+    data = request.get_json() or {}
+    if staff_mode_on():
+        return jsonify({'success': False, 'error': 'Unlock first, or sign out and sign in again.'}), 403
+    if not current_user.check_password(data.get('password') or ''):
+        return jsonify({'success': False, 'error': 'Password is wrong'}), 400
+    pin = str(data.get('pin') or '').strip()
+    if not (pin.isdigit() and 4 <= len(pin) <= 6):
+        return jsonify({'success': False, 'error': 'PIN must be 4 to 6 digits'}), 400
+    current_user.owner_pin_hash = generate_password_hash(pin)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/logout')
 def logout():
@@ -290,7 +825,7 @@ class Customer(db.Model):
         from sqlalchemy import func
         total_bills = db.session.query(func.sum(Bill.total_amount)).filter(
             Bill.customer_id == self.id,
-            Bill.payment_status != 'paid'
+            Bill.payment_status.in_(('pending', 'partial'))
         ).scalar() or 0
 
         # Only count payments against outstanding credit. Payments that were
@@ -303,7 +838,7 @@ class Customer(db.Model):
                 Payment.bill_id.in_(
                     db.session.query(Bill.id).filter(
                         Bill.customer_id == self.id,
-                        Bill.payment_status != 'paid'
+                        Bill.payment_status.in_(('pending', 'partial'))
                     )
                 )
             )
@@ -347,6 +882,8 @@ class BillItem(db.Model):
     # For weight-based items
     weight = db.Column(db.Float)
     price_per_kg = db.Column(db.Float)
+    gst_rate = db.Column(db.Float)       # % charged on this line (None = no GST)
+    hsn_code = db.Column(db.String(12))
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -377,6 +914,9 @@ class Product(db.Model):
     stock_quantity = db.Column(db.Float, default=0)
     reorder_level = db.Column(db.Float, default=10)
     expiry_date = db.Column(db.Date)
+    gst_rate = db.Column(db.Float)       # % (0, 5, 12, 18, 28); None = use the bill's rate
+    hsn_code = db.Column(db.String(12))
+    offer_percent = db.Column(db.Float)  # % off for near-expiry stock; None = no offer
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -425,6 +965,260 @@ class NotificationSettings(db.Model):
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# --- Khata: expenses, suppliers, day book (galla closing) ----------------------
+# Added Nov 2026. New tables only (created automatically by db.create_all()).
+class BillReturn(db.Model):
+    """One return against a bill: what was refunded and how (for the galla)."""
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)          # value of goods returned (incl. GST)
+    refund_mode = db.Column(db.String(20))                 # cash | upi | udhar (reduces due)
+    note = db.Column(db.String(300))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class Expense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(40), nullable=False, default='Other')
+    amount = db.Column(db.Float, nullable=False)
+    note = db.Column(db.String(200))
+    payment_mode = db.Column(db.String(20), default='cash')  # cash | upi
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class Supplier(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(15))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    entries = db.relationship('SupplierEntry', backref='supplier', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def balance(self):
+        """What the shop still owes this supplier (purchases - payments)."""
+        total = 0.0
+        for e in self.entries:
+            total += e.amount if e.kind == 'purchase' else -e.amount
+        return round(total, 2)
+
+class SupplierEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
+    kind = db.Column(db.String(10), nullable=False)  # purchase | payment
+    amount = db.Column(db.Float, nullable=False)
+    note = db.Column(db.String(200))
+    payment_mode = db.Column(db.String(20))  # for payments: cash | upi
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class DayClose(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.Date, unique=True, nullable=False)
+    opening_cash = db.Column(db.Float, default=0)
+    counted_cash = db.Column(db.Float)
+    note = db.Column(db.String(200))
+    closed_at = db.Column(db.DateTime)
+
+EXPENSE_CATEGORIES = ['Rent', 'Electricity', 'Salary', 'Transport', 'Tea / Snacks', 'Packing', 'Repair', 'Other']
+
+def _amount(value, limit=1e8):
+    try:
+        v = round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
+    return v if 0 < v <= limit else None
+
+def _day_arg():
+    raw = (request.args.get('day') or '').strip()
+    return (_parse_date(raw) if raw and raw != 'today' else None) or ist_today()
+
+def _day_range(day):
+    start = ist_day_start_utc(day)
+    return start, start + timedelta(days=1)
+
+@app.route('/khata')
+def khata_page():
+    return render_template('khata.html', expense_categories=EXPENSE_CATEGORIES)
+
+@app.route('/api/expenses', methods=['GET', 'POST'])
+def expenses_api():
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        amount = _amount(data.get('amount'))
+        if amount is None:
+            return jsonify({'success': False, 'error': 'Enter the amount spent'}), 400
+        category = (data.get('category') or 'Other').strip()[:40] or 'Other'
+        mode = data.get('payment_mode') if data.get('payment_mode') in ('cash', 'upi') else 'cash'
+        e = Expense(category=category, amount=amount, note=(data.get('note') or '').strip()[:200] or None,
+                    payment_mode=mode)
+        db.session.add(e)
+        db.session.commit()
+        return jsonify({'success': True, 'id': e.id}), 201
+    day = _day_arg()
+    month = request.args.get('month') == '1'
+    if month:
+        start = ist_day_start_utc(day.replace(day=1))
+        end = ist_day_start_utc(day) + timedelta(days=1)
+    else:
+        start, end = _day_range(day)
+    rows = Expense.query.filter(Expense.created_at >= start, Expense.created_at < end) \
+        .order_by(Expense.created_at.desc()).all()
+    by_cat = {}
+    for e in rows:
+        by_cat[e.category] = round(by_cat.get(e.category, 0) + e.amount, 2)
+    return jsonify({'expenses': [{'id': e.id, 'category': e.category, 'amount': e.amount, 'note': e.note,
+                                  'payment_mode': e.payment_mode, 'created_at': utc_iso(e.created_at)} for e in rows],
+                    'total': round(sum(e.amount for e in rows), 2), 'by_category': by_cat})
+
+@app.route('/api/expenses/<int:expense_id>', methods=['DELETE'])
+def expense_delete(expense_id):
+    e = db.session.get(Expense, expense_id)
+    if not e:
+        return jsonify({'success': False, 'error': 'Not found'}), 404
+    db.session.delete(e)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/suppliers', methods=['GET', 'POST'])
+def suppliers_api():
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        name = (data.get('name') or '').strip()[:100]
+        if not name:
+            return jsonify({'success': False, 'error': 'Supplier name is required'}), 400
+        phone = None
+        if (data.get('phone') or '').strip():
+            phone = _clean_mobile(data.get('phone'))
+            if not phone:
+                return jsonify({'success': False, 'error': 'Enter a valid 10-digit mobile number'}), 400
+        if Supplier.query.filter(db.func.lower(Supplier.name) == name.lower(), Supplier.is_active.is_(True)).first():
+            return jsonify({'success': False, 'error': 'A supplier with this name already exists'}), 409
+        s = Supplier(name=name, phone=phone)
+        db.session.add(s)
+        db.session.commit()
+        return jsonify({'success': True, 'id': s.id}), 201
+    rows = Supplier.query.filter_by(is_active=True).order_by(Supplier.name).all()
+    out = [{'id': s.id, 'name': s.name, 'phone': s.phone, 'balance': s.balance} for s in rows]
+    return jsonify({'suppliers': out, 'total_due': round(sum(max(x['balance'], 0) for x in out), 2)})
+
+@app.route('/api/suppliers/<int:supplier_id>', methods=['GET', 'DELETE'])
+def supplier_detail(supplier_id):
+    s = db.session.get(Supplier, supplier_id)
+    if not s or not s.is_active:
+        return jsonify({'success': False, 'error': 'Supplier not found'}), 404
+    if request.method == 'DELETE':
+        if abs(s.balance) > 0.5:
+            return jsonify({'success': False, 'error': 'Clear the balance before removing this supplier'}), 400
+        s.is_active = False
+        db.session.commit()
+        return jsonify({'success': True})
+    entries = sorted(s.entries, key=lambda e: e.created_at, reverse=True)
+    return jsonify({'id': s.id, 'name': s.name, 'phone': s.phone, 'balance': s.balance,
+                    'entries': [{'id': e.id, 'kind': e.kind, 'amount': e.amount, 'note': e.note,
+                                 'payment_mode': e.payment_mode, 'created_at': utc_iso(e.created_at)} for e in entries]})
+
+@app.route('/api/suppliers/<int:supplier_id>/entries', methods=['POST'])
+def supplier_entry(supplier_id):
+    s = db.session.get(Supplier, supplier_id)
+    if not s or not s.is_active:
+        return jsonify({'success': False, 'error': 'Supplier not found'}), 404
+    data = request.get_json() or {}
+    kind = data.get('kind')
+    if kind not in ('purchase', 'payment'):
+        return jsonify({'success': False, 'error': 'Choose purchase or payment'}), 400
+    amount = _amount(data.get('amount'))
+    if amount is None:
+        return jsonify({'success': False, 'error': 'Enter the amount'}), 400
+    mode = (data.get('payment_mode') if data.get('payment_mode') in ('cash', 'upi') else 'cash') if kind == 'payment' else None
+    db.session.add(SupplierEntry(supplier_id=s.id, kind=kind, amount=amount, payment_mode=mode,
+                                 note=(data.get('note') or '').strip()[:200] or None))
+    db.session.commit()
+    return jsonify({'success': True, 'balance': s.balance}), 201
+
+def _daybook(day):
+    """Money in / out for one IST day and the cash that should be in the galla."""
+    start, end = _day_range(day)
+    bills = Bill.query.filter(Bill.created_at >= start, Bill.created_at < end,
+                              Bill.payment_status != 'cancelled').all()
+    cash_sales = sum(b.total_amount for b in bills if b.payment_status == 'paid' and b.payment_mode == 'cash')
+    online_sales = sum(b.total_amount for b in bills if b.payment_status == 'paid' and b.payment_mode != 'cash')
+    udhar_given = sum(b.total_amount for b in bills if b.payment_status in ('pending', 'partial'))
+    # Udhar collections = payments not tied to a paid cash/online sale
+    pays = Payment.query.filter(Payment.created_at >= start, Payment.created_at < end, Payment.bill_id.is_(None)).all()
+    udhar_cash = sum(p.amount for p in pays if p.payment_mode == 'cash')
+    udhar_online = sum(p.amount for p in pays if p.payment_mode != 'cash')
+    exps = Expense.query.filter(Expense.created_at >= start, Expense.created_at < end).all()
+    exp_cash = sum(e.amount for e in exps if e.payment_mode == 'cash')
+    exp_online = sum(e.amount for e in exps if e.payment_mode != 'cash')
+    sups = SupplierEntry.query.filter(SupplierEntry.created_at >= start, SupplierEntry.created_at < end,
+                                      SupplierEntry.kind == 'payment').all()
+    sup_cash = sum(e.amount for e in sups if e.payment_mode == 'cash')
+    sup_online = sum(e.amount for e in sups if e.payment_mode != 'cash')
+    close = DayClose.query.filter_by(day=day).first()
+    opening = close.opening_cash if close and close.opening_cash is not None else 0
+    if not close:  # carry yesterday's counted cash forward as today's opening
+        prev = DayClose.query.filter(DayClose.day < day, DayClose.counted_cash.isnot(None)) \
+            .order_by(DayClose.day.desc()).first()
+        if prev:
+            opening = prev.counted_cash
+    rets = BillReturn.query.filter(BillReturn.created_at >= start, BillReturn.created_at < end).all()
+    refund_cash = sum(x.amount for x in rets if x.refund_mode == 'cash')
+    refund_online = sum(x.amount for x in rets if x.refund_mode == 'upi')
+    # A same-day cash sale already shrank when goods came back, so only refunds
+    # for bills made on EARLIER days take extra cash out of today's galla.
+    old_refund_cash = sum(x.amount for x in rets if x.refund_mode == 'cash'
+                          and db.session.get(Bill, x.bill_id) and db.session.get(Bill, x.bill_id).created_at < start)
+    expected = opening + cash_sales + udhar_cash - exp_cash - sup_cash - old_refund_cash
+    r = lambda v: round(v or 0, 2)
+    return {
+        'day': day.strftime('%Y-%m-%d'), 'day_label': day.strftime('%d/%m/%Y'), 'bill_count': len(bills),
+        'opening_cash': r(opening), 'cash_sales': r(cash_sales), 'online_sales': r(online_sales),
+        'udhar_given': r(udhar_given), 'udhar_collected_cash': r(udhar_cash), 'udhar_collected_online': r(udhar_online),
+        'expenses_cash': r(exp_cash), 'expenses_online': r(exp_online),
+        'supplier_paid_cash': r(sup_cash), 'supplier_paid_online': r(sup_online),
+        'refunds_cash': r(refund_cash), 'refunds_online': r(refund_online), 'old_bill_refunds_cash': r(old_refund_cash),
+        'total_sales': r(cash_sales + online_sales + udhar_given),
+        'online_received': r(online_sales + udhar_online),
+        'expected_cash': r(expected),
+        'counted_cash': close.counted_cash if close else None,
+        'difference': r(close.counted_cash - expected) if close and close.counted_cash is not None else None,
+        'note': close.note if close else None,
+        'closed_at': utc_iso(close.closed_at) if close and close.closed_at else None,
+    }
+
+@app.route('/api/daybook', methods=['GET'])
+def daybook_api():
+    return jsonify(_daybook(_day_arg()))
+
+@app.route('/api/daybook/close', methods=['POST'])
+def daybook_close():
+    """Save opening cash and/or the cash counted at closing for a day."""
+    data = request.get_json() or {}
+    day = _parse_date(data.get('day')) or ist_today()
+    if day > ist_today():
+        return jsonify({'success': False, 'error': 'Cannot close a future day'}), 400
+    close = DayClose.query.filter_by(day=day).first()
+    if not close:
+        close = DayClose(day=day, opening_cash=_daybook(day)['opening_cash'])
+        db.session.add(close)
+    try:
+        if data.get('opening_cash') is not None:
+            v = float(data['opening_cash'])
+            if not (0 <= v <= 1e8):
+                raise ValueError
+            close.opening_cash = round(v, 2)
+        if data.get('counted_cash') is not None:
+            v = float(data['counted_cash'])
+            if not (0 <= v <= 1e8):
+                raise ValueError
+            close.counted_cash = round(v, 2)
+            close.closed_at = datetime.utcnow()
+    except (TypeError, ValueError):
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Enter a valid amount'}), 400
+    if 'note' in data:
+        close.note = (data.get('note') or '').strip()[:200] or None
+    db.session.commit()
+    return jsonify(dict(_daybook(day), success=True))
 
 # Notification helper functions
 def get_notification_settings():
@@ -576,7 +1370,7 @@ def check_expiring_products():
     """Check for products expiring soon and create summary notification"""
     try:
         from datetime import date, timedelta
-        expiry_threshold = date.today() + timedelta(days=7)
+        expiry_threshold = ist_today() + timedelta(days=7)
         
         expiring_products = Product.query.filter(
             Product.expiry_date.isnot(None),
@@ -592,7 +1386,7 @@ def check_expiring_products():
             
             if not existing:
                 count = len(expiring_products)
-                expired_count = len([p for p in expiring_products if p.expiry_date <= date.today()])
+                expired_count = len([p for p in expiring_products if p.expiry_date <= ist_today()])
                 
                 if expired_count > 0:
                     create_notification(
@@ -858,6 +1652,17 @@ try:
             db.session.rollback()
             app.logger.warning(f"Dedupe skipped: {dedupe_error}")
 
+        # Clear the fake alarms older releases created (see get_notifications).
+        try:
+            Notification.query.filter(
+                Notification.is_read.is_(False),
+                Notification.title.in_(['Subscription Expiring Soon', 'Enable Data Backup'])
+            ).delete(synchronize_session=False)
+            db.session.commit()
+        except Exception as cleanup_error:
+            db.session.rollback()
+            app.logger.warning(f"Fake-notification cleanup skipped: {cleanup_error}")
+
         # A store with fewer than 40 products is a fresh (or barely-touched)
         # instance: give it the full demo catalog, customers, staff and sales
         # history so every screen is alive out of the box. seed_demo is
@@ -883,8 +1688,9 @@ def index():
 
 @app.route('/pricing')
 def pricing():
-    """Serve the pricing plans page"""
-    return render_template('index.html')
+    """Pricing page is switched off until real prices and a Play-compliant
+    payment route are decided (audit D3); templates/index.html is kept."""
+    return redirect(url_for('signin'))
 
 @app.route('/splash')
 def splash():
@@ -954,8 +1760,10 @@ def receipt():
 
 @app.route('/bill-generate')
 def bill_generate():
-    """Serve the bill generation page"""
-    return render_template('bill_generate.html')
+    """Old duplicate checkout page with hard-coded demo items, a fake shop
+    name and GSTIN that could be billed for real. The cart (/cart) is the
+    real checkout, so send people there."""
+    return redirect(url_for('cart'))
 
 @app.route('/low-stock')
 def low_stock():
@@ -979,8 +1787,10 @@ def sales_report():
 
 @app.route('/settings')
 def settings():
-    """Serve the settings page"""
-    return render_template('settings.html')
+    """The old Settings page was not linked from anywhere and almost every
+    control on it was fake (buttons only logged to the console). Profile is
+    the real settings screen (notifications, language, password, account)."""
+    return redirect(url_for('profile'))
 
 @app.route('/refill-stock')
 def refill_stock():
@@ -1045,9 +1855,17 @@ def _parse_date(value):
             continue
     return None
 
+def _gst_rate(value):
+    """GST % for a product: one of the legal slabs, or None when not set."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if v in (0, 5, 12, 18, 28) else None
+
 def _product_to_dict(product):
     is_low_stock = product.stock_quantity <= product.reorder_level
-    is_expired = bool(product.expiry_date and product.expiry_date < datetime.utcnow().date())
+    is_expired = bool(product.expiry_date and product.expiry_date < ist_today())
     return {
         'id': str(product.id),
         'name': product.name,
@@ -1062,6 +1880,9 @@ def _product_to_dict(product):
         'expiry_date': product.expiry_date.strftime('%d/%m/%Y') if product.expiry_date else None,
         'is_low_stock': is_low_stock,
         'is_expired': is_expired,
+        'gst_rate': product.gst_rate,
+        'hsn_code': product.hsn_code,
+        'offer_percent': None if is_expired else product.offer_percent,
         'unit': 'kg' if product.is_weight_based else 'Piece'
     }
 
@@ -1093,7 +1914,9 @@ def create_product():
             is_weight_based=is_weight_based,
             stock_quantity=stock_quantity,
             reorder_level=float(data.get('reorder_level') or 10),
-            expiry_date=_parse_date(data.get('expiry_date'))
+            expiry_date=_parse_date(data.get('expiry_date')),
+            gst_rate=_gst_rate(data.get('gst_rate')),
+            hsn_code=(str(data.get('hsn_code') or '').strip()[:12] or None)
         )
         db.session.add(product)
         db.session.commit()
@@ -1130,6 +1953,12 @@ def update_product(product_id):
                 setattr(product, field, float(data[field]))
         if 'expiry_date' in data:
             product.expiry_date = _parse_date(data['expiry_date'])
+        if 'offer_percent' in data:
+            product.offer_percent = _offer_pct(data.get('offer_percent'))
+        if 'gst_rate' in data:
+            product.gst_rate = _gst_rate(data.get('gst_rate'))
+        if 'hsn_code' in data:
+            product.hsn_code = str(data.get('hsn_code') or '').strip()[:12] or None
         if 'is_weight_based' in data:
             product.is_weight_based = bool(data['is_weight_based'])
         product.updated_at = datetime.utcnow()
@@ -1186,6 +2015,7 @@ def refill_product(product_id):
             product.barcode = str(data['barcode']).strip()
         if data.get('expiry_date'):
             product.expiry_date = _parse_date(data['expiry_date'])
+            product.offer_percent = None  # fresh batch: the near-expiry offer ends
         product.updated_at = datetime.utcnow()
         db.session.commit()
         return jsonify({'success': True, 'product': _product_to_dict(product),
@@ -1257,13 +2087,15 @@ def search_customers_wrapped():
 @app.route('/api/dashboard/stats')
 def get_dashboard_stats():
     """Get dashboard statistics including today's profit"""
-    today = datetime.utcnow().date()
+    today = ist_today()
+    today_start = ist_day_start_utc(today)
     
-    # Calculate today's sales
+    # Calculate today's sales (IST calendar day)
     today_bills = Bill.query.filter(
-        db.func.date(Bill.created_at) == today,
-        Bill.payment_status == 'paid'
-    ).all()
+        Bill.created_at >= today_start,
+        Bill.created_at < today_start + timedelta(days=1),
+        Bill.payment_status != 'cancelled'
+    ).all()  # includes udhar sales (sales made, not only cash collected)
     
     total_sales = sum(bill.total_amount for bill in today_bills)
     transaction_count = len(today_bills)
@@ -1281,7 +2113,7 @@ def get_dashboard_stats():
                 # Use actual cost price from database
                 if product.is_weight_based and item.weight:
                     # For weight-based items, calculate based on weight
-                    item_cost = (product.cost_price / 1000) * item.weight if product.price_per_kg else product.cost_price * item.quantity
+                    item_cost = product.cost_price * item.weight
                 else:
                     # For regular items
                     item_cost = product.cost_price * item.quantity
@@ -1289,7 +2121,7 @@ def get_dashboard_stats():
                 total_revenue += item.total_price
             elif product:
                 # Fallback if cost price not set
-                item_cost = item.unit_price * 0.65 * item.quantity
+                item_cost = item.total_price * 0.65
                 actual_cost += item_cost
                 total_revenue += item.total_price
     
@@ -1298,8 +2130,9 @@ def get_dashboard_stats():
     # Get yesterday's sales for comparison
     yesterday = today - timedelta(days=1)
     yesterday_bills = Bill.query.filter(
-        db.func.date(Bill.created_at) == yesterday,
-        Bill.payment_status == 'paid'
+        Bill.created_at >= today_start - timedelta(days=1),
+        Bill.created_at < today_start,
+        Bill.payment_status != 'cancelled'
     ).all()
     
     yesterday_sales = sum(bill.total_amount for bill in yesterday_bills)
@@ -1314,13 +2147,13 @@ def get_dashboard_stats():
             product = Product.query.filter_by(name=item.item_name).first()
             if product and product.cost_price > 0:
                 if product.is_weight_based and item.weight:
-                    item_cost = (product.cost_price / 1000) * item.weight if product.price_per_kg else product.cost_price * item.quantity
+                    item_cost = product.cost_price * item.weight
                 else:
                     item_cost = product.cost_price * item.quantity
                 yesterday_cost += item_cost
                 yesterday_revenue += item.total_price
             elif product:
-                item_cost = item.unit_price * 0.65 * item.quantity
+                item_cost = item.total_price * 0.65
                 yesterday_cost += item_cost
                 yesterday_revenue += item.total_price
     
@@ -1347,10 +2180,11 @@ def get_dashboard_stats():
     low_stock_products = len([p for p in all_products if p.stock_quantity <= p.reorder_level])
     
     return jsonify({
-        'today_profit': round(today_profit, 2),
-        'profit_growth': round(profit_growth, 1),
+        'today_profit': None if staff_mode_on() else round(today_profit, 2),
+        'profit_growth': None if staff_mode_on() else round(profit_growth, 1),
+        'staff_mode': staff_mode_on(),
         'total_sales': round(total_sales, 2),
-        'actual_cost': round(actual_cost, 2),
+        'actual_cost': None if staff_mode_on() else round(actual_cost, 2),
         'total_revenue': round(total_revenue, 2),
         'transaction_count': transaction_count,
         'outstanding_amount': round(total_outstanding, 2),
@@ -1394,14 +2228,28 @@ def create_customer():
     try:
         data = request.get_json()
         
-        if not data or not data.get('name') or not data.get('phone'):
+        if not data or not (data.get('name') or '').strip() or not data.get('phone'):
             return jsonify({'error': 'Name and phone are required'}), 400
+        # Accept +91 / 0 / spaces / dashes; store the 10-digit mobile.
+        phone = ''.join(ch for ch in str(data['phone']) if ch.isdigit())
+        if len(phone) == 12 and phone.startswith('91'):
+            phone = phone[2:]
+        elif len(phone) == 11 and phone.startswith('0'):
+            phone = phone[1:]
+        if len(phone) != 10 or phone[0] not in '6789':
+            return jsonify({'error': 'Enter a valid 10-digit mobile number'}), 400
+        existing = Customer.query.filter(Customer.phone.in_([phone, '+91 ' + phone, '+91' + phone])).first()
+        if existing:
+            return jsonify({'error': f'{existing.name} already uses this number',
+                            'existing_id': existing.id, 'existing_name': existing.name}), 409
         
         customer = Customer(
-            name=data['name'],
-            phone=data['phone'],
+            name=data['name'].strip(),
+            phone=phone,
             address=data.get('address', ''),
-            aadhar_number=data.get('aadhar_number', ''),
+            # Aadhaar is not needed for udhar and is sensitive personal data
+            # under the DPDP Act - no longer stored (audit D10).
+            aadhar_number=None,
             email=data.get('email', '')
         )
         
@@ -1435,19 +2283,53 @@ def create_bill():
             fields = missing + ([] if payment_mode else ['payment_mode'])
             return jsonify({'error': f"Missing required field(s): {', '.join(fields)}"}), 400
 
-        # Generate bill number
-        import random
-        bill_number = f"KK-{datetime.now().year}-{random.randint(1000, 9999)}"
+        # Validate money fields on the server - never trust the client blindly.
+        def _money(v):
+            v = float(v)
+            if v != v or v < 0 or v > 1e9:  # NaN / negative / absurd
+                raise ValueError
+            return round(v, 2)
+        try:
+            subtotal = _money(data['subtotal'])
+            tax_amount = _money(data.get('tax_amount') or 0)
+            discount_amount = _money(data.get('discount_amount') or 0)
+            total_amount = _money(data['total_amount'])
+            items_in = data.get('items') or []
+            if not isinstance(items_in, list):
+                raise ValueError
+            items_sum = 0.0
+            for it in items_in:
+                if not (it.get('name') or '').strip():
+                    raise ValueError
+                if float(it['quantity']) <= 0:
+                    raise ValueError
+                _money(it['unit_price'])
+                items_sum += _money(it['total_price'])
+        except (TypeError, ValueError, KeyError):
+            return jsonify({'error': 'Bill amounts or items are not valid'}), 400
+        if not items_in:
+            return jsonify({'error': 'Add at least one item to the bill'}), 400
+        # Totals must add up (1 rupee tolerance for rounding).
+        if abs(items_sum - subtotal) > 1 or abs(subtotal + tax_amount - discount_amount - total_amount) > 1:
+            return jsonify({'error': 'Bill totals do not add up. Please refresh the cart and try again.'}), 400
+        if payment_mode not in ('cash', 'online', 'upi', 'card', 'split', 'credit'):
+            return jsonify({'error': 'Unknown payment mode'}), 400
+        if data.get('customer_id') and not db.session.get(Customer, int(data['customer_id'])):
+            return jsonify({'error': 'Customer not found'}), 400
+
+        # Temporary unique number; replaced by a sequential one after flush.
+        import uuid
+        bill_number = 'TMP-' + uuid.uuid4().hex[:12]
 
         # Create the bill
         bill = Bill(
             bill_number=bill_number,
             customer_id=data.get('customer_id'),
             customer_name=data.get('customer_name'),
-            subtotal=data['subtotal'],
-            tax_amount=data.get('tax_amount', 0),
-            discount_amount=data.get('discount_amount', 0),
-            total_amount=data['total_amount'],
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            discount_amount=discount_amount,
+            total_amount=total_amount,
             payment_mode=payment_mode,
             payment_status='pending' if payment_mode == 'credit' else 'paid',
             generated_by=data.get('generated_by', 'System'),
@@ -1456,12 +2338,15 @@ def create_bill():
 
         db.session.add(bill)
         db.session.flush()  # Get the bill ID
+        # Sequential, collision-free bill number (the old random 4-digit
+        # number collided after ~100 bills a year and the sale was lost).
+        bill.bill_number = f"KK-{ist_now().year}-{bill.id:06d}"
 
         # Add bill items and decrement inventory for each sold product.
         # Items are matched to products by product_id when the client sends
         # one, falling back to an exact name match (the cart UI does not carry
         # product ids through to the bill payload).
-        for item_data in data.get('items', []):
+        for item_data in items_in:
             bill_item = BillItem(
                 bill_id=bill.id,
                 item_name=item_data['name'],
@@ -1469,7 +2354,9 @@ def create_bill():
                 unit_price=item_data['unit_price'],
                 total_price=item_data['total_price'],
                 weight=item_data.get('weight'),
-                price_per_kg=item_data.get('price_per_kg')
+                price_per_kg=item_data.get('price_per_kg'),
+                gst_rate=_gst_rate(item_data.get('gst_rate')) if tax_amount else None,
+                hsn_code=(str(item_data.get('hsn_code') or '').strip()[:12] or None)
             )
             db.session.add(bill_item)
 
@@ -1493,7 +2380,7 @@ def create_bill():
             payment = Payment(
                 customer_id=data['customer_id'],
                 bill_id=bill.id,
-                amount=data['total_amount'],
+                amount=total_amount,
                 payment_mode=payment_mode,
                 reference_number=data.get('reference_number')
             )
@@ -1502,14 +2389,14 @@ def create_bill():
             # Send bill payment SMS if enabled
             customer = Customer.query.get(data['customer_id'])
             if customer and customer.phone:
-                send_bill_payment_sms(customer.phone, customer.name, data['total_amount'], bill.bill_number)
+                send_bill_payment_sms(customer.phone, customer.name, total_amount, bill.bill_number)
 
         # If credit purchase, send credit purchase SMS
         elif payment_mode == 'credit' and data.get('customer_id'):
             customer = Customer.query.get(data['customer_id'])
             if customer and customer.phone:
-                new_balance = customer.outstanding_balance + data['total_amount']
-                send_credit_purchase_sms(customer.phone, customer.name, data['total_amount'], new_balance)
+                new_balance = customer.outstanding_balance + total_amount
+                send_credit_purchase_sms(customer.phone, customer.name, total_amount, new_balance)
 
         db.session.commit()
 
@@ -1544,7 +2431,7 @@ def api_customer_ledger(customer_id):
             'bill_number': bill.bill_number,
             'amount': bill.total_amount,
             'payment_status': bill.payment_status,
-            'created_at': bill.created_at.strftime('%Y-%m-%d %H:%M'),
+            'created_at': ist_str(bill.created_at, '%Y-%m-%d %H:%M'),
             'items': [{'name': item.item_name, 'quantity': item.quantity, 'total': item.total_price} 
                      for item in bill.items]
         })
@@ -1555,7 +2442,7 @@ def api_customer_ledger(customer_id):
             'id': payment.id,
             'amount': payment.amount,
             'payment_mode': payment.payment_mode,
-            'created_at': payment.created_at.strftime('%Y-%m-%d %H:%M'),
+            'created_at': ist_str(payment.created_at, '%Y-%m-%d %H:%M'),
             'reference_number': payment.reference_number
         })
     
@@ -1593,7 +2480,7 @@ def api_get_bill(bill_number):
             'payment_mode': bill.payment_mode,
             'payment_status': bill.payment_status,
             'generated_by': bill.generated_by,
-            'created_at': bill.created_at.isoformat(),
+            'created_at': utc_iso(bill.created_at),
             'include_dates': bill.include_dates,
             'items': [{
                 'item_name': item.item_name,
@@ -1601,7 +2488,10 @@ def api_get_bill(bill_number):
                 'unit_price': item.unit_price,
                 'total_price': item.total_price,
                 'weight': item.weight,
-                'price_per_kg': item.price_per_kg
+                'price_per_kg': item.price_per_kg,
+                'id': item.id,
+                'gst_rate': item.gst_rate,
+                'hsn_code': item.hsn_code
             } for item in items]
         })
     except Exception as e:
@@ -1609,24 +2499,266 @@ def api_get_bill(bill_number):
 
 @app.route('/api/bills', methods=['GET'])
 def list_bills():
-    """List recent bills, optionally filtered by payment status."""
-    query = Bill.query
+    """Bills, newest first. Filters: status (paid | pending | cancelled |
+    udhar), q (bill number, customer name or phone), day=today|YYYY-MM-DD,
+    page/per_page (or limit for the old callers)."""
+    query = Bill.query.outerjoin(Customer, Bill.customer_id == Customer.id)
     status = request.args.get('status', '').strip()
-    if status:
+    if status == 'udhar':
+        query = query.filter(Bill.payment_status.in_(('pending', 'partial')))
+    elif status:
         query = query.filter(Bill.payment_status == status)
-    limit = min(request.args.get('limit', 20, type=int), 100)
-    bills = query.order_by(Bill.created_at.desc()).limit(limit).all()
-    return jsonify({'bills': [{
+    q = request.args.get('q', '').strip()
+    if q:
+        like = f'%{q}%'
+        query = query.filter(db.or_(Bill.bill_number.ilike(like), Bill.customer_name.ilike(like),
+                                    Customer.name.ilike(like), Customer.phone.ilike(like)))
+    day = request.args.get('day', '').strip()
+    if day:
+        d = ist_today() if day == 'today' else _parse_date(day)
+        if d:
+            start = ist_day_start_utc(d)
+            query = query.filter(Bill.created_at >= start, Bill.created_at < start + timedelta(days=1))
+    query = query.order_by(Bill.created_at.desc(), Bill.id.desc())
+    page = request.args.get('page', type=int)
+    if page:
+        per_page = min(request.args.get('per_page', 30, type=int), 100)
+        pg = query.paginate(page=page, per_page=per_page, error_out=False)
+        rows, extra = pg.items, {'page': pg.page, 'pages': pg.pages, 'total': pg.total}
+    else:
+        rows, extra = query.limit(min(request.args.get('limit', 20, type=int), 100)).all(), {}
+    return jsonify(dict(extra, bills=[{
         'id': b.id,
         'bill_number': b.bill_number,
         'customer_id': b.customer_id,
         'customer_name': b.customer.name if b.customer else (b.customer_name or 'Walk-in Customer'),
+        'customer_phone': b.customer.phone if b.customer else None,
         'total_amount': b.total_amount,
         'payment_mode': b.payment_mode,
         'payment_status': b.payment_status,
         'item_count': len(b.items),
-        'created_at': b.created_at.isoformat()
-    } for b in bills]})
+        'created_at': utc_iso(b.created_at)
+    } for b in rows]))
+
+@app.route('/api/bills/<bill_number>/cancel', methods=['POST'])
+def cancel_bill(bill_number):
+    """Cancel a wrong bill: stock goes back, it leaves sales and udhar.
+    The bill is kept (marked CANCELLED) so the record stays honest."""
+    bill = Bill.query.filter_by(bill_number=bill_number).first()
+    if not bill:
+        return jsonify({'success': False, 'error': 'Bill not found'}), 404
+    if bill.payment_status == 'cancelled':
+        return jsonify({'success': False, 'error': 'This bill is already cancelled'}), 400
+    try:
+        for item in bill.items:
+            product = Product.query.filter(Product.name.ilike(item.item_name.strip())).first()
+            if product is not None:
+                product.stock_quantity = (product.stock_quantity or 0) + float(sold_quantity(item) or 0)
+                product.updated_at = datetime.utcnow()
+        bill.payment_status = 'cancelled'
+        db.session.commit()
+        return jsonify({'success': True, 'bill_number': bill.bill_number})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Cancel bill failed: {e}")
+        return jsonify({'success': False, 'error': 'Could not cancel the bill'}), 500
+
+@app.route('/api/bills/<bill_number>/return', methods=['POST'])
+def return_bill_items(bill_number):
+    """Customer brings back part of a bill. Stock goes back, the bill shrinks
+    (GST and discount in proportion) and the refund is recorded: cash/UPI for
+    a paid bill, or simply less udhar for a credit bill."""
+    bill = Bill.query.filter_by(bill_number=bill_number).first()
+    if not bill:
+        return jsonify({'success': False, 'error': 'Bill not found'}), 404
+    if bill.payment_status == 'cancelled':
+        return jsonify({'success': False, 'error': 'This bill is cancelled'}), 400
+    data = request.get_json() or {}
+    wanted = data.get('items') or []
+    by_id = {it.id: it for it in bill.items}
+    plan, lines = [], []
+    try:
+        for w in wanted:
+            item = by_id.get(int(w.get('id')))
+            qty = float(w.get('quantity'))
+            if item is None or not (0 < qty <= item.quantity + 1e-9):
+                raise ValueError
+            plan.append((item, qty))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Return quantity is not valid'}), 400
+    if not plan:
+        return jsonify({'success': False, 'error': 'Choose at least one item to return'}), 400
+    old_total, old_sub = bill.total_amount, bill.subtotal or 0
+    try:
+        for item, qty in plan:
+            share = qty / item.quantity
+            product = Product.query.filter(Product.name.ilike(item.item_name.strip())).first()
+            back = (item.weight * share) if item.weight else qty
+            if product is not None:
+                product.stock_quantity = (product.stock_quantity or 0) + back
+                product.updated_at = datetime.utcnow()
+            lines.append(f"{item.item_name} x {qty:g}")
+            item.total_price = round(item.total_price * (1 - share), 2)
+            if item.weight:
+                item.weight = round(item.weight * (1 - share), 3)
+            item.quantity = round(item.quantity - qty, 3)
+            if item.quantity <= 1e-9:
+                db.session.delete(item)
+        db.session.flush()
+        new_sub = round(sum(i.total_price for i in BillItem.query.filter_by(bill_id=bill.id).all()), 2)
+        ratio = (new_sub / old_sub) if old_sub > 0 else 0
+        bill.subtotal = new_sub
+        bill.tax_amount = round((bill.tax_amount or 0) * ratio, 2)
+        bill.discount_amount = round((bill.discount_amount or 0) * ratio, 2)
+        bill.total_amount = round(new_sub + bill.tax_amount - bill.discount_amount, 2)
+        refund = round(old_total - bill.total_amount, 2)
+        was_paid = bill.payment_status == 'paid'
+        mode = (data.get('refund_mode') if data.get('refund_mode') in ('cash', 'upi') else 'cash') if was_paid else 'udhar'
+        if new_sub <= 0:
+            bill.payment_status = 'cancelled'
+        db.session.add(BillReturn(bill_id=bill.id, amount=refund, refund_mode=mode, note='; '.join(lines)[:300]))
+        db.session.commit()
+        return jsonify({'success': True, 'refund_amount': refund, 'refund_mode': mode,
+                        'new_total': bill.total_amount, 'payment_status': bill.payment_status})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Return failed: {e}")
+        return jsonify({'success': False, 'error': 'Could not save the return'}), 500
+
+# --- Offers on items that are about to expire --------------------------------
+def _offer_pct(value):
+    """Offer % for a product (1-90), or None to remove the offer."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(v, 1) if 0 < v <= 90 else None
+
+@app.route('/api/offers/expiring', methods=['POST', 'DELETE'])
+def offers_expiring():
+    """Put the same offer on every product expiring within `days` (default 7,
+    not yet expired, in stock) - or remove all expiry offers with DELETE."""
+    if request.method == 'DELETE':
+        n = Product.query.filter(Product.offer_percent.isnot(None)).update({'offer_percent': None})
+        db.session.commit()
+        return jsonify({'success': True, 'cleared': n})
+    data = request.get_json() or {}
+    pct = _offer_pct(data.get('percent'))
+    if pct is None:
+        return jsonify({'success': False, 'error': 'Choose an offer between 1% and 90%'}), 400
+    try:
+        days = min(max(int(data.get('days', 7)), 1), 60)
+    except (TypeError, ValueError):
+        days = 7
+    today = ist_today()
+    rows = Product.query.filter(Product.expiry_date.isnot(None), Product.expiry_date >= today,
+                                Product.expiry_date <= today + timedelta(days=days),
+                                Product.stock_quantity > 0).all()
+    for p in rows:
+        p.offer_percent = pct
+    db.session.commit()
+    return jsonify({'success': True, 'count': len(rows), 'percent': pct})
+
+@app.route('/export/gst.csv')
+def export_gst():
+    """GST summary for a month, grouped by HSN and rate (for the accountant)."""
+    raw = (request.args.get('month') or '').strip()          # YYYY-MM, default this month
+    today = ist_today()
+    try:
+        y, m = (int(x) for x in raw.split('-')) if raw else (today.year, today.month)
+        first = today.replace(year=y, month=m, day=1)
+    except (ValueError, TypeError):
+        first = today.replace(day=1)
+    nxt = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
+    start, end = ist_day_start_utc(first), ist_day_start_utc(nxt)
+    groups = {}
+    bills = Bill.query.filter(Bill.created_at >= start, Bill.created_at < end,
+                              Bill.payment_status != 'cancelled').all()
+    for b in bills:
+        keep = ((b.subtotal - (b.discount_amount or 0)) / b.subtotal) if b.subtotal else 0
+        for it in b.items:
+            rate = it.gst_rate if (b.tax_amount and it.gst_rate is not None) else 0
+            key = (it.hsn_code or '', rate)
+            g = groups.setdefault(key, [0.0, 0.0])
+            taxable = it.total_price * keep
+            g[0] += taxable
+            g[1] += taxable * rate / 100
+    rows = [[hsn or '(no HSN)', f'{rate:g}%', round(t, 2), round(g / 2, 2), round(g / 2, 2), round(g, 2), round(t + g, 2)]
+            for (hsn, rate), (t, g) in sorted(groups.items())]
+    rows.append(['TOTAL', '', round(sum(r[2] for r in rows), 2), round(sum(r[3] for r in rows), 2),
+                 round(sum(r[4] for r in rows), 2), round(sum(r[5] for r in rows), 2), round(sum(r[6] for r in rows), 2)])
+    return _csv_response(f"GST_Summary_{first.strftime('%b-%Y')}.csv",
+                         ['HSN', 'GST rate', 'Taxable value (Rs)', 'CGST (Rs)', 'SGST (Rs)', 'Total GST (Rs)', 'Total (Rs)'], rows)
+
+@app.route('/export/backup.json')
+def export_backup():
+    """Full copy of the shop's data in one file (keep it on the phone / Drive)."""
+    import json
+    from flask import Response
+    def rows(model, skip=()):
+        out = []
+        for r in model.query.all():
+            d = {}
+            for c in model.__table__.columns:
+                if c.name in skip:
+                    continue
+                v = getattr(r, c.name)
+                d[c.name] = v.isoformat() if hasattr(v, 'isoformat') else v
+            out.append(d)
+        return out
+    dump = {'app': 'Kirana Konnect', 'version': APP_VERSION, 'exported_at_ist': ist_now().strftime('%d/%m/%Y %I:%M %p'),
+            'shop': rows(User, skip=('password_hash', 'owner_pin_hash')),
+            'products': rows(Product), 'customers': rows(Customer, skip=('aadhar_number',)), 'bills': rows(Bill),
+            'bill_items': rows(BillItem), 'payments': rows(Payment), 'bill_returns': rows(BillReturn),
+            'expenses': rows(Expense), 'suppliers': rows(Supplier), 'supplier_entries': rows(SupplierEntry),
+            'day_closings': rows(DayClose), 'staff': rows(Staff)}
+    name = f"KiranaKonnect_Backup_{ist_now().strftime('%d-%b-%Y')}.json"
+    return Response(json.dumps(dump, ensure_ascii=False, indent=1), mimetype='application/json',
+                    headers={'Content-Disposition': f'attachment; filename="{name}"'})
+
+@app.route('/bills')
+def bills_page():
+    return render_template('bills.html')
+
+# --- Excel-friendly CSV exports (open in Excel / Google Sheets) -----------------
+def _csv_response(filename, header, rows):
+    import csv, io
+    from flask import Response
+    buf = io.StringIO()
+    buf.write('﻿')  # BOM so Excel shows ₹ and Hindi correctly
+    w = csv.writer(buf)
+    w.writerow(header)
+    w.writerows(rows)
+    return Response(buf.getvalue(), mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+
+@app.route('/export/<kind>.csv')
+def export_csv(kind):
+    stamp = ist_now().strftime('%d-%b-%Y')
+    if kind == 'products':
+        rows = [[p.name, p.category or '', p.barcode or '', 'kg' if p.is_weight_based else 'piece',
+                 p.cost_price or 0, (p.price_per_kg or p.price) if p.is_weight_based else p.price,
+                 p.stock_quantity, p.reorder_level, p.expiry_date.strftime('%d/%m/%Y') if p.expiry_date else '']
+                for p in Product.query.order_by(Product.name).all()]
+        return _csv_response(f'Stock_{stamp}.csv', ['Product', 'Category', 'Barcode', 'Unit', 'Buy price (Rs)',
+                             'Sell price (Rs)', 'Stock', 'Reorder level', 'Expiry (DD/MM/YYYY)'], rows)
+    if kind == 'bills':
+        rows = [[b.bill_number, ist_str(b.created_at, '%d/%m/%Y'), ist_str(b.created_at, '%I:%M %p'),
+                 b.customer.name if b.customer else (b.customer_name or 'Walk-in Customer'),
+                 b.customer.phone if b.customer else '', b.payment_mode, b.payment_status,
+                 b.subtotal, b.tax_amount or 0, b.discount_amount or 0, b.total_amount, len(b.items)]
+                for b in Bill.query.order_by(Bill.created_at.desc()).all()]
+        return _csv_response(f'Bills_{stamp}.csv', ['Bill No', 'Date', 'Time', 'Customer', 'Phone', 'Payment mode',
+                             'Status', 'Subtotal (Rs)', 'GST (Rs)', 'Discount (Rs)', 'Total (Rs)', 'Items'], rows)
+    if kind == 'udhar':
+        rows = []
+        for c in Customer.query.order_by(Customer.name).all():
+            bal = c.outstanding_balance
+            if bal > 0:
+                rows.append([c.name, c.phone, c.address or '', round(bal, 2)])
+        rows.sort(key=lambda r: -r[3])
+        return _csv_response(f'Udhar_{stamp}.csv', ['Customer', 'Phone', 'Address', 'Udhar due (Rs)'], rows)
+    return jsonify({'success': False, 'error': 'Unknown export'}), 404
 
 @app.route('/api/staff', methods=['GET', 'POST'])
 def staff_api():
@@ -1678,7 +2810,7 @@ def customers_with_balance():
                 'address': c.address,
                 'created_at': c.created_at.strftime('%Y-%m-%d') if c.created_at else None,
                 'outstanding_balance': balance,
-                'last_credit_at': last_credit.created_at.isoformat() if last_credit else None
+                'last_credit_at': utc_iso(last_credit.created_at) if last_credit else None
             })
     result.sort(key=lambda x: x['outstanding_balance'], reverse=True)
     return jsonify({'customers': result})
@@ -1695,16 +2827,8 @@ def bill_pdf(bill_number):
     owner_phone = shop.phone if shop else ''
     gst = shop.gst_number if shop else None
 
-    # Register a bundled Unicode font so the rupee sign renders on any host.
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.pdfbase.pdfmetrics import registerFontFamily
-    font_dir = os.path.join(app.root_path, 'static', 'vendor', 'fonts')
-    if 'DejaVu' not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont('DejaVu', os.path.join(font_dir, 'DejaVuSans.ttf')))
-        pdfmetrics.registerFont(TTFont('DejaVu-Bold', os.path.join(font_dir, 'DejaVuSans-Bold.ttf')))
-        registerFontFamily('DejaVu', normal='DejaVu', bold='DejaVu-Bold',
-                           italic='DejaVu', boldItalic='DejaVu-Bold')
+    # Bundled Unicode font so the rupee sign renders on any host.
+    register_pdf_fonts()
 
     GREEN = colors.HexColor('#4CAF50')
     DARK = colors.HexColor('#333333')
@@ -1726,9 +2850,10 @@ def bill_pdf(bill_number):
     inv_style = ParagraphStyle('Inv', parent=styles['Normal'], fontSize=12, fontName='DejaVu',
                                textColor=colors.white, alignment=2)
     header_inner = Table([
-        [Paragraph(f"<b>{shop_name}</b>", shop_style),
+        [Paragraph(f"<b>{pdf_text(shop_name)}</b>", shop_style),
          Paragraph("<b>TAX INVOICE</b>" if gst else "<b>INVOICE</b>", inv_style)],
-        [Paragraph((f"GSTIN: {gst} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
+        [Paragraph((f"{pdf_text(shop.shop_address)}<br/>" if shop and shop.shop_address else "")
+                   + (f"GSTIN: {pdf_text(gst)} &nbsp;&nbsp; " if gst else "") + (f"Ph: +91 {owner_phone}" if owner_phone else ""), sub_style),
          Paragraph(f"# {bill.bill_number}", inv_style)],
     ], colWidths=[4.5 * inch, 2.6 * inch])
     header_inner.setStyle(TableStyle([
@@ -1748,8 +2873,8 @@ def bill_pdf(bill_number):
     customer_phone = f"+91 {bill.customer.phone}" if bill.customer else ''
     meta = Table([
         [Paragraph('BILLED TO', label), Paragraph('DATE', label), Paragraph('PAYMENT', label)],
-        [Paragraph(f"<b>{customer_name}</b><br/>{customer_phone}", value),
-         Paragraph(bill.created_at.strftime('%d %b %Y, %I:%M %p'), value),
+        [Paragraph(f"<b>{pdf_text(customer_name)}</b><br/>{pdf_text(customer_phone)}", value),
+         Paragraph(ist_str(bill.created_at, '%d/%m/%Y, %I:%M %p'), value),
          Paragraph(f"{bill.payment_mode.title()} &bull; "
                    f"<font color='{'#4CAF50' if bill.payment_status == 'paid' else '#F44336'}'>"
                    f"<b>{bill.payment_status.upper()}</b></font>", value)],
@@ -1768,9 +2893,15 @@ def bill_pdf(bill_number):
     rows = [[Paragraph(h, head) for h in ('#', 'ITEM', 'QTY', 'RATE', 'AMOUNT')]]
     for i, item in enumerate(bill.items, 1):
         qty = f"{item.quantity:g} kg" if item.weight else f"{item.quantity:g}"
-        rows.append([Paragraph(str(i), cell), Paragraph(item.item_name, cell),
-                     Paragraph(qty, cell_r), Paragraph(f"₹{item.unit_price:,.2f}", cell_r),
-                     Paragraph(f"₹{item.total_price:,.2f}", cell_r)])
+        extra = []
+        if item.hsn_code:
+            extra.append(f"HSN {pdf_text(item.hsn_code)}")
+        if bill.tax_amount and item.gst_rate is not None:
+            extra.append(f"GST {item.gst_rate:g}%")
+        name_html = pdf_text(item.item_name) + (f"<br/><font size='7.5' color='#777777'>{' · '.join(extra)}</font>" if extra else '')
+        rows.append([Paragraph(str(i), cell), Paragraph(name_html, cell),
+                     Paragraph(qty, cell_r), Paragraph(inr(item.unit_price), cell_r),
+                     Paragraph(inr(item.total_price), cell_r)])
     items_table = Table(rows, colWidths=[0.4 * inch, 3.5 * inch, 0.9 * inch, 1.15 * inch, 1.15 * inch],
                         repeatRows=1)
     items_table.setStyle(TableStyle([
@@ -1789,13 +2920,13 @@ def bill_pdf(bill_number):
     tot_val = ParagraphStyle('TotV', parent=styles['Normal'], fontSize=10, textColor=DARK, alignment=2, fontName='DejaVu')
     grand_l = ParagraphStyle('GrL', parent=styles['Normal'], fontSize=13, alignment=2,
                              textColor=colors.white, fontName='DejaVu-Bold')
-    totals_rows = [[Paragraph('Subtotal', tot_lbl), Paragraph(f"₹{bill.subtotal:,.2f}", tot_val)]]
-    if bill.tax_amount:
-        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(f"₹{bill.tax_amount:,.2f}", tot_val)])
+    totals_rows = [[Paragraph('Subtotal', tot_lbl), Paragraph(inr(bill.subtotal), tot_val)]]
     if bill.discount_amount:
-        totals_rows.append([Paragraph('Discount', tot_lbl), Paragraph(f"- ₹{bill.discount_amount:,.2f}", tot_val)])
-    totals_rows.append([Paragraph('TOTAL', grand_l), Paragraph(f"₹{bill.total_amount:,.2f}", grand_l)])
-    totals = Table(totals_rows, colWidths=[1.6 * inch, 1.5 * inch], hAlign='RIGHT')
+        totals_rows.append([Paragraph('Discount', tot_lbl), Paragraph(f"- {inr(bill.discount_amount)}", tot_val)])
+    if bill.tax_amount:
+        totals_rows.append([Paragraph('GST', tot_lbl), Paragraph(inr(bill.tax_amount), tot_val)])
+    totals_rows.append([Paragraph('TOTAL', grand_l), Paragraph(inr(bill.total_amount), grand_l)])
+    totals = Table(totals_rows, colWidths=[1.4 * inch, 2.0 * inch], hAlign='RIGHT')
     totals.setStyle(TableStyle([
         ('BACKGROUND', (0, len(totals_rows) - 1), (-1, len(totals_rows) - 1), GREEN),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
@@ -1810,7 +2941,7 @@ def bill_pdf(bill_number):
     foot = ParagraphStyle('Foot', parent=styles['Normal'], fontSize=9,
                           textColor=GREY, alignment=1, fontName='DejaVu')
     if bill.generated_by:
-        story.append(Paragraph(f"Billed by: {bill.generated_by}", foot))
+        story.append(Paragraph(f"Billed by: {pdf_text(bill.generated_by)}", foot))
     story.append(Spacer(1, 4))
     story.append(Paragraph("Thank you for shopping with us! &nbsp;&bull;&nbsp; "
                            "Goods once sold are not returnable.", foot))
@@ -1818,7 +2949,7 @@ def bill_pdf(bill_number):
     doc.build(story)
     buffer.seek(0)
     return send_file(buffer, mimetype='application/pdf', as_attachment=False,
-                     download_name=f"{bill.bill_number}.pdf")
+                     download_name=f"Invoice_{bill.bill_number}_{ist_str(bill.created_at, '%d-%b-%Y')}.pdf")
 
 @app.route('/api/payments', methods=['POST'])
 def create_payment():
@@ -1834,6 +2965,16 @@ def create_payment():
         
         if not customer_id or not amount:
             return jsonify({'error': 'Customer ID and amount are required'}), 400
+        try:
+            amount = round(float(amount), 2)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Amount must be a number'}), 400
+        if not (0 < amount <= 1e9):
+            return jsonify({'error': 'Amount must be more than ₹0'}), 400
+        if payment_mode not in ('cash', 'online', 'upi', 'card'):
+            payment_mode = 'cash'
+        if not db.session.get(Customer, int(customer_id)):
+            return jsonify({'error': 'Customer not found'}), 404
         
         # Create new payment record
         payment = Payment(
@@ -1857,6 +2998,7 @@ def create_payment():
         return jsonify({'message': 'Payment recorded successfully', 'payment_id': payment.id}), 201
         
     except Exception as e:
+        db.session.rollback()
         logging.error(f"Error creating payment: {str(e)}")
         return jsonify({'error': 'Failed to record payment'}), 500
 
@@ -1869,8 +3011,10 @@ def get_notifications():
         
         # Run notification checks to ensure latest data
         try:
-            check_subscription_expiry()
-            check_backup_status()
+            # check_subscription_expiry() and check_backup_status() used to
+            # create fake alarms ("subscription expires in 3 days", "enable
+            # cloud backup") - there is no subscription or backup system, so
+            # they only scared shop owners. Re-enable once those exist.
             check_low_stock()
             check_expiring_products()
         except Exception as check_error:
@@ -1890,7 +3034,7 @@ def get_notifications():
                     'message': notif.message,
                     'type': notif.type,
                     'priority': notif.priority,
-                    'created_at': notif.created_at.isoformat(),
+                    'created_at': utc_iso(notif.created_at),
                     'time_ago': get_time_ago(notif.created_at)
                 })
             except Exception as item_error:
@@ -2138,8 +3282,8 @@ def api_sales_data():
         period = request.args.get('period', 'weekly')  # daily, weekly, monthly
         from datetime import datetime, timedelta
         
-        # Calculate date range based on period
-        today = datetime.now()
+        # Calculate date range based on period, in India time
+        today = ist_now()
         if period == 'daily':
             from_datetime = today.replace(hour=0, minute=0, second=0, microsecond=0)
             to_datetime = today.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -2157,11 +3301,14 @@ def api_sales_data():
             from_datetime = from_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
             to_datetime = today.replace(hour=23, minute=59, second=59, microsecond=999999)
         
-        # Build query for the period
+        # Build query for the period (DB stores UTC)
+        # All sales made in the period, including udhar (credit) sales -
+        # those used to be left out entirely (audit D5). Money actually
+        # received is reported separately as cashReceived.
         query = Bill.query.filter(
-            Bill.payment_status == 'paid',
-            Bill.created_at >= from_datetime,
-            Bill.created_at <= to_datetime
+            Bill.payment_status != 'cancelled',
+            Bill.created_at >= from_datetime - IST_OFFSET,
+            Bill.created_at <= to_datetime - IST_OFFSET
         )
         
         bills = query.all()
@@ -2217,7 +3364,7 @@ def api_sales_data():
                 
                 if product:
                     # Calculate investment and profit for this item
-                    item_investment = (product.cost_price or 0) * item.quantity
+                    item_investment = (product.cost_price or 0) * sold_quantity(item)
                     item_profit = item.total_price - item_investment
                     
                     bill_investment += item_investment
@@ -2243,13 +3390,15 @@ def api_sales_data():
                             'product_id': product.id
                         }
                     top_selling_items[item_name]['amount'] += item.total_price
-                    top_selling_items[item_name]['quantity'] += item.quantity
+                    top_selling_items[item_name]['quantity'] += sold_quantity(item)
                     top_selling_items[item_name]['investment'] += item_investment
                     top_selling_items[item_name]['profit'] += item_profit
             
             # Add daily data for chart
+            local_dt = to_ist(bill.created_at)
             daily_data.append({
-                'date': bill.created_at.strftime('%Y-%m-%d'),
+                'date': local_dt.strftime('%Y-%m-%d'),
+                'hour_bucket': local_dt.strftime('%Y-%m-%d ') + f"{local_dt.hour // 4 * 4:02d}:00",
                 'investment': bill_investment,
                 'profit': bill_profit,
                 'revenue': bill.total_amount
@@ -2291,7 +3440,11 @@ def api_sales_data():
         
         # Fill with real data
         for data in daily_data:
-            date_key = data['date']
+            date_key = data['hour_bucket'] if period == 'daily' else data['date']
+            if period == 'monthly':
+                # Bucket into the latest weekly chart date on/before the sale
+                earlier = [d for d in chart_dates if d <= data['date']]
+                date_key = earlier[-1] if earlier else chart_dates[0]
             if date_key in chart_data:
                 chart_data[date_key]['investment'] += data['investment']
                 chart_data[date_key]['profit'] += data['profit']
@@ -2334,7 +3487,7 @@ def api_sales_data():
                 'amount': bill.total_amount,
                 'payment_mode': bill.payment_mode,
                 'payment_status': bill.payment_status,
-                'created_at': bill.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'created_at': ist_str(bill.created_at, '%Y-%m-%d %H:%M:%S')
             })
         
         # Calculate dynamic total combined investment 
@@ -2364,11 +3517,16 @@ def api_sales_data():
                 
                 if product and product.cost_price:
                     # Add cost price of sold quantity for this period
-                    period_sold_amount += (product.cost_price * item.quantity)
+                    period_sold_amount += (product.cost_price * sold_quantity(item))
 
         # Calculate remaining investment (simplified calculation)
         remaining_investment = max(0, total_combined_investment - period_sold_amount)
         
+        # Shop expenses (rent, bijli, salary...) in the same period -> true profit
+        period_expenses = round(sum(e.amount for e in Expense.query.filter(
+            Expense.created_at >= from_datetime - IST_OFFSET,
+            Expense.created_at <= to_datetime - IST_OFFSET).all()), 2)
+
         return jsonify({
             'success': True,
             'data': {
@@ -2383,6 +3541,10 @@ def api_sales_data():
                 'profitPercentage': round((total_profit / total_revenue) * 100) if total_revenue > 0 else 0,
                 'avgBillValue': total_revenue / total_bills if total_bills > 0 else 0,
                 'paymentModes': payment_modes,
+                'expenses': period_expenses,
+                'netProfit': round(total_profit - period_expenses, 2),
+                'udharSales': payment_modes['credit']['amount'],
+                'cashReceived': total_revenue - payment_modes['credit']['amount'],
                 'categories': categories,
                 'topItems': top_items,  # Period-based top items
                 'chartData': {
@@ -2402,6 +3564,12 @@ def api_sales_data():
 def export_business_data():
     """Export comprehensive business data as PDF"""
     try:
+        register_pdf_fonts()
+        # Name cells go through Paragraph so Hindi names use the Devanagari
+        # font and odd characters (&, <) are escaped.
+        _name_style = ParagraphStyle('NameCell', fontName='DejaVu', fontSize=9, leading=11, alignment=1)
+        def name_cell(text):
+            return Paragraph(pdf_text(text), _name_style)
         # Create PDF buffer
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=0.75*inch, leftMargin=0.75*inch,
@@ -2418,7 +3586,7 @@ def export_business_data():
             spaceAfter=5,
             alignment=1,
             textColor=colors.HexColor('#2563eb'),
-            fontName='Helvetica-Bold'
+            fontName='DejaVu-Bold'
         )
         
         # Simple title style
@@ -2429,7 +3597,7 @@ def export_business_data():
             spaceAfter=15,
             alignment=1,
             textColor=colors.HexColor('#1f2937'),
-            fontName='Helvetica'
+            fontName='DejaVu'
         )
         
         # Clean section heading
@@ -2440,7 +3608,7 @@ def export_business_data():
             spaceAfter=10,
             spaceBefore=20,
             textColor=colors.HexColor('#1f2937'),
-            fontName='Helvetica-Bold',
+            fontName='DejaVu-Bold',
             backColor=colors.HexColor('#f8fafc'),
             borderWidth=1,
             borderColor=colors.HexColor('#e2e8f0'),
@@ -2456,7 +3624,7 @@ def export_business_data():
             parent=styles['Normal'],
             fontSize=10,
             textColor=colors.HexColor('#374151'),
-            fontName='Helvetica'
+            fontName='DejaVu'
         )
         
         # Simple summary style
@@ -2465,7 +3633,7 @@ def export_business_data():
             parent=styles['Normal'],
             fontSize=9,
             textColor=colors.HexColor('#6b7280'),
-            fontName='Helvetica',
+            fontName='DejaVu',
             alignment=1
         )
         
@@ -2474,17 +3642,18 @@ def export_business_data():
         
         # Professional Header with branding
         header_table = Table([
-            ['🏪 KIRANA KONNECT', 'Business Report'],
-            ['Your Store Management Solution', f'Generated: {datetime.now().strftime("%d-%m-%Y")}']
+            [((User.query.first().shop_name if User.query.first() else None) or 'Kirana Konnect').upper(), 'Business Report'],
+            ['Your Store Management Solution', f'Generated: {ist_now().strftime("%d/%m/%Y")}']
         ], colWidths=[3*inch, 3*inch])
         header_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#2563eb')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (0, 0), 'DejaVu-Bold'),
             ('FONTSIZE', (0, 0), (0, 0), 16),
-            ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, 0), 'DejaVu-Bold'),
             ('FONTSIZE', (1, 0), (1, 0), 14),
-            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
+            ('FONTNAME', (0, 1), (-1, 1), 'DejaVu'),
             ('FONTSIZE', (0, 1), (-1, 1), 10),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -2499,7 +3668,7 @@ def export_business_data():
         
         # Calculate summary metrics first
         products = Product.query.all()
-        bills = Bill.query.all()
+        bills = Bill.query.filter(Bill.payment_status != 'cancelled').all()
         customers = Customer.query.all()
         payments = Payment.query.all()
         
@@ -2514,16 +3683,17 @@ def export_business_data():
         
         summary_data = [
             ['Total Products in Store', str(total_products)],
-            ['Money Invested', f'₹{total_investment:,.0f}'],
-            ['Total Sales Made', f'₹{total_sales:,.0f}'],
+            ['Money Invested', inr(total_investment, 0)],
+            ['Total Sales Made', inr(total_sales, 0)],
             ['Number of Customers', str(total_customers)],
-            ['Money to Collect', f'₹{total_outstanding:,.0f}']
+            ['Money to Collect', inr(total_outstanding, 0)]
         ]
         
         summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
         summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -2546,22 +3716,23 @@ def export_business_data():
             
             for product in products[:20]:  # Show only first 20 products for simplicity
                 product_name = product.name[:25] + '...' if len(product.name) > 25 else product.name
-                buy_price = product.price if product.price else 0
+                buy_price = product.cost_price or 0
                 sell_price = product.price if product.price else 0
                 
                 inventory_data.append([
-                    product_name,
-                    f"₹{buy_price:.0f}",
-                    f"₹{sell_price:.0f}",
+                    name_cell(product_name),
+                    inr(buy_price, 0),
+                    inr(sell_price, 0),
                     str(product.stock_quantity)
                 ])
             
             inventory_table = Table(inventory_data, colWidths=[3*inch, 1.2*inch, 1.2*inch, 1*inch])
             inventory_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTSIZE', (0, 1), (-1, -1), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -2594,17 +3765,18 @@ def export_business_data():
                 
                 bills_data.append([
                     bill.bill_number,
-                    customer_name,
-                    f"₹{bill.total_amount:,.0f}",
-                    bill.created_at.strftime('%d-%m-%Y')
+                    name_cell(customer_name),
+                    inr(bill.total_amount, 0),
+                    ist_str(bill.created_at, '%d/%m/%Y')
                 ])
             
             bills_table = Table(bills_data, colWidths=[1.8*inch, 2*inch, 1.2*inch, 1.4*inch])
             bills_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTSIZE', (0, 1), (-1, -1), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -2621,7 +3793,7 @@ def export_business_data():
                 story.append(Paragraph(f"Showing recent 15 out of {len(bills)} total sales", summary_style))
                 
             story.append(Spacer(1, 15))
-            story.append(Paragraph(f"Total Sales Made: ₹{sum([b.total_amount for b in bills]):,.0f}", normal_style))
+            story.append(Paragraph("Total Sales Made: " + inr(sum([b.total_amount for b in bills]), 0), normal_style))
         else:
             story.append(Paragraph("No sales found", normal_style))
         
@@ -2638,17 +3810,18 @@ def export_business_data():
                 customer_name = customer.name[:25] + '...' if len(customer.name) > 25 else customer.name
                 
                 customer_data.append([
-                    customer_name,
+                    name_cell(customer_name),
                     customer.phone,
-                    f"₹{outstanding:,.0f}" if outstanding > 0 else "Paid"
+                    inr(outstanding, 0) if outstanding > 0 else "Paid"
                 ])
             
             customer_table = Table(customer_data, colWidths=[2.5*inch, 1.8*inch, 1.5*inch])
             customer_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTSIZE', (0, 1), (-1, -1), 9),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
@@ -2665,7 +3838,7 @@ def export_business_data():
                 story.append(Paragraph(f"Showing 15 out of {len(customers)} customers", summary_style))
                 
             story.append(Spacer(1, 15))
-            story.append(Paragraph(f"Total Money to Collect: ₹{sum([c.outstanding_balance for c in customers]):,.0f}", normal_style))
+            story.append(Paragraph("Total Money to Collect: " + inr(sum([c.outstanding_balance for c in customers]), 0), normal_style))
         else:
             story.append(Paragraph("No customers found", normal_style))
         
@@ -2675,14 +3848,15 @@ def export_business_data():
         # Footer with company branding
         footer_table = Table([
             ['Thank you for using Kirana Konnect', 'Report End'],
-            ['© 2024 Kirana Konnect Inc.', f'Page Generated: {datetime.now().strftime("%d-%m-%Y")}']
+            ['© 2024 Kirana Konnect Inc.', f'Page Generated: {ist_now().strftime("%d/%m/%Y")}']
         ], colWidths=[3*inch, 3*inch])
         footer_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVu'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#374151')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'DejaVu-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 11),
-            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
+            ('FONTNAME', (0, 1), (-1, 1), 'DejaVu'),
             ('FONTSIZE', (0, 1), (-1, 1), 8),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -2702,7 +3876,7 @@ def export_business_data():
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f'kirana_business_data_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf',
+            download_name=f'Business_Report_{ist_now().strftime("%d-%b-%Y")}.pdf',
             mimetype='application/pdf'
         )
         
@@ -2776,8 +3950,12 @@ def api_expired_products():
     try:
         from datetime import date, timedelta
         
-        today = date.today()
-        next_week = today + timedelta(days=7)
+        today = ist_today()
+        try:
+            window_days = min(max(int(request.args.get('days', 7)), 1), 90)
+        except (TypeError, ValueError):
+            window_days = 7
+        next_week = today + timedelta(days=window_days)
         
         # Get expired products
         expired_products = Product.query.filter(
@@ -2798,7 +3976,7 @@ def api_expired_products():
                 'id': product.id,
                 'name': product.name,
                 'price': product.price,
-                'expiry_date': product.expiry_date.strftime('%d-%m-%Y'),
+                'expiry_date': product.expiry_date.strftime('%d/%m/%Y'),
                 'status': 'expired',
                 'days_info': f"Expired {days_expired} days ago",
                 'level': 'critical',
@@ -2813,7 +3991,10 @@ def api_expired_products():
                 'id': product.id,
                 'name': product.name,
                 'price': product.price,
-                'expiry_date': product.expiry_date.strftime('%d-%m-%Y'),
+                'expiry_date': product.expiry_date.strftime('%d/%m/%Y'),
+                'offer_percent': product.offer_percent,
+                'is_weight_based': product.is_weight_based,
+                'sell_price': (product.price_per_kg or product.price) if product.is_weight_based else product.price,
                 'status': 'expiring',
                 'days_info': f"Expires in {days_to_expire} days",
                 'level': 'low',
@@ -2842,9 +4023,13 @@ def no_cache_html(response):
     their normal caching via Flask's static handler.
     """
     if not request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        # 'no-cache' (not 'no-store'): the browser must re-check with the
+        # server before reusing a page, so stale pre-login pages never show,
+        # but Back/Forward can still restore the previous screen instantly
+        # from memory (bfcache) like a native app. app-ui.js re-checks login
+        # when a page is restored that way.
+        response.headers['Cache-Control'] = 'no-cache, private, max-age=0'
         response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
     return response
 
 # Global error handlers: JSON for API calls, a redirect to the dashboard for

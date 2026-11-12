@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Kirana Konnect</title>
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <meta name="theme-color" content="#4CAF50">
+    <style>
+        :root { --brand: #4CAF50; --brand-dark: #2E7D32; --ink: #1F2933; --muted: #52606D;
+                --line: #E4E7EB; --bg: #F5F7F5; --card: #FFFFFF; --danger: #C62828; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--ink);
+               font: 17px/1.6 Inter, system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
+        header { background: var(--brand); color: #fff; padding: 16px; display: flex; align-items: center; gap: 12px; }
+        header a { color: #fff; text-decoration: none; font-size: 22px; min-width: 48px; min-height: 48px;
+                   display: inline-flex; align-items: center; justify-content: center; }
+        header h1 { font-size: 20px; margin: 0; font-weight: 700; }
+        main { max-width: 720px; margin: 0 auto; padding: 16px; }
+        .card { background: var(--card); border-radius: 14px; padding: 18px 16px; margin-bottom: 14px;
+                border: 1px solid var(--line); }
+        h2 { font-size: 18px; margin: 0 0 8px; }
+        p, li { color: var(--ink); overflow-wrap: anywhere; }
+        .muted { color: var(--muted); font-size: 15px; }
+        ul { padding-left: 20px; margin: 6px 0; }
+        label { display: block; font-weight: 600; margin: 14px 0 6px; }
+        input { width: 100%; font-size: 17px; padding: 14px; border: 1px solid #9AA5B1; border-radius: 10px; }
+        button, .btn { display: block; width: 100%; min-height: 52px; margin-top: 18px; border: 0; border-radius: 12px;
+                       font-size: 17px; font-weight: 700; color: #fff; background: var(--brand-dark);
+                       text-align: center; text-decoration: none; line-height: 52px; cursor: pointer; }
+        button.danger { background: var(--danger); }
+        .alert { border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+        .alert.err { background: #FDECEA; color: #8E1C1C; }
+        .alert.ok { background: #E8F5E9; color: #1B5E20; }
+        .contact a { color: var(--brand-dark); font-weight: 600; }
+        footer { text-align: center; padding: 8px 16px 28px; font-size: 14px; }
+        footer a { color: var(--muted); margin: 0 8px; }
+    </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
+</head>
+<body>
+<header>
+    <a href="javascript:history.length > 1 ? history.back() : location.href='/'" aria-label="Back">&larr;</a>
+    <h1>{{ title }}</h1>
+</header>
+<main>
+{% if page == 'privacy' %}
+    <div class="card">
+        <p class="muted">Last updated: {{ updated }}</p>
+        <p>Kirana Konnect helps a shop owner keep bills, stock and udhar (credit) records. This page explains, in simple words, what information we keep and why.</p>
+    </div>
+    <div class="card">
+        <h2>What we collect</h2>
+        <ul>
+            <li><b>About the shop owner:</b> name, mobile number, email (optional), shop name, GSTIN and Udyam number (optional), and your password (stored only in scrambled form).</li>
+            <li><b>Shop records you enter:</b> products, prices, stock, bills, payments and udhar.</li>
+            <li><b>About your customers (entered by you):</b> name, mobile number and address (optional), and what they bought or owe.</li>
+            <li><b>Camera:</b> used only to scan barcodes on your phone. Photos are not saved or sent to us.</li>
+        </ul>
+        <p>We do <b>not</b> collect Aadhaar numbers, contacts, location or SMS.</p>
+    </div>
+    <div class="card">
+        <h2>Why we use it</h2>
+        <ul>
+            <li>To sign you in and keep your account safe.</li>
+            <li>To make bills, invoices (PDF) and reports for your shop.</li>
+            <li>To show alerts for low stock, expiring items and pending udhar.</li>
+        </ul>
+        <p>We do not sell your data and do not show ads.</p>
+    </div>
+    <div class="card">
+        <h2>Your customers' data</h2>
+        <p>When you add a customer, you decide what to save and why. Please tell your customers that you keep their name, number and udhar record in this app, and delete it when they ask.</p>
+    </div>
+    <div class="card">
+        <h2>Where it is stored and for how long</h2>
+        <p>Data is stored on secure servers and sent over an encrypted (HTTPS) connection. We keep it while your account is active. When you delete your account, all your shop data is deleted. Keep your own copy of bills if the law needs you to (for example, GST records).</p>
+    </div>
+    <div class="card">
+        <h2>Your rights</h2>
+        <ul>
+            <li>See and correct your details in <b>Profile</b>.</li>
+            <li>Download a report of your data from <b>Profile &rarr; Export business data</b>.</li>
+            <li>Delete your account and all data: <a href="/account-deletion">Delete account</a>.</li>
+            <li>Ask a question or make a complaint to our grievance contact below.</li>
+        </ul>
+    </div>
+    <div class="card contact">
+        <h2>Grievance contact</h2>
+        {% include 'public_contact.html' %}
+    </div>
+{% elif page == 'terms' %}
+    <div class="card">
+        <p class="muted">Last updated: {{ updated }}</p>
+        <p>By creating an account you agree to these terms.</p>
+    </div>
+    <div class="card">
+        <h2>Using the app</h2>
+        <ul>
+            <li>Kirana Konnect is a tool to record your shop's bills, stock and udhar. You are responsible for the records you enter and for the prices and taxes you charge.</li>
+            <li>Keep your password secret. Anyone who has it can see your shop's data.</li>
+            <li>Bills and reports are made from what you enter. Please check them before sharing.</li>
+            <li>Only add GST to bills if your shop is GST-registered.</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h2>Customer data</h2>
+        <p>You collect your customers' details for your own shop. Only save what you need, keep it private, and delete it if a customer asks.</p>
+    </div>
+    <div class="card">
+        <h2>Payments and refunds</h2>
+        <p>The app only records payments between you and your customers; no money passes through Kirana Konnect. The app is currently free to use. If paid plans are added later, the price, what you get and the refund rules will be shown before you pay.</p>
+    </div>
+    <div class="card">
+        <h2>Availability</h2>
+        <p>We work to keep the service running, but it may sometimes be slow or unavailable. Download your report regularly to keep your own copy.</p>
+    </div>
+    <div class="card">
+        <h2>Closing your account</h2>
+        <p>You can delete your account at any time from <a href="/account-deletion">Delete account</a>.</p>
+    </div>
+    <div class="card contact">
+        <h2>Contact</h2>
+        {% include 'public_contact.html' %}
+    </div>
+{% elif page == 'contact' %}
+    <div class="card contact">
+        <h2>Need help?</h2>
+        <p>Call, WhatsApp or email us.</p>
+        {% include 'public_contact.html' %}
+    </div>
+    <div class="card">
+        <h2>Common questions</h2>
+        <p><b>Forgot password?</b> On the sign-in page tap <i>Forgot Password</i>. You will need your shop's recovery code.</p>
+        <p><b>Bill shows wrong amount?</b> Check the cart and the "Add Tax" button before tapping Generate Bill.</p>
+        <p><b>Want to stop using the app?</b> <a href="/account-deletion">Delete your account</a>.</p>
+    </div>
+{% elif page == 'deletion' %}
+    {% if done %}
+        <div class="alert ok" role="status"><b>Your account and all shop data have been deleted.</b> Thank you for using Kirana Konnect.</div>
+        <a class="btn" href="/signin">Done</a>
+    {% else %}
+        {% if error %}<div class="alert err" role="alert">{{ error }}</div>{% endif %}
+        <div class="card">
+            <h2>What will be deleted</h2>
+            <p>Your shop account <b>and all its data</b>: products and stock, bills, customers and udhar records, payments, staff and alerts. This cannot be undone.</p>
+            <p class="muted">Deletion happens immediately. Nothing is kept by us afterwards. If you need your bills for GST or accounts, download your report first.</p>
+            {% if signed_in %}<a class="btn" href="/export-business-data">Download my report (PDF)</a>{% endif %}
+        </div>
+        <form class="card" method="POST" action="/account-deletion" autocomplete="off">
+            <h2>Confirm deletion</h2>
+            <label for="identifier">Registered mobile number or email</label>
+            <input id="identifier" name="identifier" inputmode="email" required value="{{ identifier or '' }}">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <label for="confirm">Type <b>DELETE</b> to confirm</label>
+            <input id="confirm" name="confirm" autocapitalize="characters" required>
+            <button class="danger" type="submit">Delete my account permanently</button>
+        </form>
+        <p class="muted" style="padding: 0 4px">Can't sign in? Contact us below and we will delete your account within 7 days after confirming it is yours.</p>
+        <div class="card contact">{% include 'public_contact.html' %}</div>
+    {% endif %}
+{% endif %}
+</main>
+<footer>
+    <a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/contact">Help</a>
+</footer>
+</body>
+</html>

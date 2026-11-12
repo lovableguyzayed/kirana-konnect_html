@@ -57,6 +57,8 @@
     background: #e5e7eb;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-light min-h-screen">
     <header id="header" class="bg-white shadow-sm sticky top-0 z-50">
@@ -288,7 +290,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Barcode</label>
                         <div class="flex space-x-2">
-                            <input type="text" id="barcode" placeholder="Enter or scan barcode" class="flex-1 p-3 border border-gray-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all">
+                            <input type="text" id="barcode" inputmode="numeric" style="min-width:0" placeholder="Enter or scan barcode" class="flex-1 p-3 border border-gray-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all">
                             <button type="button" class="px-4 py-3 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-all" onclick="scanBarcode()">
                                 <i class="fa-solid fa-qrcode"></i>
                             </button>
@@ -419,7 +421,13 @@
         }
 
         function openCamera() {
-            alert('Camera functionality will be implemented in future updates.');
+            // Real scanner (static/js/scanner.js); the code goes into the Barcode box.
+            window.KK_SCAN_TARGET = function (code) {
+                const box = document.getElementById('barcode');
+                if (box) { box.value = code; box.dispatchEvent(new Event('input')); }
+                KK.toast('Barcode added: ' + code, 'ok');
+            };
+            KKScan.open();
         }
 
         function uploadImage() {
@@ -427,7 +435,13 @@
         }
 
         function scanBarcode() {
-            alert('Barcode scanner will be implemented in future updates.');
+            // Real scanner (static/js/scanner.js); the code goes into the Barcode box.
+            window.KK_SCAN_TARGET = function (code) {
+                const box = document.getElementById('barcode');
+                if (box) { box.value = code; box.dispatchEvent(new Event('input')); }
+                KK.toast('Barcode added: ' + code, 'ok');
+            };
+            KKScan.open();
         }
 
         function cancelAddItem() {
@@ -536,5 +550,13 @@
         });
     </script>
     <script src="{{ url_for('static', filename='js/universal-scanner.js') }}"></script>
+<script>
+    // Arriving from the scanner with an unknown barcode: fill it in.
+    (function () {
+        const code = new URLSearchParams(location.search).get('barcode');
+        const box = document.getElementById('barcode');
+        if (code && box) box.value = code;
+    })();
+</script>
 </body>
 </html>

@@ -42,18 +42,20 @@
     scrollbar-width: none;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-poppins bg-gray-50">
     <!-- Header Section -->
     <header id="header" class="bg-white shadow-sm fixed top-0 left-0 right-0 z-10">
         <div class="flex items-center justify-between p-4">
             <div class="flex items-center space-x-3">
-                <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Owner" class="w-10 h-10 rounded-full border-2 border-primary">
+                <a href="/profile" aria-label="Profile and settings" style="display:inline-flex"><img id="owner-avatar" src="/static/icons/person.svg" alt="" class="w-10 h-10 rounded-full border-2 border-primary"></a>
                 <div>
                     <h1 class="text-lg font-bold text-dark">Kirana Konnect</h1>
-                    <p class="text-xs text-gray-600 font-medium">Sharma Kirana Store</p>
+                    <p class="text-xs text-gray-600 font-medium"></p>
                     <div class="flex flex-col space-y-1 mt-1">
-                        <span class="text-xs text-gray-500">GST: 24ABCDE1234F1Z5</span>
+                        <span class="text-xs text-gray-500"></span>
                         <span class="text-xs text-gray-500">UDYAM: UP-12-0012345</span>
                     </div>
                 </div>
@@ -81,7 +83,7 @@
                     <div class="bg-purple-100 p-2 rounded-full">
                         <i class="fa-solid fa-crown text-purple-600 text-sm"></i>
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1" style="min-width:0">
                         <p class="font-semibold text-purple-600 text-sm">Premium expires in 7 days</p>
                         <p class="text-xs text-gray-600 mt-1">Renew to continue advanced features</p>
                         <p class="text-xs text-gray-400 mt-1">3 hours ago</p>
@@ -94,7 +96,7 @@
                     <div class="bg-orange-100 p-2 rounded-full">
                         <i class="fa-solid fa-shield-exclamation text-orange-600 text-sm"></i>
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1" style="min-width:0">
                         <p class="font-semibold text-orange-600 text-sm">Data Backup Disabled</p>
                         <p class="text-xs text-gray-600 mt-1">Enable backup to protect your business data</p>
                         <p class="text-xs text-gray-400 mt-1">Just now</p>
@@ -107,7 +109,7 @@
                     <div class="bg-danger/10 p-2 rounded-full">
                         <i class="fa-solid fa-triangle-exclamation text-danger text-sm"></i>
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1" style="min-width:0">
                         <p class="font-semibold text-danger text-sm">5 items expired</p>
                         <p class="text-xs text-gray-600 mt-1">Remove from inventory immediately</p>
                         <p class="text-xs text-gray-400 mt-1">2 hours ago</p>
@@ -120,7 +122,7 @@
                     <div class="bg-accent/10 p-2 rounded-full">
                         <i class="fa-solid fa-clock text-accent text-sm"></i>
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1" style="min-width:0">
                         <p class="font-semibold text-accent text-sm">10 items low stock</p>
                         <p class="text-xs text-gray-600 mt-1">Reorder soon to avoid stockouts</p>
                         <p class="text-xs text-gray-400 mt-1">4 hours ago</p>
@@ -133,7 +135,7 @@
                     <div class="bg-secondary/10 p-2 rounded-full">
                         <i class="fa-solid fa-credit-card text-secondary text-sm"></i>
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1" style="min-width:0">
                         <p class="font-semibold text-secondary text-sm">₹1,500 pending credits</p>
                         <p class="text-xs text-gray-600 mt-1">From 3 customers - follow up required</p>
                         <p class="text-xs text-gray-400 mt-1">6 hours ago</p>
@@ -147,7 +149,7 @@
     </div>
 
     <!-- Main Content -->
-    <main id="main-content" class="pt-32 pb-20">
+    <main id="main-content" class="pt-32 pb-20" style="padding-bottom: 168px">
         <!-- Welcome Section -->
         <div id="welcome-section" class="mx-4 mb-6 bg-gradient-to-r from-primary to-green-600 rounded-xl p-4 shadow-md">
             <div class="text-white">
@@ -172,7 +174,7 @@
                 <!-- Today's Profit -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-primary cursor-pointer hover:shadow-md transition-shadow" onclick="showTodaysProfit()">
                     <div class="flex items-center justify-between">
-                        <div class="flex-1">
+                        <div class="flex-1" style="min-width:0">
                             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Today's Profit</p>
                             <p class="text-2xl font-bold text-primary mt-1" id="today-profit">₹0</p>
                             <p class="text-xs mt-1" id="profit-growth">Loading...</p>
@@ -186,12 +188,12 @@
                 <!-- Total Sales -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-secondary cursor-pointer hover:shadow-lg transition-shadow" onclick="window.location.href='/sales-report'">
                     <div class="flex items-center justify-between">
-                        <div class="flex-1">
+                        <div class="flex-1" style="min-width:0">
                             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total Sales</p>
                             <p class="text-2xl font-bold text-secondary mt-1" id="total-sales">₹0</p>
                             <p class="text-xs text-gray-500 mt-1" id="transaction-count">0 transactions</p>
                         </div>
-                        <div class="bg-secondary/10 p-3 rounded-full">
+                        <div class="bg-secondary/10 p-3 rounded-full" style="flex-shrink:0">
                             <i class="fa-solid fa-rupee-sign text-secondary text-lg"></i>
                         </div>
                     </div>
@@ -200,7 +202,7 @@
                 <!-- Udhar Ledger -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-accent cursor-pointer hover:shadow-lg transition-shadow" onclick="window.location.href='/customer-ledger'">
                     <div class="flex items-center justify-between">
-                        <div class="flex-1">
+                        <div class="flex-1" style="min-width:0">
                             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Udhar Ledger</p>
                             <p class="text-sm font-semibold text-accent mt-1" id="customers-with-credit">0 Customers</p>
                             <p class="text-xl font-bold text-accent" id="outstanding-amount">₹0</p>
@@ -214,7 +216,7 @@
                 <!-- Inventory Health -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-danger cursor-pointer hover:shadow-lg transition-shadow" onclick="goToInventory()">
                     <div class="flex items-center justify-between">
-                        <div class="flex-1">
+                        <div class="flex-1" style="min-width:0">
                             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium">Inventory</p>
                             <p class="text-sm text-gray-600 mt-1" id="total-products">0 Items</p>
                             <p class="text-xs text-danger font-medium" id="inventory-alerts">Loading...</p>
@@ -231,9 +233,9 @@
         <div id="quick-actions" class="px-4 mb-6">
             <h3 class="text-lg font-bold mb-4 text-dark">Quick Actions</h3>
             <div class="grid grid-cols-2 gap-4">
-                <button onclick="window.location.href='/bill-generate'" class="bg-purple-500 text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-purple-600 transition-colors">
-                    <i class="fa-solid fa-credit-card text-xl"></i>
-                    <span class="font-semibold">Payment</span>
+                <button onclick="window.location.href='/bills'" class="bg-purple-500 text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-purple-600 transition-colors">
+                    <i class="fa-solid fa-receipt text-xl"></i>
+                    <span class="font-semibold">All Bills</span>
                 </button>
                 <button onclick="window.location.href='/add-item'" class="bg-secondary text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-secondary/90 transition-colors">
                     <i class="fa-solid fa-box text-xl"></i>
@@ -246,6 +248,14 @@
                 <button onclick="window.location.href='/staff'" class="bg-green-600 text-white p-4 rounded-xl flex items-center space-x-3 shadow-md hover:bg-green-700 transition-colors">
                     <i class="fa-solid fa-user-tie text-xl"></i>
                     <span class="font-semibold">Staff</span>
+                </button>
+                <button onclick="window.location.href='/khata?tab=galla'" class="text-white p-4 rounded-xl flex items-center space-x-3 shadow-md" style="background:#00796B">
+                    <i class="fa-solid fa-cash-register text-xl"></i>
+                    <span class="font-semibold">Galla</span>
+                </button>
+                <button onclick="window.location.href='/khata?tab=kharcha'" class="text-white p-4 rounded-xl flex items-center space-x-3 shadow-md" style="background:#5D4037">
+                    <i class="fa-solid fa-wallet text-xl"></i>
+                    <span class="font-semibold">Expenses</span>
                 </button>
             </div>
         </div>
@@ -293,7 +303,7 @@
                         </div>
                         <div class="text-left">
                             <p class="font-semibold text-dark">Low Stock</p>
-                            <p class="text-sm text-gray-500">10 items need restocking</p>
+                            <p id="lowstock-sub" class="text-sm text-gray-500">Items that need restocking</p>
                         </div>
                     </div>
                     <i class="fa-solid fa-chevron-right text-gray-400"></i>
@@ -306,7 +316,7 @@
                         </div>
                         <div class="text-left">
                             <p class="font-semibold text-dark">Expiring Soon</p>
-                            <p class="text-sm text-gray-500">5 items expire this week</p>
+                            <p id="expiry-sub" class="text-sm text-gray-500">Items expiring this week</p>
                         </div>
                     </div>
                     <i class="fa-solid fa-chevron-right text-gray-400"></i>
@@ -314,7 +324,7 @@
 
                 <button onclick="window.location.href='/pending-credits'" class="w-full bg-white p-4 rounded-xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
                     <div class="flex items-center space-x-4">
-                        <div class="bg-secondary/10 p-3 rounded-full">
+                        <div class="bg-secondary/10 p-3 rounded-full" style="flex-shrink:0">
                             <i class="fa-solid fa-credit-card text-secondary text-lg"></i>
                         </div>
                         <div class="text-left">
@@ -333,9 +343,9 @@
             <div class="bg-white p-4 rounded-xl shadow-sm">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/5e2d506a94-d83c5da4ca6ad8fcd0ad.png" alt="Aashirvaad wheat flour bag product packaging">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="Aashirvaad wheat flour bag product packaging">
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1" style="min-width:0">
                         <h4 class="font-bold text-dark text-lg">Aashirvaad Atta</h4>
                         <p class="text-sm text-gray-600">₹2,000 in sales today</p>
                         <p class="text-xs text-gray-500">15 units sold</p>
@@ -358,7 +368,7 @@
                 <div class="bg-white p-4 rounded-xl shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Customer" class="w-10 h-10 rounded-full">
+                            <img src="/static/icons/person.svg" alt="Customer" class="w-10 h-10 rounded-full">
                             <div>
                                 <p class="font-semibold text-dark">Rajesh Kumar</p>
                                 <p class="text-xs text-gray-500">2 items • 10:30 AM</p>
@@ -386,7 +396,7 @@
                 <div class="bg-white p-4 rounded-xl shadow-sm">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg" alt="Customer" class="w-10 h-10 rounded-full">
+                            <img src="/static/icons/person.svg" alt="Customer" class="w-10 h-10 rounded-full">
                             <div>
                                 <p class="font-semibold text-dark">Priya Sharma</p>
                                 <p class="text-xs text-gray-500">3 items • 09:15 AM</p>
@@ -490,33 +500,11 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav id="footer" class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-home text-primary text-xl"></i>
-                <span class="text-xs mt-1 text-primary font-semibold">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToInventory()">
-                <i class="fa-solid fa-box text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button onclick="openScanner()" class="relative -top-4 bg-primary rounded-full p-4 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-xl"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3 relative" onclick="goToCart()">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToProfile()">
-                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <!-- Quick Action Radial Menu -->
-    <div id="radial-menu" class="fixed bottom-20 right-4 z-40">
+    <!-- Extra floating + menu hidden: the bottom bar Scan button and Quick Actions cover it. -->
+    <div id="radial-menu" class="fixed bottom-20 right-4 z-40" hidden style="display:none">
         <!-- Main Floating Action Button -->
         <button id="fab-main" onclick="toggleRadialMenu()" class="w-14 h-14 bg-primary rounded-full shadow-lg flex items-center justify-center text-white transition-transform duration-300 hover:scale-110">
             <i id="fab-icon" class="fa-solid fa-plus text-xl transition-transform duration-300"></i>
@@ -631,7 +619,7 @@
                 hour12: true
             };
             
-            document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
+            document.getElementById('current-date').textContent = now.toLocaleDateString('en-IN', options);
             document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', timeOptions);
         }
 
@@ -937,7 +925,7 @@
                         <div class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
                             <i class="fa-solid fa-box text-gray-400 text-xs"></i>
                         </div>
-                        <div class="flex-1">
+                        <div class="flex-1" style="min-width:0">
                             <h4 class="font-medium text-dark text-sm">${product.name}</h4>
                             <p class="text-xs text-gray-500">${product.category}</p>
                         </div>
@@ -1066,12 +1054,57 @@
             }, 3000);
         }
 
+        // ₹ with Indian grouping, no stray decimals: 124830 -> ₹1,24,830
+        window.inrAmount = function (n) {
+            const v = Number(n || 0);
+            const frac = Math.round(v * 100) % 100 !== 0;
+            return '₹' + v.toLocaleString('en-IN', frac ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
+        };
+
+        // Big amounts (₹1,24,830 / ₹10,00,00,000) shrink instead of running into
+        // the card icon on small phones.
+        window.fitAmount = function (id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.fontSize = '';
+            el.style.overflow = 'hidden';
+            let size = parseFloat(getComputedStyle(el).fontSize) || 24;
+            while (el.scrollWidth > el.clientWidth && size > 13) {
+                size -= 1;
+                el.style.fontSize = size + 'px';
+            }
+        };
+
+        // Gentle weekly reminder to download a backup (owner only, not in staff mode).
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(function () {
+                try {
+                    if (window.KK_STAFF_MODE) return;
+                    const last = Number(localStorage.getItem('kk_last_backup') || 0);
+                    const nagged = Number(localStorage.getItem('kk_backup_nag') || 0);
+                    if (Date.now() - last > 7 * 864e5 && Date.now() - nagged > 864e5) {
+                        localStorage.setItem('kk_backup_nag', Date.now());
+                        const bar = document.createElement('a');
+                        bar.href = '/profile';
+                        bar.style.cssText = 'display:block;margin:0 16px 16px;padding:12px 14px;border-radius:12px;background:#FFF8E1;color:#6D4C00;text-decoration:none;font-size:14px;font-weight:600';
+                        bar.textContent = '🛡️ ' + KK.t('Backup reminder: download a copy of your shop data (Profile → Download full backup).');
+                        const anchor = document.getElementById('quick-actions');
+                        if (anchor) anchor.parentElement.insertBefore(bar, anchor);
+                    }
+                } catch (e) {}
+            }, 2000);
+        });
+
         // Report and ledger button handlers
+        // These buttons used to pop "feature coming soon!" even though the
+        // screens exist (and then navigated anyway). Route them directly.
+        const DASH_LINKS = { 'Daily Reports': '/sales-report' };
         document.querySelectorAll('#reports-ledger button, #quick-links button').forEach(button => {
-            button.addEventListener('click', function() {
-                const title = this.querySelector('p').textContent;
-                alert(`${title} feature coming soon!`);
-            });
+            if (button.getAttribute('onclick')) return;  // already navigates
+            const title = (button.querySelector('p') || {}).textContent;
+            if (DASH_LINKS[title]) {
+                button.addEventListener('click', () => { window.location.href = DASH_LINKS[title]; });
+            }
         });
 
         // Radial Menu Functions
@@ -1241,7 +1274,7 @@
                                 <div class="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center mr-3">
                                     <i class="fa-solid fa-user text-gray-500"></i>
                                 </div>
-                                <div class="flex-1">
+                                <div class="flex-1" style="min-width:0">
                                     <h3 class="font-semibold text-dark text-sm">${customer.name}</h3>
                                     <p class="text-xs text-gray-600">${customer.phone}</p>
                                 </div>
@@ -1310,9 +1343,10 @@
                 const stats = await response.json();
                 
                 // Update Today's Profit
-                document.getElementById('today-profit').textContent = `₹${stats.today_profit}`;
+                document.getElementById('today-profit').textContent = stats.today_profit === null ? '🔒' : inrAmount(stats.today_profit); fitAmount('today-profit');
                 const profitGrowthElement = document.getElementById('profit-growth');
-                const growth = parseFloat(stats.profit_growth);
+                window.KK_STAFF_MODE = !!stats.staff_mode;
+                const growth = stats.staff_mode ? 0 : parseFloat(stats.profit_growth);
                 
                 if (growth > 0) {
                     profitGrowthElement.textContent = `+${growth.toFixed(1)}% from yesterday`;
@@ -1327,18 +1361,26 @@
                     profitGrowthElement.className = 'text-xs text-gray-600 mt-1 flex items-center';
                     profitGrowthElement.innerHTML = `<i class="fa-solid fa-minus mr-1"></i>No change from yesterday`;
                 }
+                if (stats.staff_mode) {
+                    profitGrowthElement.className = 'text-xs text-gray-600 mt-1';
+                    profitGrowthElement.textContent = 'Owner only';
+                }
                 
                 // Update Total Sales
-                document.getElementById('total-sales').textContent = `₹${stats.total_sales}`;
+                document.getElementById('total-sales').textContent = inrAmount(stats.total_sales); fitAmount('total-sales');
                 document.getElementById('transaction-count').textContent = `${stats.transaction_count} transactions`;
                 
                 // Update Udhar Ledger
                 document.getElementById('customers-with-credit').textContent = `${stats.customers_with_credit} Customers`;
-                document.getElementById('outstanding-amount').textContent = `₹${stats.outstanding_amount}`;
+                document.getElementById('outstanding-amount').textContent = inrAmount(stats.outstanding_amount); fitAmount('outstanding-amount');
                 
                 // Update Inventory
                 document.getElementById('total-products').textContent = `${stats.total_products} Items`;
                 document.getElementById('inventory-alerts').textContent = `${stats.expired_products} Expired • ${stats.low_stock_products} Low`;
+                const lowSub = document.getElementById('lowstock-sub');
+                if (lowSub) lowSub.textContent = stats.low_stock_products === 1 ? '1 item needs restocking' : `${stats.low_stock_products} items need restocking`;
+                const expSub = document.getElementById('expiry-sub');
+                if (expSub) expSub.textContent = stats.expired_products ? `${stats.expired_products} item(s) already expired` : 'Check items expiring soon';
                 
             } catch (error) {
                 console.error('Error loading dashboard stats:', error);
@@ -1347,6 +1389,7 @@
 
         // Today's Profit click handler
         function showTodaysProfit() {
+            if (window.KK_STAFF_MODE) { KK.unlockStaffMode(); return; }
             const modal = document.createElement('div');
             modal.id = 'profit-modal';
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
@@ -1407,9 +1450,9 @@
                 const profit = stats.today_profit || 0;
                 const profitMargin = revenue > 0 ? ((profit / revenue) * 100) : 0;
                 
-                document.getElementById('modal-sales').textContent = `₹${revenue.toFixed(2)}`;
-                document.getElementById('modal-cost').textContent = `₹${actualCost.toFixed(2)}`;
-                document.getElementById('modal-profit').textContent = `₹${profit.toFixed(2)}`;
+                document.getElementById('modal-sales').textContent = inrAmount(revenue);
+                document.getElementById('modal-cost').textContent = inrAmount(actualCost);
+                document.getElementById('modal-profit').textContent = inrAmount(profit);
                 document.getElementById('modal-margin').textContent = `${profitMargin.toFixed(1)}%`;
                 
             } catch (error) {

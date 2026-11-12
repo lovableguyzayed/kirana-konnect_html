@@ -41,6 +41,9 @@
     scrollbar-width: none;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
+    <script src="/static/js/product-edit.js" defer></script>
 </head>
 <body class="font-inter bg-gray-100">
     <!-- Header Section -->
@@ -62,7 +65,7 @@
         <!-- Product Image Section -->
         <div id="product-image" class="bg-white px-4 py-6">
             <div class="flex justify-center">
-                <img id="product-img" class="w-48 h-48 rounded-lg object-cover border border-gray-200" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/dd29a1f85f-469e6193e37489fc8c43.png" alt="Product image">
+                <img id="product-img" class="w-48 h-48 rounded-lg object-cover border border-gray-200" style="background:#F3F4F6" alt="Product image">
             </div>
         </div>
 
@@ -139,7 +142,7 @@
 
     <!-- Fixed Bottom Actions -->
     <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-4 gap-2">
             <button class="flex items-center justify-center space-x-1 bg-blue-600 text-white py-3 px-3 rounded-lg hover:bg-blue-700 transition-colors" onclick="refillStock()">
                 <i class="fa-solid fa-plus text-sm"></i>
                 <span class="font-medium text-sm">Refill</span>
@@ -147,6 +150,10 @@
             <button id="add-to-cart-btn" class="flex items-center justify-center space-x-1 bg-green-600 text-white py-3 px-3 rounded-lg hover:bg-green-700 transition-colors">
                 <i class="fa-solid fa-shopping-cart text-sm"></i>
                 <span class="font-medium text-sm">Add Cart</span>
+            </button>
+            <button type="button" class="flex items-center justify-center space-x-1 text-white py-3 px-3 rounded-lg" style="background:#455A64" onclick="KKEditProduct(new URLSearchParams(location.search).get('id'))">
+                <i class="fa-solid fa-pen text-sm"></i>
+                <span class="font-medium text-sm">Edit</span>
             </button>
             <button class="flex items-center justify-center space-x-1 bg-red-600 text-white py-3 px-3 rounded-lg hover:bg-red-700 transition-colors" onclick="deleteProduct()">
                 <i class="fa-solid fa-trash text-sm"></i>
@@ -252,30 +259,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToDashboard()">
-                <i class="fa-solid fa-home text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToInventory()">
-                <i class="fa-solid fa-box text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button onclick="window.location.href='/add-item'" class="relative -top-4 bg-primary rounded-full p-4 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-xl"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3 relative" onclick="goToCart()">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToProfile()">
-                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         // Product data variable
@@ -364,7 +348,7 @@
                 mfgDate: "01/05/2025",
                 expDate: "01/09/2025",
                 barcode: "8901030875466",
-                image: "https://storage.googleapis.com/uxpilot-auth.appspot.com/dd29a1f85f-469e6193e37489fc8c43.png"
+                image: "/static/icons/product.svg"
             };
         }
 
@@ -804,5 +788,23 @@
             initializePage();
         });
     </script>
+<script>
+    // Products have no photos yet: show a neutral grey box instead of a
+    // broken-image icon, whenever the page sets an empty or failing src.
+    (function () {
+        const img = document.getElementById('product-img');
+        if (!img) return;
+        const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        const fix = () => {
+            const src = img.getAttribute('src') || '';
+            if (src !== BLANK && (!src || src === location.href || (img.complete && img.naturalWidth === 0))) {
+                img.src = BLANK; img.alt = '';
+            }
+        };
+        img.addEventListener('error', () => { img.src = BLANK; img.alt = ''; });
+        new MutationObserver(() => setTimeout(fix, 50)).observe(img, { attributes: true, attributeFilter: ['src'] });
+        fix();
+    })();
+</script>
 </body>
 </html>

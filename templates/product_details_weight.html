@@ -24,6 +24,9 @@
             scrollbar-width: none;
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
+    <script src="/static/js/product-edit.js" defer></script>
 </head>
 <body class="font-inter bg-gray-100">
     <!-- Header Section -->
@@ -45,7 +48,7 @@
         <!-- Product Image Section -->
         <div class="bg-white px-4 py-6">
             <div class="flex justify-center">
-                <img id="product-image" class="w-48 h-48 rounded-lg object-cover border border-gray-200" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ad8aa6cee1-b621e3cd72c9ea714c53.png" alt="product image">
+                <img id="product-image" class="w-48 h-48 rounded-lg object-cover border border-gray-200" style="background:#F3F4F6" alt="product image">
             </div>
         </div>
 
@@ -122,7 +125,7 @@
 
     <!-- Fixed Bottom Actions -->
     <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-4 gap-2">
             <button class="flex items-center justify-center space-x-1 bg-blue-600 text-white py-3 px-3 rounded-lg hover:bg-blue-700 transition-colors" onclick="refillStock()">
                 <i class="fa-solid fa-plus text-sm"></i>
                 <span class="font-medium text-sm">Refill</span>
@@ -130,6 +133,10 @@
             <button id="add-to-cart-btn" class="flex items-center justify-center space-x-1 bg-green-600 text-white py-3 px-3 rounded-lg hover:bg-green-700 transition-colors">
                 <i class="fa-solid fa-shopping-cart text-sm"></i>
                 <span class="font-medium text-sm">Add Cart</span>
+            </button>
+            <button type="button" class="flex items-center justify-center space-x-1 text-white py-3 px-3 rounded-lg" style="background:#455A64" onclick="KKEditProduct(new URLSearchParams(location.search).get('id'))">
+                <i class="fa-solid fa-pen text-sm"></i>
+                <span class="font-medium text-sm">Edit</span>
             </button>
             <button class="flex items-center justify-center space-x-1 bg-red-600 text-white py-3 px-3 rounded-lg hover:bg-red-700 transition-colors" onclick="deleteProduct()">
                 <i class="fa-solid fa-trash text-sm"></i>
@@ -154,7 +161,7 @@
                 <div class="p-4">
                     <!-- Product Info -->
                     <div class="flex items-center space-x-3 mb-4 p-3 bg-gray-50 rounded-lg">
-                        <img class="w-12 h-12 rounded object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/abd6309130-db1e7ecf1f6e50129cb8.png" alt="basmati rice small bag product icon">
+                        <img class="w-12 h-12 rounded object-cover" src="/static/icons/product.svg" alt="basmati rice small bag product icon">
                         <div class="flex-1">
                             <h4 class="font-medium text-dark">Basmati Rice Premium</h4>
                             <p class="text-sm text-gray-600">₹110/Kg</p>
@@ -227,29 +234,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/dashboard'">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/inventory'">
-                <i class="fa-solid fa-box text-primary text-lg"></i>
-                <span class="text-xs mt-1 text-primary">Inventory</span>
-            </button>
-            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg" onclick="window.location.href='/add-item'">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/cart'">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/profile'">
-                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         const addToCartBtn = document.getElementById('add-to-cart-btn');
@@ -270,7 +255,7 @@
         const productName = urlParams.get('name') || 'Weight-Based Product';
         const unitPrice = parseFloat(urlParams.get('price')) || 110;
         const maxStock = parseFloat(urlParams.get('stock')) || 25.5;
-        const productImage = urlParams.get('image') || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300&h=300&fit=crop';
+        const productImage = urlParams.get('image') || '/static/icons/product.svg';
         const productId = urlParams.get('id') || 'weight-product-' + Date.now();
         const mfgDate = urlParams.get('mfgDate') || '';
         const expDate = urlParams.get('expDate') || '';
@@ -655,7 +640,7 @@
                 sellingPrice: productData.price || productData.sellingPrice || 110,
                 price: productData.price || productData.sellingPrice || 110,
                 barcode: productData.barcode || null,
-                image: productData.image || 'https://storage.googleapis.com/uxpilot-auth.appspot.com/9307613d34-298d7bee124789ba3905.png'
+                image: productData.image || '/static/icons/product.svg'
             };
             
             // Store product data for refill page
@@ -672,5 +657,23 @@
             updateFromQuantity();
         });
     </script>
+<script>
+    // Products have no photos yet: show a neutral grey box instead of a
+    // broken-image icon, whenever the page sets an empty or failing src.
+    (function () {
+        const img = document.getElementById('product-image');
+        if (!img) return;
+        const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        const fix = () => {
+            const src = img.getAttribute('src') || '';
+            if (src !== BLANK && (!src || src === location.href || (img.complete && img.naturalWidth === 0))) {
+                img.src = BLANK; img.alt = '';
+            }
+        };
+        img.addEventListener('error', () => { img.src = BLANK; img.alt = ''; });
+        new MutationObserver(() => setTimeout(fix, 50)).observe(img, { attributes: true, attributeFilter: ['src'] });
+        fix();
+    })();
+</script>
 </body>
 </html>

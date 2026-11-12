@@ -24,6 +24,8 @@
             scrollbar-width: none;
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-50">
     <!-- Header Section -->
@@ -300,16 +302,13 @@
             <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
                 <h3 class="font-semibold text-dark mb-3">Quick Actions</h3>
                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="sendBulkReminders()" class="bg-yellow-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-bell mr-2"></i>Send Reminders
+                    <button onclick="sendBulkReminders()" class="text-white p-3 rounded-lg font-medium" style="background:#25D366">
+                        <i class="fa-brands fa-whatsapp mr-2"></i>Send Reminders
                     </button>
                     <button onclick="generateCreditReport()" class="bg-blue-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-file-lines mr-2"></i>Credit Report
+                        <i class="fa-solid fa-file-csv mr-2"></i>Udhar list (Excel)
                     </button>
                 </div>
-                <button onclick="setCreditLimits()" class="w-full mt-3 bg-purple-500 text-white p-3 rounded-lg font-medium">
-                    <i class="fa-solid fa-cog mr-2"></i>Manage Credit Limits
-                </button>
             </div>
         </div>
     </main>
@@ -371,29 +370,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/dashboard'">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/inventory'">
-                <i class="fa-solid fa-box text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg" onclick="window.location.href='/add-item'">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/cart'">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/profile'">
-                <i class="fa-solid fa-user text-primary text-lg"></i>
-                <span class="text-xs mt-1 text-primary">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         let currentCustomer = '';
@@ -505,20 +482,42 @@
             window.location.href = '/customer-ledger';
         }
 
+        // WhatsApp reminders (free; opens the customer's chat with the message).
+        let KK_SHOP = {};
+        fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).then(st => { KK_SHOP = st; }).catch(() => {});
+        function remindOnWhatsApp(id) {
+            const c = (window.KK_DUE || []).find(x => x.id === id);
+            if (!c) return;
+            KK.whatsapp(c.phone, KK.udharReminder(KK_SHOP.shop_name, c.name, c.outstanding_balance, KK_SHOP.upi_id));
+        }
         function sendBulkReminders() {
-            // Send bulk reminders to overdue customers
-            console.log('Sending payment reminders to all overdue customers');
+            const due = window.KK_DUE || [];
+            if (!due.length) { alert('No one has udhar right now.'); return; }
+            const wrap = document.createElement('div');
+            wrap.setAttribute('role', 'dialog');
+            wrap.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+            const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+            wrap.innerHTML = `<div style="background:#fff;width:100%;max-height:80vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px 24px">
+                <h3 style="font-size:18px;font-weight:700;margin:0 0 4px">Send WhatsApp reminders</h3>
+                <p style="color:#52606D;font-size:14px;margin:0 0 8px">Tap each customer. WhatsApp opens with the message ready.</p>
+                ${due.map(c => `<button data-id="${c.id}" style="width:100%;display:flex;justify-content:space-between;align-items:center;min-height:56px;padding:8px 4px;border:0;border-top:1px solid #eee;background:none;text-align:left">
+                    <span><b>${esc(c.name)}</b><br><span style="color:#52606D;font-size:13px">${esc(c.phone)}</span></span>
+                    <span style="color:#C62828;font-weight:700">${KK.inr(c.outstanding_balance)} <i class="fa-brands fa-whatsapp" style="color:#25D366;font-size:20px;margin-left:6px"></i></span></button>`).join('')}
+                <button class="kk-close" style="width:100%;min-height:48px;margin-top:8px;border:0;border-radius:12px;background:#EEF2EE;font-weight:700">Close</button></div>`;
+            wrap.addEventListener('click', e => {
+                const b = e.target.closest('button[data-id]');
+                if (b) { b.style.opacity = .5; remindOnWhatsApp(Number(b.dataset.id)); }
+                if (e.target === wrap || e.target.closest('.kk-close')) wrap.remove();
+            });
+            document.body.appendChild(wrap);
         }
 
         function generateCreditReport() {
-            // Generate and download credit report
-            console.log('Generating credit report');
+            // Excel-friendly list of everyone who owes money.
+            window.location.href = '/export/udhar.csv';
         }
 
-        function setCreditLimits() {
-            // Open credit limit management interface
-            console.log('Opening credit limit management');
-        }
+
 
         // Filter functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -610,6 +609,7 @@
 
                         // Filter tab counts
                         const counts = { overdue: 0, due: 0, current: 0 };
+                        window.KK_DUE = customers;
                         customers.forEach(c => counts[bucket(c.last_credit_at)]++);
                         document.querySelectorAll('.filter-btn').forEach(btn => {
                             const f = btn.getAttribute('data-filter');
@@ -649,11 +649,15 @@
                                     <a href="tel:+91${c.phone}" class="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium text-center">
                                         <i class="fa-solid fa-phone mr-1"></i>Call
                                     </a>
-                                    <button onclick="collectFromCustomer(${c.id}, '${c.name.replace(/'/g, "&#39;")}', ${c.outstanding_balance})"
+                                    <button onclick="remindOnWhatsApp(${c.id})" aria-label="WhatsApp reminder"
+                                            class="flex-1 py-2 rounded-lg text-sm font-medium" style="background:#E8F8EE;color:#128C4A">
+                                        <i class="fa-brands fa-whatsapp mr-1"></i>Remind
+                                    </button>
+                                    <button onclick="collectFromCustomer(${c.id}, ${JSON.stringify(c.name).replace(/"/g, '&quot;')}, ${c.outstanding_balance})"
                                             class="flex-1 py-2 bg-green-50 text-green-600 rounded-lg text-sm font-medium">
                                         <i class="fa-solid fa-hand-holding-dollar mr-1"></i>Collect
                                     </button>
-                                    <button onclick="window.location.href='/customer-ledger'"
+                                    <button onclick="window.location.href='/customer-ledger'" hidden
                                             class="flex-1 py-2 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium">
                                         <i class="fa-solid fa-book mr-1"></i>Ledger
                                     </button>
@@ -664,22 +668,79 @@
                     .catch(() => {});
             }
 
+            // Collect payment in a bottom sheet (was a browser prompt box):
+            // amount with "Full" shortcut, Cash / UPI, UPI QR when chosen.
             window.collectFromCustomer = function (customerId, name, balance) {
-                const input = prompt(`Collect payment from ${name}\nOutstanding: ₹${balance.toFixed(2)}\n\nEnter amount received:`, balance.toFixed(0));
-                if (input === null) return;
-                const amount = parseFloat(input);
-                if (!amount || amount <= 0) { alert('Please enter a valid amount.'); return; }
-                fetch('/api/payments', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customer_id: customerId, amount: amount, payment_mode: 'cash' })
-                })
-                .then(r => r.json().then(d => ({ ok: r.ok, d })))
-                .then(({ ok, d }) => {
-                    if (ok) { alert(`₹${amount.toFixed(2)} recorded from ${name}`); loadCredits(); }
-                    else alert(d.error || 'Could not record the payment.');
-                })
-                .catch(() => alert('Network error - payment not recorded.'));
+                const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+                const wrap = document.createElement('div');
+                wrap.id = 'collect-sheet';
+                wrap.setAttribute('role', 'dialog');
+                wrap.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+                wrap.innerHTML = `<form style="background:#fff;width:100%;border-radius:16px 16px 0 0;padding:18px 16px 22px;max-height:92vh;overflow:auto">
+                    <h3 style="font-size:18px;font-weight:700;margin:0">Collect from ${esc(name)}</h3>
+                    <p style="color:#52606D;margin:2px 0 12px">Udhar due: <b style="color:#C62828">${KK.inr(balance)}</b></p>
+                    <label for="collect-amount" style="font-weight:600;font-size:14px">Amount received (₹)</label>
+                    <div style="display:flex;gap:8px;margin-top:6px">
+                        <input id="collect-amount" inputmode="decimal" autocomplete="off" value="${Math.round(balance * 100) / 100}" style="flex:1;min-width:0;font-size:22px;padding:12px;border:1px solid #9AA5B1;border-radius:12px">
+                        <button type="button" data-full style="min-height:48px;padding:0 14px;border-radius:12px;border:1px solid #A5D6A7;background:#F1F8F1;font-weight:700">Full</button>
+                    </div>
+                    <div role="group" aria-label="Payment mode" style="display:flex;gap:8px;margin-top:12px">
+                        <button type="button" data-mode="cash" aria-pressed="true" style="flex:1;min-height:48px;border-radius:12px;border:2px solid #2E7D32;background:#E8F5E9;font-weight:700">Cash</button>
+                        <button type="button" data-mode="upi" aria-pressed="false" style="flex:1;min-height:48px;border-radius:12px;border:2px solid #CBD2D9;background:#fff;font-weight:700">UPI</button>
+                    </div>
+                    <div id="collect-qr" hidden style="display:flex;justify-content:center;text-align:center;margin-top:12px"></div>
+                    <p id="collect-err" role="alert" style="color:#B71C1C;min-height:20px;margin:8px 0 0"></p>
+                    <button type="submit" style="width:100%;min-height:52px;margin-top:6px;border:0;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700;font-size:17px">Save payment</button>
+                    <button type="button" data-close style="width:100%;min-height:48px;margin-top:6px;border:0;background:none;font-size:16px">Cancel</button>
+                </form>`;
+                document.body.appendChild(wrap);
+                const amt = wrap.querySelector('#collect-amount'), err = wrap.querySelector('#collect-err'), qr = wrap.querySelector('#collect-qr');
+                let mode = 'cash', saving = false;
+                function drawQr() {
+                    const v = parseFloat(amt.value);
+                    if (mode !== 'upi') { qr.hidden = true; qr.style.display = 'none'; return; }
+                    qr.hidden = false; qr.style.display = 'flex';
+                    if (!KK_SHOP.upi_id) { qr.innerHTML = '<p style="color:#52606D;font-size:14px">Add your shop UPI ID in Profile to show a payment QR here.</p>'; return; }
+                    if (v > 0) KK.qr(qr, KK.upiLink(KK_SHOP.upi_id, KK_SHOP.shop_name, v, 'Udhar payment'), 180);
+                }
+                amt.addEventListener('input', drawQr);
+                wrap.addEventListener('click', e => {
+                    if (e.target === wrap || e.target.closest('[data-close]')) { wrap.remove(); return; }
+                    if (e.target.closest('[data-full]')) { amt.value = Math.round(balance * 100) / 100; drawQr(); }
+                    const m = e.target.closest('[data-mode]');
+                    if (m) {
+                        mode = m.dataset.mode;
+                        wrap.querySelectorAll('[data-mode]').forEach(x => {
+                            const on = x === m;
+                            x.setAttribute('aria-pressed', String(on));
+                            x.style.borderColor = on ? '#2E7D32' : '#CBD2D9';
+                            x.style.background = on ? '#E8F5E9' : '#fff';
+                        });
+                        drawQr();
+                    }
+                });
+                wrap.querySelector('form').addEventListener('submit', e => {
+                    e.preventDefault();
+                    if (saving) return;
+                    const amount = parseFloat(amt.value);
+                    if (!(amount > 0)) { err.textContent = 'Enter the amount received.'; return; }
+                    if (amount > balance + 0.5) { err.textContent = `That is more than the udhar due (${KK.inr(balance)}).`; return; }
+                    saving = true;
+                    const btn = wrap.querySelector('button[type=submit]');
+                    btn.disabled = true; btn.textContent = 'Saving...';
+                    fetch('/api/payments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ customer_id: customerId, amount: amount, payment_mode: mode })
+                    })
+                    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                    .then(({ ok, d }) => {
+                        if (ok) { wrap.remove(); KK.toast(`${KK.inr(amount)} received from ${name}`, 'ok'); loadCredits(); }
+                        else { err.textContent = d.error || 'Could not save the payment.'; saving = false; btn.disabled = false; btn.textContent = 'Save payment'; }
+                    })
+                    .catch(() => { err.textContent = 'No internet. Payment was NOT saved.'; saving = false; btn.disabled = false; btn.textContent = 'Save payment'; });
+                });
+                setTimeout(() => { amt.focus(); amt.select(); }, 50);
             };
 
             loadCredits();

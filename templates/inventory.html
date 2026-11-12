@@ -49,6 +49,8 @@
     display: none;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-poppins bg-gray-50">
     <!-- Header Section -->
@@ -87,7 +89,7 @@
     </div>
 
     <!-- Main Content -->
-    <main id="main-content" class="pb-24">
+    <main id="main-content" class="pb-24" style="padding-bottom: 168px">
         <!-- Category Tabs -->
         <div id="category-tabs" class="bg-white px-4 py-3 shadow-sm">
             <div class="flex space-x-4 overflow-x-auto scrollbar-hide">
@@ -108,7 +110,7 @@
             <div id="item-1" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" data-category="grains" data-status="lowstock" onclick="viewProductDetails('item-1')">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/ad8aa6cee1-b621e3cd72c9ea714c53.png" alt="wheat flour bag packaging product">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="wheat flour bag packaging product">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -144,7 +146,7 @@
             <div id="item-2" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" data-category="oils" data-status="available" onclick="viewProductDetails('item-2')">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/02cda64d32-ca63fc32eaab87b7db4c.png" alt="coconut oil bottle product packaging">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="coconut oil bottle product packaging">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -180,7 +182,7 @@
             <div id="item-3" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" data-category="grains" data-status="available" onclick="viewProductDetails('item-3')">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/dd29a1f85f-469e6193e37489fc8c43.png" alt="aashirvaad atta bag packaging">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="aashirvaad atta bag packaging">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -216,7 +218,7 @@
             <div id="item-4" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" data-category="snacks" data-status="available" onclick="viewProductDetails('item-4')">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/5fc8cd7bc4-09ff84e61b7234ca57e8.png" alt="basmati rice bag packaging product">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="basmati rice bag packaging product">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -252,7 +254,7 @@
             <div id="item-5" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" data-category="household" data-status="available" onclick="viewProductDetails('item-5')">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/50a0fc9b33-ba52fd7cb36100ee8a97.png" alt="soap bar household product packaging">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="soap bar household product packaging">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -284,7 +286,7 @@
             <div id="item-6" class="bg-white rounded-xl p-4 shadow-sm border hover:shadow-md transition-shadow cursor-pointer" data-category="snacks" data-status="available" onclick="viewProductDetails('item-6')">
                 <div class="flex items-center space-x-4">
                     <div class="w-16 h-16 rounded-xl overflow-hidden">
-                        <img class="w-full h-full object-cover" src="https://storage.googleapis.com/uxpilot-auth.appspot.com/4dbd7f8565-a15492fc004780da6dd6.png" alt="milk carton dairy product packaging">
+                        <img class="w-full h-full object-cover" src="/static/icons/product.svg" alt="milk carton dairy product packaging">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -572,30 +574,7 @@
     </button>
 
     <!-- Bottom Navigation -->
-    <nav id="footer" class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToDashboard()">
-                <i class="fa-solid fa-home text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-box text-primary text-xl"></i>
-                <span class="text-xs mt-1 text-primary font-semibold">Inventory</span>
-            </button>
-            <button class="relative -top-4 bg-primary rounded-full p-4 shadow-lg" onclick="openScanner()">
-                <i class="fa-solid fa-barcode text-white text-xl"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3 relative" onclick="goToCart()">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="goToProfile()">
-                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         let currentFilter = 'all';
@@ -1579,7 +1558,7 @@
             {
                 id: '1',
                 name: 'Wheat Flour',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/ad8aa6cee1-b621e3cd72c9ea714c53.png',
+                image: '/static/icons/product.svg',
                 price: 50,
                 unit: 'Kg',
                 type: 'weight-based',
@@ -1592,7 +1571,7 @@
             {
                 id: '2',
                 name: 'Coconut Oil',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/02cda64d32-ca63fc32eaab87b7db4c.png',
+                image: '/static/icons/product.svg',
                 price: 180,
                 unit: 'Bottle',
                 type: 'unit',
@@ -1606,7 +1585,7 @@
             {
                 id: '3',
                 name: 'Aashirvaad Atta',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/dd29a1f85f-469e6193e37489fc8c43.png',
+                image: '/static/icons/product.svg',
                 price: 120,
                 unit: 'Bag',
                 type: 'unit',
@@ -1620,7 +1599,7 @@
             {
                 id: '4',
                 name: 'Maggi Noodles',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/46dc2aecf3-4ae1d7f8a3bc9c8b21d6.png',
+                image: '/static/icons/product.svg',
                 price: 15,
                 unit: 'Pack',
                 type: 'unit',
@@ -1634,7 +1613,7 @@
             {
                 id: '5',
                 name: 'Dairy Milk',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/f12345-chocolate-bar.png',
+                image: '/static/icons/product.svg',
                 price: 25,
                 unit: 'Bar',
                 type: 'unit',
@@ -1648,7 +1627,7 @@
             {
                 id: '6',
                 name: 'Uncle Chips',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/uncle-chips-image.png',
+                image: '/static/icons/product.svg',
                 price: 10,
                 unit: 'Pack',
                 type: 'unit',
@@ -1662,7 +1641,7 @@
             {
                 id: '7',
                 name: 'Paracetamol',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/paracetamol-tablets.png',
+                image: '/static/icons/product.svg',
                 price: 5,
                 unit: 'Strip',
                 type: 'unit',
@@ -1676,7 +1655,7 @@
             {
                 id: '8',
                 name: 'Fresh Milk',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/fresh-milk-bottle.png',
+                image: '/static/icons/product.svg',
                 price: 60,
                 unit: 'L',
                 type: 'weight-based',
@@ -1691,7 +1670,7 @@
             {
                 id: '9',
                 name: 'Cooking Oil',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/cooking-oil-bottle.png',
+                image: '/static/icons/product.svg',
                 price: 150,
                 unit: 'L',
                 type: 'weight-based',
@@ -2117,11 +2096,11 @@
             }
 
             const products = [
-                { name: 'Wheat Flour', price: 50, unit: 'Kg', image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/ad8aa6cee1-b621e3cd72c9ea714c53.png', id: 'wheat-flour' },
-                { name: 'Coconut Oil', price: 180, unit: 'Bottle', image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/02cda64d32-ca63fc32eaab87b7db4c.png', id: 'coconut-oil' },
-                { name: 'Aashirvaad Atta', price: 120, unit: 'Bag', image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/dd29a1f85f-469e6193e37489fc8c43.png', id: 'aashirvaad-atta' },
-                { name: 'Maggi Noodles', price: 15, unit: 'Pack', image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/46dc2aecf3-4ae1d7f8a3bc9c8b21d6.png', id: 'maggi-noodles' },
-                { name: 'Dairy Milk', price: 25, unit: 'Bar', image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/f12345-chocolate-bar.png', id: 'dairy-milk' }
+                { name: 'Wheat Flour', price: 50, unit: 'Kg', image: '/static/icons/product.svg', id: 'wheat-flour' },
+                { name: 'Coconut Oil', price: 180, unit: 'Bottle', image: '/static/icons/product.svg', id: 'coconut-oil' },
+                { name: 'Aashirvaad Atta', price: 120, unit: 'Bag', image: '/static/icons/product.svg', id: 'aashirvaad-atta' },
+                { name: 'Maggi Noodles', price: 15, unit: 'Pack', image: '/static/icons/product.svg', id: 'maggi-noodles' },
+                { name: 'Dairy Milk', price: 25, unit: 'Bar', image: '/static/icons/product.svg', id: 'dairy-milk' }
             ];
 
             const searchResults = products.filter(product => 

@@ -24,16 +24,23 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        /* Printing: fits small thermal printers (58 mm / 80 mm rolls) as well
+           as A4 - one narrow column, black text, no buttons, bars or shadows. */
         @media print {
-            .no-print {
-                display: none;
-            }
-            body {
-                margin: 0;
-                padding: 20px;
-            }
+            @page { margin: 3mm; }
+            .no-print, header, nav, .kk-nav, #kk-toast-host, #kk-staff-banner, #kk-offline { display: none !important; }
+            html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+            main { padding: 0 !important; margin: 0 !important; }
+            main > div, .max-w-md { max-width: 72mm !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            * { color: #000 !important; box-shadow: none !important; background: transparent !important; border-color: #000 !important; }
+            body { font-size: 11px !important; line-height: 1.25 !important; }
+            .text-lg, .text-xl { font-size: 13px !important; }
+            .px-4 { padding-left: 2mm !important; padding-right: 2mm !important; }
+            .py-3 { padding-top: 1.5mm !important; padding-bottom: 1.5mm !important; }
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-50">
     <!-- Header Section -->
@@ -131,7 +138,7 @@
                             <span class="text-sm text-gray-800">₹450.00</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-600">GST (5%):</span>
+                            <span class="text-sm text-gray-600">GST:</span>
                             <span class="text-sm text-gray-800">₹22.50</span>
                         </div>
                         <div class="flex justify-between items-center border-t border-gray-300 pt-2">
@@ -196,33 +203,25 @@
                     <span>Print</span>
                 </button>
             </div>
+            <!-- WhatsApp, UPI QR and cancel (audit round 5) -->
+            <button type="button" onclick="whatsAppBill()" style="width:100%;min-height:52px;margin-top:12px;border:0;border-radius:12px;background:#25D366;color:#fff;font-weight:700;font-size:16px">
+                <i class="fa-brands fa-whatsapp" style="font-size:20px;margin-right:6px"></i><span>Share on WhatsApp</span>
+            </button>
+            <div id="upi-box" hidden style="margin-top:12px;background:#fff;border:1px solid #E4E7EB;border-radius:14px;padding:14px;text-align:center">
+                <p style="margin:0 0 8px;font-weight:700">Scan to pay with any UPI app</p>
+                <div id="upi-qr" style="display:flex;justify-content:center"></div>
+                <p id="upi-text" style="margin:8px 0 0;color:#52606D;font-size:14px"></p>
+            </div>
+            <div id="cancelled-banner" hidden style="margin-top:12px;background:#ECEFF1;color:#37474F;border-radius:12px;padding:12px;text-align:center;font-weight:700">This bill is CANCELLED. Stock was returned.</div>
+            <button type="button" id="return-btn" hidden onclick="returnItems()" style="width:100%;min-height:48px;margin-top:10px;border:1px solid #CBD2D9;border-radius:12px;background:#fff;color:#1F2933;font-weight:700">
+                <i class="fa-solid fa-rotate-left" style="margin-right:6px"></i>Return items
+            </button>
+            <button type="button" id="cancel-bill-btn" hidden onclick="cancelBill()" style="width:100%;min-height:48px;margin-top:10px;border:0;background:none;color:#C62828;font-weight:600;text-decoration:underline">Cancel bill</button>
         </div>
     </main>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 no-print">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/dashboard'">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/inventory'">
-                <i class="fa-solid fa-box text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg" onclick="window.location.href='/add-item'">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/cart'">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/profile'">
-                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         function goBack() {
@@ -277,6 +276,11 @@
             const urlParams = new URLSearchParams(window.location.search);
             const billNumber = urlParams.get('bill');
             
+            if (!billNumber) {
+                // No bill chosen: don't show the built-in sample receipt.
+                window.location.replace('/dashboard');
+                return;
+            }
             if (billNumber) {
                 // Update bill number in header
                 document.getElementById('bill-number-header').textContent = `Bill #${billNumber}`;
@@ -287,17 +291,133 @@
                     if (response.ok) {
                         const billData = await response.json();
                         updateReceiptWithData(billData);
+                    } else {
+                        alert('This bill could not be found.');
+                        window.location.replace('/dashboard');
                     }
                 } catch (error) {
-                    console.error('Error loading bill data:', error);
+                    alert('No internet. The bill could not be loaded - please try again.');
                 }
             }
         });
 
+        // ---- WhatsApp share, UPI QR, cancel ----
+        const KKR = { bill: null, shop: null, phone: null };
+        fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).then(st => { KKR.shop = st; showUpi(); }).catch(() => {});
+        function showUpi() {
+            const b = KKR.bill, st = KKR.shop;
+            if (!b || !st || !st.upi_id || b.payment_status === 'cancelled') return;
+            const due = b.payment_status === 'paid' ? 0 : b.total_amount;
+            if (b.payment_status === 'paid' && b.payment_mode === 'cash') return;  // nothing to collect
+            document.getElementById('upi-box').hidden = false;
+            KK.qr(document.getElementById('upi-qr'), KK.upiLink(st.upi_id, st.shop_name, due || b.total_amount, 'Bill ' + b.bill_number), 200);
+            document.getElementById('upi-text').textContent = 'UPI: ' + st.upi_id + ' · ' + KK.inr(due || b.total_amount);
+        }
+        function billText() {
+            const b = KKR.bill, st = KKR.shop || {};
+            if (!b) return '';
+            const date = new Date(b.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+            const lines = (b.items || []).map(i => {
+                const q = i.weight ? `${+i.weight} kg` : `${+i.quantity}`;
+                return `• ${i.item_name} × ${q} = ${KK.inr(i.total_price)}`;
+            });
+            const paid = b.payment_status === 'paid';
+            return `🧾 ${st.shop_name || 'Bill'}\nBill ${b.bill_number} · ${date}\n\n${lines.join('\n')}\n\n` +
+                   (b.tax_amount ? `GST: ${KK.inr(b.tax_amount)}\n` : '') +
+                   `*Total: ${KK.inr(b.total_amount)}*\n` +
+                   (b.payment_status === 'cancelled' ? 'Status: CANCELLED\n' : paid ? `Paid (${b.payment_mode}) ✅\n` : `Udhar / baaki: ${KK.inr(b.total_amount)}\n`) +
+                   (!paid && st.upi_id ? `UPI: ${st.upi_id}\n` : '') + 'Dhanyavaad! 🙏';
+        }
+        async function whatsAppBill() {
+            const b = KKR.bill;
+            if (!b) { alert('Bill is still loading. Please wait.'); return; }
+            // Phones with Web Share (Chrome) can send the PDF itself to WhatsApp.
+            try {
+                if (navigator.canShare) {
+                    const r = await fetch(`/api/bills/${encodeURIComponent(b.bill_number)}/pdf`);
+                    const blob = await r.blob();
+                    const file = new File([blob], `Invoice_${b.bill_number}.pdf`, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: billText() }); return; }
+                }
+            } catch (e) { if (e && e.name === 'AbortError') return; }
+            KK.whatsapp(KKR.phone, billText());
+        }
+        function shareReceipt() { whatsAppBill(); }
+        // Customer brings some items back: choose quantities, stock returns,
+        // the bill shrinks and the refund (cash / UPI, or less udhar) is saved.
+        function returnItems() {
+            const b = KKR.bill;
+            if (!b || !b.items || !b.items.length) return;
+            const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            const paid = b.payment_status === 'paid';
+            const w = document.createElement('div');
+            w.setAttribute('role', 'dialog');
+            w.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+            w.innerHTML = `<form style="background:#fff;width:100%;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px 22px">
+                <h3 style="font-size:18px;font-weight:700;margin:0">Return items</h3>
+                <p style="color:#52606D;font-size:14px;margin:2px 0 8px">Choose how much came back.</p>
+                ${b.items.map(i => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #eee">
+                    <div style="flex:1;min-width:0"><b style="overflow-wrap:anywhere">${esc(i.item_name)}</b><br><span style="color:#52606D;font-size:13px">Sold: ${+i.quantity}${i.weight ? ' (' + (+i.weight) + ' kg)' : ''} · ${KK.inr(i.total_price)}</span></div>
+                    <button type="button" data-step="-1" data-id="${i.id}" aria-label="Less" style="width:44px;height:44px;border-radius:10px;border:1px solid #CBD2D9;background:#fff;font-size:20px">−</button>
+                    <input data-id="${i.id}" data-max="${+i.quantity}" inputmode="decimal" value="0" aria-label="Quantity to return" style="width:64px;text-align:center;font-size:17px;padding:8px;border:1px solid #9AA5B1;border-radius:10px">
+                    <button type="button" data-step="1" data-id="${i.id}" aria-label="More" style="width:44px;height:44px;border-radius:10px;border:1px solid #CBD2D9;background:#fff;font-size:20px">+</button></div>`).join('')}
+                ${paid ? `<p style="font-weight:600;font-size:14px;margin:12px 0 4px">Refund given by</p>
+                <div style="display:flex;gap:8px"><label style="flex:1;min-height:46px;border:2px solid #CBD2D9;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px"><input type="radio" name="rm" value="cash" checked> Cash</label>
+                <label style="flex:1;min-height:46px;border:2px solid #CBD2D9;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px"><input type="radio" name="rm" value="upi"> UPI</label></div>`
+                : '<p style="color:#52606D;font-size:14px;margin:12px 0 0">This is an udhar bill: the customer\'s due will go down.</p>'}
+                <p data-err role="alert" style="color:#B71C1C;min-height:20px;margin:8px 0 0"></p>
+                <button type="submit" style="width:100%;min-height:52px;border:0;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700;font-size:16px">Save return</button>
+                <button type="button" data-close style="width:100%;min-height:48px;margin-top:6px;border:0;background:none;font-size:16px">Cancel</button></form>`;
+            document.body.appendChild(w);
+            const step = i => { const m = b.items.find(x => x.id === i); return m && m.weight ? 0.25 : 1; };
+            w.addEventListener('click', e => {
+                if (e.target === w || e.target.closest('[data-close]')) { w.remove(); return; }
+                const s = e.target.closest('[data-step]');
+                if (s) {
+                    const inp = w.querySelector(`input[data-id="${s.dataset.id}"]`), max = parseFloat(inp.dataset.max);
+                    const v = Math.min(max, Math.max(0, (parseFloat(inp.value) || 0) + Number(s.dataset.step) * step(Number(s.dataset.id))));
+                    inp.value = +v.toFixed(3);
+                }
+            });
+            let saving = false;
+            w.querySelector('form').addEventListener('submit', async e => {
+                e.preventDefault(); if (saving) return;
+                const err = w.querySelector('[data-err]');
+                const items = [...w.querySelectorAll('input[data-id]')].map(i => ({ id: Number(i.dataset.id), quantity: parseFloat(i.value) || 0, max: parseFloat(i.dataset.max) })).filter(i => i.quantity > 0);
+                if (!items.length) { err.textContent = 'Choose at least one item.'; return; }
+                if (items.some(i => i.quantity > i.max + 1e-9)) { err.textContent = 'You cannot return more than was sold.'; return; }
+                saving = true;
+                try {
+                    const r = await fetch(`/api/bills/${encodeURIComponent(b.bill_number)}/return`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items, refund_mode: (w.querySelector('input[name=rm]:checked') || {}).value }) });
+                    const d = await r.json().catch(() => ({}));
+                    if (r.ok && d.success) {
+                        alert(d.refund_mode === 'udhar' ? `Return saved. Udhar reduced by ${KK.inr(d.refund_amount)}.` : `Return saved. Give back ${KK.inr(d.refund_amount)} (${d.refund_mode === 'upi' ? 'UPI' : 'cash'}).`);
+                        location.reload();
+                    } else { err.textContent = d.error || 'Could not save the return.'; saving = false; }
+                } catch (x) { err.textContent = 'No internet. Return was NOT saved.'; saving = false; }
+            });
+        }
+
+        async function cancelBill() {
+            const b = KKR.bill;
+            if (!b || !confirm(`Cancel bill ${b.bill_number} for ${KK.inr(b.total_amount)}?\n\nStock will be returned and it will be removed from sales and udhar. This cannot be undone.`)) return;
+            const r = await fetch(`/api/bills/${encodeURIComponent(b.bill_number)}/cancel`, { method: 'POST' });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok && d.success) { alert('Bill cancelled. Stock returned.'); location.reload(); }
+            else alert(d.error || 'Could not cancel the bill.');
+        }
+
         function updateReceiptWithData(billData) {
+            KKR.bill = billData;
+            const cancelled = billData.payment_status === 'cancelled';
+            document.getElementById('cancelled-banner').hidden = !cancelled;
+            document.getElementById('cancel-bill-btn').hidden = cancelled;
+            document.getElementById('return-btn').hidden = cancelled;
+            showUpi();
             // Update bill details
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(1) .text-sm.text-gray-700').textContent = `#${billData.bill_number}`;
-            document.querySelector('.px-4.py-3.border-b .flex:nth-child(2) .text-sm.text-gray-700').textContent = new Date(billData.created_at).toLocaleString();
+            document.querySelector('.px-4.py-3.border-b .flex:nth-child(2) .text-sm.text-gray-700').textContent = new Date(billData.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(3) .text-sm.text-gray-700').textContent = billData.customer_name || 'Guest Customer';
             document.querySelector('.px-4.py-3.border-b .flex:nth-child(4) .text-sm.text-gray-700').textContent = billData.generated_by || 'Store Staff';
             
@@ -329,16 +449,24 @@
                     }
                 });
             };
-            const money = v => `₹${(v || 0).toFixed(2)}`;
+            const money = v => '₹' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const isPaid = billData.payment_status === 'paid';
 
             setRow('Subtotal', money(billData.subtotal));
             setRow('GST', money(billData.tax_amount));
+            // Hide GST / discount rows when they are zero (no "GST ₹0.00" on non-GST bills).
+            document.querySelectorAll('.flex.justify-between span.text-sm.text-gray-600').forEach(el => {
+                const label = el.textContent.trim();
+                if ((label.startsWith('GST') && !billData.tax_amount) || (label.startsWith('Discount') && !billData.discount_amount)) {
+                    el.parentElement.style.display = 'none';
+                }
+            });
             setRow('Discount', `- ${money(billData.discount_amount)}`);
             setRow('Total:', money(billData.total_amount));
             setRow('Payment Mode', billData.payment_mode.charAt(0).toUpperCase() + billData.payment_mode.slice(1));
             setRow('Amount Paid', money(isPaid ? billData.total_amount : 0));
-            setRow('Amount Due', money(isPaid ? 0 : billData.total_amount));
+            if (cancelled) setRow('Amount Due', money(0));
+            if (!cancelled) setRow('Amount Due', money(isPaid ? 0 : billData.total_amount));
 
             // Customer outstanding balance: show live data for account customers,
             // hide the block for walk-in/paid bills.
@@ -348,6 +476,7 @@
                     fetch(`/api/customer/${billData.customer_id}`)
                         .then(r => r.json())
                         .then(cust => {
+                            KKR.phone = cust.phone;
                             const amountEl = balanceBlock.querySelector('.text-lg');
                             if (amountEl) amountEl.textContent = `₹${(cust.outstanding_balance || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
                         })

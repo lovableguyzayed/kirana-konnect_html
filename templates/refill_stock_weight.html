@@ -28,6 +28,8 @@
             scrollbar-width: none;
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-100">
     <!-- Header Section -->
@@ -49,7 +51,7 @@
         <!-- Product Summary Section -->
         <div class="bg-white mx-4 mt-4 p-4 rounded-lg shadow-sm">
             <div class="flex items-center space-x-3 mb-4">
-                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" src="https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400" alt="Product image">
+                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" alt="Product image">
                 <div class="flex-1">
                     <h2 id="product-name" class="text-lg font-bold text-dark">Rice Basmati</h2>
                     <p id="product-size" class="text-sm text-gray-600">Per kg</p>
@@ -173,30 +175,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t">
-        <div class="flex justify-around items-end py-2">
-            <button onclick="goToDashboard()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-home text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button onclick="goToInventory()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-box text-primary text-xl"></i>
-                <span class="text-xs mt-1 text-primary font-semibold">Inventory</span>
-            </button>
-            <button onclick="openScanner()" class="relative -top-4 bg-primary rounded-full p-4 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-xl"></i>
-            </button>
-            <button onclick="goToCart()" class="flex flex-col items-center py-1 px-3 relative">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-                <span class="absolute -top-1 -right-1 bg-danger text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">7</span>
-            </button>
-            <button onclick="goToProfile()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-user text-gray-400 text-xl"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <!-- Barcode Overwrite Confirmation Popup -->
     <div id="barcode-confirm-popup" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
@@ -347,7 +326,7 @@
                 reorderLevel: 5,
                 sellingPrice: 90,
                 barcode: '8901030875422',
-                image: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/9307613d34-298d7bee124789ba3905.png'
+                image: '/static/icons/product.svg'
             },
             2: {
                 id: 2,
@@ -360,13 +339,13 @@
                 reorderLevel: 5,
                 sellingPrice: 40,
                 barcode: null,
-                image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400'
+                image: '/static/icons/product.svg'
             }
         };
         
         // Get product from localStorage or URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const productId = urlParams.get('id') || '1';
+        const productId = urlParams.get('id');
         
         // Load product data from localStorage if available
         const storedProductData = localStorage.getItem('refillProductData');
@@ -381,16 +360,49 @@
                 category: stored.category || 'Grocery',
                 isWeightBased: true,
                 unit: stored.unit || 'Kg',
-                currentStock: stored.stock || 15.5,
+                currentStock: stored.stock ?? 0,
                 reorderLevel: Math.round((stored.stock || 15.5) * 0.2),
                 sellingPrice: stored.price || 90,
                 barcode: stored.barcode || null,
-                image: stored.image || 'https://storage.googleapis.com/uxpilot-auth.appspot.com/9307613d34-298d7bee124789ba3905.png'
+                image: stored.image || ''
             };
         } else {
-            // Fallback to sample data
-            productData = sampleProducts[productId] || sampleProducts[1];
+            productData = null; // filled from the server below
         }
+
+        // Always refill the product the user actually tapped (?id=...).
+        // Previously a stale 'refillProductData' from an earlier product, or
+        // the built-in sample product, was shown and its id was used for the
+        // save - so stock could be added to the WRONG product.
+        if (!productId) {
+            window.location.replace('/inventory');
+        } else if (!productData || String(productData.id) !== String(productId)) {
+            productData = { id: productId, name: 'Loading…', size: '', category: '',
+                isWeightBased: true, unit: 'Kg', currentStock: 0,
+                reorderLevel: 0, sellingPrice: 0, barcode: null, image: '' };
+        }
+        function loadLiveProduct() {
+            if (!productId) return;
+            fetch(`/api/products/${encodeURIComponent(productId)}`, { cache: 'no-store' })
+                .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                .then(({ ok, d }) => {
+                    if (!ok || !d.success) { showErrorPopup('This product was not found. It may have been deleted.'); return; }
+                    const p = d.product;
+                    Object.assign(productData, {
+                        id: p.id, name: p.name, category: p.category,
+                        isWeightBased: !!p.is_weight_based,
+                        unit: p.is_weight_based ? 'Kg' : (productData.unit && productData.unit !== 'Loading…' ? productData.unit : 'Piece'),
+                        currentStock: p.stock_quantity ?? 0,
+                        reorderLevel: p.reorder_level ?? 0,
+                        sellingPrice: (p.is_weight_based ? (p.price_per_kg || p.price) : p.price) || 0,
+                        barcode: p.barcode || null
+                    });
+                    localStorage.removeItem('refillProductData');
+                    try { updateProductDisplay(); updateCalculations(); } catch (e) {}
+                })
+                .catch(() => showErrorPopup('No internet. Product details could not be loaded - please retry.'));
+        }
+        document.addEventListener('DOMContentLoaded', loadLiveProduct);
 
         // Price mode: 'per-kg' or 'total'
         let priceMode = 'per-kg';
@@ -447,6 +459,12 @@
             
             // Update product image
             const productImage = document.getElementById('product-image');
+            if (productImage && !productData.image) {
+                // No photo: show a neutral box instead of a broken-image icon.
+                productImage.removeAttribute('src');
+                productImage.alt = '';
+                productImage.style.background = '#F3F4F6';
+            }
             if (productImage && productData.image) {
                 productImage.src = productData.image;
                 productImage.alt = productData.name || 'Weight-Based Product';

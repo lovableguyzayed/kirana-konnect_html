@@ -24,6 +24,8 @@
             scrollbar-width: none;
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-50">
     <!-- Header Section -->
@@ -91,7 +93,7 @@
             <div class="expiry-item bg-white rounded-lg p-4 shadow-sm border-l-4 border-red-500" data-status="expired">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/f2c3d4e567-chocolate-bar-dairy-milk.png" alt="Dairy Milk Chocolate" class="w-full h-full object-cover">
+                        <img src="/static/icons/product.svg" alt="Dairy Milk Chocolate" class="w-full h-full object-cover">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -129,7 +131,7 @@
             <div class="expiry-item bg-white rounded-lg p-4 shadow-sm border-l-4 border-red-500" data-status="expired">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/46dc2aecf3-4ae1d7f8a3bc9c8b21d6.png" alt="Maggi Noodles" class="w-full h-full object-cover">
+                        <img src="/static/icons/product.svg" alt="Maggi Noodles" class="w-full h-full object-cover">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -168,7 +170,7 @@
             <div class="expiry-item bg-white rounded-lg p-4 shadow-sm border-l-4 border-orange-500" data-status="soon">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/dd29a1f85f-469e6193e37489fc8c43.png" alt="Aashirvaad Atta" class="w-full h-full object-cover">
+                        <img src="/static/icons/product.svg" alt="Aashirvaad Atta" class="w-full h-full object-cover">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -206,7 +208,7 @@
             <div class="expiry-item bg-white rounded-lg p-4 shadow-sm border-l-4 border-orange-500" data-status="soon">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/02cda64d32-ca63fc32eaab87b7db4c.png" alt="Coconut Oil" class="w-full h-full object-cover">
+                        <img src="/static/icons/product.svg" alt="Coconut Oil" class="w-full h-full object-cover">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -245,7 +247,7 @@
             <div class="expiry-item bg-white rounded-lg p-4 shadow-sm border-l-4 border-yellow-500" data-status="month">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/5fc8cd7bc4-09ff84e61b7234ca57e8.png" alt="Basmati Rice" class="w-full h-full object-cover">
+                        <img src="/static/icons/product.svg" alt="Basmati Rice" class="w-full h-full object-cover">
                     </div>
                     <div class="flex-1">
                         <div class="flex items-start justify-between">
@@ -287,12 +289,15 @@
                 <h3 class="font-semibold text-dark mb-3">Quick Actions</h3>
                 <div class="grid grid-cols-2 gap-3">
                     <button onclick="bulkDiscount()" class="bg-orange-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-percent mr-2"></i>Bulk Discount
+                        <i class="fa-solid fa-percent mr-2"></i>Offer on all
                     </button>
                     <button onclick="generateReport()" class="bg-blue-500 text-white p-3 rounded-lg font-medium">
-                        <i class="fa-solid fa-file-lines mr-2"></i>Expiry Report
+                        <i class="fa-solid fa-file-csv mr-2"></i>Expiry Report
                     </button>
                 </div>
+                <button onclick="shareOffers()" class="w-full mt-3 text-white p-3 rounded-lg font-medium" style="background:#25D366">
+                    <i class="fa-brands fa-whatsapp mr-2"></i>Send offers to customers
+                </button>
                 <button onclick="setupAlerts()" class="w-full mt-3 bg-green-500 text-white p-3 rounded-lg font-medium">
                     <i class="fa-solid fa-bell mr-2"></i>Setup Expiry Alerts
                 </button>
@@ -301,29 +306,7 @@
     </main>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/dashboard'">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/inventory'">
-                <i class="fa-solid fa-box text-primary text-lg"></i>
-                <span class="text-xs mt-1 text-primary">Inventory</span>
-            </button>
-            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg" onclick="window.location.href='/add-item'">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/cart'">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button class="flex flex-col items-center py-1 px-3" onclick="window.location.href='/profile'">
-                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         function goBack() {
@@ -373,13 +356,11 @@
         }
 
         function generateReport() {
-            // Generate and download expiry report
-            console.log('Generating expiry report');
+            window.location.href = '/export/products.csv';
         }
 
         function setupAlerts() {
-            // Open notification settings for expiry alerts
-            console.log('Opening expiry alert configuration');
+            window.location.href = '/profile?highlight=notifications';
         }
 
         // Filter functionality
@@ -440,13 +421,14 @@
         // expiring products, and lets the shopkeeper remove expired stock.
         (function () {
             function loadExpiry() {
-                fetch('/api/expired-products')
+                fetch('/api/expired-products?days=30')
                     .then(r => r.json())
                     .then(data => {
                         const products = data.products || [];
                         const list = document.querySelector('main .px-4.space-y-3');
                         if (!list) return;
 
+                        window.KK_EXPIRY = products;
                         const expired = products.filter(p => p.status === 'expired');
                         const soon = products.filter(p => p.status !== 'expired');
                         const summary = document.querySelectorAll('main .grid.grid-cols-3 .text-xl');
@@ -483,7 +465,11 @@
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <p class="font-bold text-dark">₹${p.price}</p>
+                                        ${p.offer_percent ? `<p class="text-xs text-gray-500" style="text-decoration:line-through">${KK.inr(p.sell_price)}</p>
+                                            <p class="font-bold" style="color:#2E7D32">${KK.inr(offerPrice(p))}</p>
+                                            <span class="inline-block text-xs px-2 py-0.5 rounded-full" style="background:#E8F5E9;color:#1B5E20;font-weight:700">${p.offer_percent}% OFF</span>`
+                                          : `<p class="font-bold text-dark">${KK.inr(p.sell_price || p.price)}</p>`}
+                                        ${!isExp ? `<br><button onclick="setOffer(${p.id})" class="mt-1 text-xs px-3 py-2 rounded-lg font-medium" style="background:#FFF3E0;color:#E65100;min-height:36px;white-space:nowrap">${p.offer_percent ? 'Change offer' : 'Set offer'}</button>` : ''}
                                         ${isExp ? `<button onclick="removeExpired(${p.id}, '${p.name.replace(/'/g, "&#39;")}')" class="mt-1 text-xs bg-red-50 text-red-600 px-2 py-1 rounded-lg font-medium">Remove</button>` : ''}
                                     </div>
                                 </div>
@@ -492,6 +478,76 @@
                     })
                     .catch(() => {});
             }
+
+            // ---- Offers on items that will expire soon ----
+            window.offerPrice = p => Math.round((p.sell_price || p.price) * (100 - (p.offer_percent || 0))) / 100;
+            function offerSheet(title, sub, current, onPick, canRemove) {
+                const w = document.createElement('div');
+                w.setAttribute('role', 'dialog');
+                w.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:flex-end';
+                w.innerHTML = `<div style="background:#fff;width:100%;border-radius:16px 16px 0 0;padding:18px 16px 22px">
+                    <h3 style="font-size:18px;font-weight:700;margin:0">${title}</h3>
+                    <p style="color:#52606D;font-size:14px;margin:2px 0 12px">${sub}</p>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                        ${[10, 20, 30, 50].map(v => `<button data-pct="${v}" style="min-height:52px;border-radius:12px;font-weight:800;font-size:17px;border:2px solid ${current === v ? '#2E7D32' : '#CBD2D9'};background:${current === v ? '#E8F5E9' : '#fff'}">${v}%</button>`).join('')}
+                    </div>
+                    <label for="offer-custom" style="display:block;font-weight:600;font-size:14px;margin:12px 0 4px">Or type your own %</label>
+                    <div style="display:flex;gap:8px"><input id="offer-custom" inputmode="decimal" placeholder="e.g. 15" style="flex:1;min-width:0;font-size:17px;padding:12px;border:1px solid #9AA5B1;border-radius:12px">
+                        <button data-custom style="min-height:48px;padding:0 18px;border:0;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700">Set</button></div>
+                    <p data-err role="alert" style="color:#B71C1C;min-height:20px;margin:8px 0 0;font-size:14px"></p>
+                    ${canRemove ? '<button data-remove style="width:100%;min-height:48px;border:0;border-radius:12px;background:#FDECEA;color:#B71C1C;font-weight:700">Remove offer</button>' : ''}
+                    <button data-close style="width:100%;min-height:48px;margin-top:6px;border:0;background:none;font-size:16px">Cancel</button></div>`;
+                w.addEventListener('click', e => {
+                    if (e.target === w || e.target.closest('[data-close]')) { w.remove(); return; }
+                    const b = e.target.closest('[data-pct]');
+                    if (b) { w.remove(); onPick(Number(b.dataset.pct)); return; }
+                    if (e.target.closest('[data-remove]')) { w.remove(); onPick(null); return; }
+                    if (e.target.closest('[data-custom]')) {
+                        const v = parseFloat(w.querySelector('#offer-custom').value);
+                        if (!(v > 0 && v <= 90)) { w.querySelector('[data-err]').textContent = 'Enter a number from 1 to 90.'; return; }
+                        w.remove(); onPick(v);
+                    }
+                });
+                document.body.appendChild(w);
+            }
+            window.setOffer = function (id) {
+                const p = (window.KK_EXPIRY || []).find(x => x.id === id);
+                if (!p) return;
+                const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+                offerSheet('Offer on ' + esc(p.name), `Price ${KK.inr(p.sell_price)} · ${esc(p.days_info)}. The offer is taken off automatically in the bill.`, p.offer_percent, pct => {
+                    fetch(`/api/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ offer_percent: pct }) })
+                        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                        .then(({ ok, d }) => {
+                            if (ok && d.success) { KK.toast(pct ? `${pct}% offer set on ${p.name}` : `Offer removed from ${p.name}`, 'ok'); loadExpiry(); }
+                            else alert(d.error || 'Could not save the offer.');
+                        })
+                        .catch(() => alert('No internet. Offer was NOT saved.'));
+                }, !!p.offer_percent);
+            };
+            window.bulkDiscount = function () {
+                const soon = (window.KK_EXPIRY || []).filter(p => p.status !== 'expired');
+                if (!soon.length) { alert('No items are expiring soon.'); return; }
+                offerSheet('Offer on all expiring items', `${soon.length} item(s) expiring in the next 30 days will get the same offer.`, null, pct => {
+                    const req = pct
+                        ? fetch('/api/offers/expiring', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ percent: pct, days: 30 }) })
+                        : fetch('/api/offers/expiring', { method: 'DELETE' });
+                    req.then(r => r.json().then(d => ({ ok: r.ok, d })))
+                        .then(({ ok, d }) => {
+                            if (ok && d.success) { KK.toast(pct ? `${pct}% offer set on ${d.count} item(s)` : 'All offers removed', 'ok'); loadExpiry(); }
+                            else alert(d.error || 'Could not save the offer.');
+                        })
+                        .catch(() => alert('No internet. Offer was NOT saved.'));
+                }, soon.some(p => p.offer_percent));
+            };
+            // Tell customers: WhatsApp message listing today's offers.
+            window.shareOffers = function () {
+                const on = (window.KK_EXPIRY || []).filter(p => p.status !== 'expired' && p.offer_percent);
+                if (!on.length) { alert('Set an offer on at least one item first.'); return; }
+                fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).catch(() => ({})).then(st => {
+                    const lines = on.map(p => `• ${p.name}: ${KK.inr(p.sell_price)} → *${KK.inr(offerPrice(p))}*${p.is_weight_based ? ' /kg' : ''} (${p.offer_percent}% OFF)`);
+                    KK.whatsapp('', `🎉 ${st.shop_name || 'Hamari dukaan'} - Aaj ke OFFER!\n\n${lines.join('\n')}\n\nStock khatam hone se pehle le jaiye. 🙏`);
+                });
+            };
 
             window.removeExpired = function (id, name) {
                 if (!confirm(`Remove expired "${name}" from inventory? This deletes the product.`)) return;

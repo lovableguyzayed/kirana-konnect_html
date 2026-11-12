@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khata - Kirana Konnect</title>
+    <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
+    <style>
+        :root { --brand: #2E7D32; --ink: #1F2933; --muted: #52606D; --line: #E4E7EB; --bg: #F5F7F5; --red: #C62828; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.4 Inter, system-ui, sans-serif; }
+        header { position: sticky; top: 0; z-index: 20; background: #fff; border-bottom: 1px solid var(--line); }
+        .top { display: flex; align-items: center; gap: 4px; padding: 8px 8px 0; }
+        .top h1 { font-size: 19px; margin: 0; flex: 1; }
+        .icon-btn { min-width: 48px; min-height: 48px; border: 0; background: none; font-size: 20px; color: var(--ink);
+                    display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+        .tabs { display: flex; }
+        .tab { flex: 1; min-height: 48px; border: 0; background: none; font-weight: 700; font-size: 15px; color: var(--muted);
+               border-bottom: 3px solid transparent; }
+        .tab[aria-selected="true"] { color: var(--brand); border-bottom-color: var(--brand); }
+        main { padding: 12px; max-width: 640px; margin: 0 auto; }
+        .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+        .card h2 { font-size: 16px; margin: 0 0 8px; }
+        .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid #F0F2F0; }
+        .row:first-of-type { border-top: 0; }
+        .row span:last-child { font-weight: 700; white-space: nowrap; }
+        .plus { color: var(--brand); } .minus { color: var(--red); }
+        .big { display: flex; justify-content: space-between; align-items: baseline; padding-top: 10px; margin-top: 6px; border-top: 2px solid var(--ink); font-size: 18px; font-weight: 800; }
+        .muted { color: var(--muted); font-size: 14px; }
+        label { display: block; font-weight: 600; font-size: 14px; margin: 10px 0 4px; }
+        input, select { width: 100%; font-size: 17px; padding: 12px; border: 1px solid #9AA5B1; border-radius: 12px; background: #fff; color: var(--ink); }
+        .btn { width: 100%; min-height: 52px; border: 0; border-radius: 12px; background: var(--brand); color: #fff; font-weight: 700; font-size: 16px; margin-top: 12px; }
+        .btn.sec { background: #EEF2EE; color: var(--ink); }
+        .btn.wa { background: #25D366; }
+        .two { display: flex; gap: 8px; } .two > * { flex: 1; }
+        .seg { display: flex; gap: 8px; margin-top: 6px; }
+        .seg button { flex: 1; min-height: 46px; border-radius: 12px; border: 2px solid #CBD2D9; background: #fff; font-weight: 700; }
+        .seg button[aria-pressed="true"] { border-color: var(--brand); background: #E8F5E9; }
+        .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .chips button { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #CBD2D9; background: #fff; font-size: 14px; font-weight: 600; }
+        .chips button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+        .item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #F0F2F0; }
+        .item:first-child { border-top: 0; }
+        .item .mid { flex: 1; min-width: 0; } .item .t { font-weight: 700; overflow-wrap: anywhere; } .item .amt { font-weight: 800; white-space: nowrap; }
+        .del { min-width: 44px; min-height: 44px; border: 0; background: none; color: var(--red); font-size: 16px; }
+        .sup { width: 100%; text-align: left; border: 0; background: none; font: inherit; color: inherit; }
+        .empty { text-align: center; color: var(--muted); padding: 18px 8px; }
+        .ok-box { background: #E8F5E9; color: #1B5E20; } .warn-box { background: #FDECEA; color: #8E1C1C; }
+        .box { border-radius: 12px; padding: 12px; margin-top: 10px; font-weight: 600; }
+        .err { color: #B71C1C; min-height: 20px; margin: 6px 0 0; font-size: 14px; }
+        .sheet-wrap { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; }
+        .sheet { background: #fff; width: 100%; max-height: 92vh; overflow: auto; border-radius: 16px 16px 0 0; padding: 18px 16px 22px; }
+        [hidden] { display: none !important; }
+        .daynav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .daynav b { font-size: 16px; }
+    </style>
+</head>
+<body>
+<header>
+    <div class="top">
+        <a class="icon-btn" href="/dashboard" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
+        <h1>Khata</h1>
+    </div>
+    <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="galla" aria-selected="true">Galla</button>
+        <button class="tab" role="tab" data-tab="kharcha" aria-selected="false">Expenses</button>
+        <button class="tab" role="tab" data-tab="supplier" aria-selected="false">Suppliers</button>
+    </div>
+</header>
+<main>
+    <!-- ================= Galla (day book + closing) ================= -->
+    <section id="tab-galla">
+        <div class="daynav">
+            <button class="icon-btn" id="day-prev" aria-label="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
+            <b id="day-label">…</b>
+            <button class="icon-btn" id="day-next" aria-label="Next day"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="card">
+            <h2>Cash in the galla</h2>
+            <div class="row"><span>Opening cash <button id="edit-opening" class="muted" style="border:0;background:none;text-decoration:underline;min-height:32px">Change</button></span><span id="g-opening">—</span></div>
+            <div class="row"><span>Cash sales</span><span id="g-cash-sales" class="plus">—</span></div>
+            <div class="row"><span>Udhar received (cash)</span><span id="g-udhar-cash" class="plus">—</span></div>
+            <div class="row"><span>Expenses (cash)</span><span id="g-exp-cash" class="minus">—</span></div>
+            <div class="row"><span>Paid to suppliers (cash)</span><span id="g-sup-cash" class="minus">—</span></div>
+            <div class="big"><span>Should be in galla</span><span id="g-expected">—</span></div>
+        </div>
+        <div class="card">
+            <h2>Other money today</h2>
+            <div class="row"><span>UPI / online received</span><span id="g-online">—</span></div>
+            <div class="row"><span>Udhar given</span><span id="g-udhar-given">—</span></div>
+            <div class="row"><span>Total sales (<span id="g-bills">0</span> bills)</span><span id="g-total">—</span></div>
+        </div>
+        <div class="card">
+            <h2>Close the day</h2>
+            <p class="muted" style="margin:0">Count the cash in your galla and enter it here.</p>
+            <label for="counted">Cash counted (₹)</label>
+            <input id="counted" inputmode="decimal" autocomplete="off" placeholder="e.g. 4250">
+            <div id="close-result" class="box" hidden></div>
+            <p class="err" id="close-err" role="alert"></p>
+            <button class="btn" id="close-btn">Save closing</button>
+        </div>
+    </section>
+
+    <!-- ================= Expenses ================= -->
+    <section id="tab-kharcha" hidden>
+        <form class="card" id="exp-form" autocomplete="off">
+            <h2>Add expense</h2>
+            <label for="exp-amount">Amount (₹)</label>
+            <input id="exp-amount" inputmode="decimal" placeholder="e.g. 250" required>
+            <label>What for?</label>
+            <div class="chips" id="exp-cats">
+                {% for c in expense_categories %}<button type="button" data-c="{{ c }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ c }}</button>{% endfor %}
+            </div>
+            <label for="exp-note">Note (optional)</label>
+            <input id="exp-note" maxlength="200" placeholder="e.g. November bijli bill">
+            <label>Paid by</label>
+            <div class="seg" id="exp-mode"><button type="button" data-m="cash" aria-pressed="true">Cash</button><button type="button" data-m="upi" aria-pressed="false">UPI</button></div>
+            <p class="err" id="exp-err" role="alert"></p>
+            <button class="btn" type="submit">Save expense</button>
+        </form>
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <h2 style="margin:0">Expenses</h2>
+                <div class="seg" style="margin:0;width:auto" id="exp-range"><button type="button" data-r="day" aria-pressed="true" style="min-height:36px;padding:0 12px">Today</button><button type="button" data-r="month" aria-pressed="false" style="min-height:36px;padding:0 12px">This month</button></div>
+            </div>
+            <p class="muted" style="margin:8px 0 0">Total: <b id="exp-total" style="color:var(--red)">—</b></p>
+            <div id="exp-list"><p class="empty">Loading…</p></div>
+        </div>
+    </section>
+
+    <!-- ================= Suppliers ================= -->
+    <section id="tab-supplier" hidden>
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <h2 style="margin:0">You owe suppliers</h2><b id="sup-total" style="color:var(--red);font-size:20px">—</b>
+            </div>
+            <div id="sup-list"><p class="empty">Loading…</p></div>
+            <button class="btn sec" id="sup-add">+ Add supplier</button>
+        </div>
+    </section>
+</main>
+{% include '_nav.html' %}
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const inr = KK.inr;
+    const when = iso => new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' });
+    async function call(url, opts) {
+        const r = await fetch(url, Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, opts || {}));
+        if (r.status === 401) { location.href = '/signin'; throw new Error('signin'); }
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Something went wrong. Please try again.');
+        return d;
+    }
+    function sheet(html) {
+        const w = document.createElement('div');
+        w.className = 'sheet-wrap'; w.setAttribute('role', 'dialog');
+        w.innerHTML = `<div class="sheet">${html}</div>`;
+        w.addEventListener('click', e => { if (e.target === w || e.target.closest('[data-close]')) w.remove(); });
+        document.body.appendChild(w);
+        return w;
+    }
+    function seg(root, attr, onChange) {
+        root.addEventListener('click', e => {
+            const b = e.target.closest('button'); if (!b) return;
+            root.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+            if (onChange) onChange(b.dataset[attr]);
+        });
+        return () => (root.querySelector('button[aria-pressed="true"]') || {}).dataset?.[attr];
+    }
+
+    // ---------------- tabs ----------------
+    const loaders = {};
+    function show(tab) {
+        document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === tab)));
+        ['galla', 'kharcha', 'supplier'].forEach(t => { $('tab-' + t).hidden = t !== tab; });
+        try { sessionStorage.setItem('kk_khata_tab', tab); } catch (e) {}
+        loaders[tab]();
+    }
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+
+    // ---------------- galla ----------------
+    let day = new Date(Date.now() + 5.5 * 3600 * 1000);  // IST "today"
+    const dayStr = () => day.toISOString().slice(0, 10);
+    const todayStr = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+    let book = null;
+    function paintBook(d) {
+        book = d;
+        $('day-label').textContent = d.day === todayStr ? 'Today · ' + d.day_label : d.day_label;
+        $('day-next').disabled = d.day >= todayStr; $('day-next').style.opacity = d.day >= todayStr ? .3 : 1;
+        $('g-opening').textContent = inr(d.opening_cash);
+        $('g-cash-sales').textContent = '+ ' + inr(d.cash_sales);
+        $('g-udhar-cash').textContent = '+ ' + inr(d.udhar_collected_cash);
+        $('g-exp-cash').textContent = '− ' + inr(d.expenses_cash);
+        $('g-sup-cash').textContent = '− ' + inr(d.supplier_paid_cash);
+        $('g-expected').textContent = inr(d.expected_cash);
+        let hint = $('g-neg-hint');
+        if (!hint) { hint = document.createElement('p'); hint.id = 'g-neg-hint'; hint.className = 'box warn-box'; $('g-expected').closest('.card').appendChild(hint); }
+        hint.hidden = d.expected_cash >= 0;
+        hint.textContent = 'More cash went out than came in. Check the opening cash, or whether a payment was made by UPI.';
+        $('g-online').textContent = inr(d.online_received);
+        $('g-udhar-given').textContent = inr(d.udhar_given);
+        $('g-total').textContent = inr(d.total_sales);
+        $('g-bills').textContent = d.bill_count;
+        const box = $('close-result');
+        if (d.counted_cash === null) { box.hidden = true; $('counted').value = ''; }
+        else {
+            $('counted').value = d.counted_cash;
+            const diff = d.difference;
+            box.hidden = false;
+            box.className = 'box ' + (Math.abs(diff) < 1 ? 'ok-box' : 'warn-box');
+            box.textContent = Math.abs(diff) < 1 ? 'Galla matches. ✔'
+                : diff > 0 ? `${inr(diff)} extra in the galla.` : `${inr(-diff)} short in the galla.`;
+        }
+    }
+    loaders.galla = async () => {
+        try { paintBook(await call('/api/daybook?day=' + dayStr())); }
+        catch (e) { if (e.message !== 'signin') KK.toast(e.message === 'Failed to fetch' ? 'No internet. Please try again.' : e.message, 'error'); }
+    };
+    $('day-prev').onclick = () => { day = new Date(day.getTime() - 864e5); loaders.galla(); };
+    $('day-next').onclick = () => { if (dayStr() < todayStr) { day = new Date(day.getTime() + 864e5); loaders.galla(); } };
+    $('close-btn').onclick = async () => {
+        const v = parseFloat($('counted').value);
+        if (!(v >= 0)) { $('close-err').textContent = 'Enter the cash you counted.'; return; }
+        $('close-err').textContent = '';
+        try { paintBook(await call('/api/daybook/close', { method: 'POST', body: JSON.stringify({ day: dayStr(), counted_cash: v }) })); KK.toast('Closing saved.', 'ok'); }
+        catch (e) { $('close-err').textContent = e.message; }
+    };
+    $('edit-opening').onclick = () => {
+        const w = sheet(`<form><h3 style="margin:0 0 4px;font-size:18px">Opening cash</h3>
+            <p class="muted" style="margin:0">Cash in the galla when you opened the shop.</p>
+            <label for="op-amt">Amount (₹)</label><input id="op-amt" inputmode="decimal" value="${book ? book.opening_cash : 0}">
+            <p class="err" role="alert"></p><button class="btn" type="submit">Save</button>
+            <button class="btn sec" type="button" data-close>Cancel</button></form>`);
+        w.querySelector('form').onsubmit = async e => {
+            e.preventDefault();
+            try { paintBook(await call('/api/daybook/close', { method: 'POST', body: JSON.stringify({ day: dayStr(), opening_cash: parseFloat(w.querySelector('#op-amt').value) }) })); w.remove(); }
+            catch (err) { w.querySelector('.err').textContent = err.message; }
+        };
+        setTimeout(() => w.querySelector('#op-amt').select(), 50);
+    };
+
+    // ---------------- expenses ----------------
+    const expCat = seg($('exp-cats'), 'c'), expMode = seg($('exp-mode'), 'm');
+    let expRange = 'day';
+    seg($('exp-range'), 'r', r => { expRange = r; loaders.kharcha(); });
+    loaders.kharcha = async () => {
+        try {
+            const d = await call('/api/expenses?day=today' + (expRange === 'month' ? '&month=1' : ''));
+            $('exp-total').textContent = inr(d.total);
+            $('exp-list').innerHTML = d.expenses.length ? d.expenses.map(x => `<div class="item">
+                <div class="mid"><div class="t">${esc(x.category)}${x.note ? ' · <span style="font-weight:400">' + esc(x.note) + '</span>' : ''}</div>
+                <div class="muted">${esc(when(x.created_at))} · ${x.payment_mode === 'upi' ? 'UPI' : 'Cash'}</div></div>
+                <div class="amt minus">${inr(x.amount)}</div>
+                <button class="del" data-id="${x.id}" aria-label="Delete expense"><i class="fa-solid fa-trash"></i></button></div>`).join('')
+                : '<p class="empty">No expenses added yet.</p>';
+        } catch (e) { if (e.message !== 'signin') $('exp-list').innerHTML = `<p class="empty">${esc(e.message === 'Failed to fetch' ? 'No internet.' : e.message)}</p>`; }
+    };
+    $('exp-list').addEventListener('click', async e => {
+        const b = e.target.closest('.del'); if (!b || !confirm('Delete this expense?')) return;
+        try { await call('/api/expenses/' + b.dataset.id, { method: 'DELETE' }); loaders.kharcha(); } catch (err) { KK.toast(err.message, 'error'); }
+    });
+    let savingExp = false;
+    $('exp-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        if (savingExp) return;
+        const amount = parseFloat($('exp-amount').value);
+        if (!(amount > 0)) { $('exp-err').textContent = 'Enter the amount spent.'; return; }
+        savingExp = true; $('exp-err').textContent = '';
+        try {
+            await call('/api/expenses', { method: 'POST', body: JSON.stringify({ amount, category: expCat(), note: $('exp-note').value, payment_mode: expMode() }) });
+            $('exp-amount').value = ''; $('exp-note').value = '';
+            KK.toast(inr(amount) + ' expense saved.', 'ok'); loaders.kharcha();
+        } catch (err) { $('exp-err').textContent = err.message === 'Failed to fetch' ? 'No internet. Expense was NOT saved.' : err.message; }
+        savingExp = false;
+    });
+
+    // ---------------- suppliers ----------------
+    loaders.supplier = async () => {
+        try {
+            const d = await call('/api/suppliers');
+            $('sup-total').textContent = inr(d.total_due);
+            $('sup-list').innerHTML = d.suppliers.length ? d.suppliers.map(s => `<button class="item sup" data-id="${s.id}">
+                <span class="mid"><span class="t" style="display:block">${esc(s.name)}</span><span class="muted">${esc(s.phone || 'No phone')}</span></span>
+                <span class="amt ${s.balance > 0 ? 'minus' : 'plus'}">${s.balance > 0 ? inr(s.balance) : s.balance < 0 ? 'Advance ' + inr(-s.balance) : 'Clear ✔'}</span>
+                <i class="fa-solid fa-chevron-right muted" aria-hidden="true"></i></button>`).join('')
+                : '<p class="empty">Add your wholesalers here to track what you owe them.</p>';
+        } catch (e) { if (e.message !== 'signin') $('sup-list').innerHTML = `<p class="empty">${esc(e.message === 'Failed to fetch' ? 'No internet.' : e.message)}</p>`; }
+    };
+    $('sup-add').onclick = () => {
+        const w = sheet(`<form><h3 style="margin:0;font-size:18px">Add supplier</h3>
+            <label for="sn">Name</label><input id="sn" maxlength="100" placeholder="e.g. Gupta Traders" required>
+            <label for="sp">Mobile (optional)</label><input id="sp" inputmode="numeric" placeholder="10-digit number">
+            <p class="err" role="alert"></p><button class="btn" type="submit">Save supplier</button>
+            <button class="btn sec" type="button" data-close>Cancel</button></form>`);
+        w.querySelector('form').onsubmit = async e => {
+            e.preventDefault();
+            try { await call('/api/suppliers', { method: 'POST', body: JSON.stringify({ name: w.querySelector('#sn').value, phone: w.querySelector('#sp').value }) }); w.remove(); loaders.supplier(); }
+            catch (err) { w.querySelector('.err').textContent = err.message; }
+        };
+        setTimeout(() => w.querySelector('#sn').focus(), 50);
+    };
+    $('sup-list').addEventListener('click', e => { const b = e.target.closest('.sup'); if (b) openSupplier(b.dataset.id); });
+    async function openSupplier(id) {
+        let s;
+        try { s = await call('/api/suppliers/' + id); } catch (e) { KK.toast(e.message, 'error'); return; }
+        const w = sheet(`<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0;font-size:18px">${esc(s.name)}</h3>
+            <button class="icon-btn" data-close aria-label="Close">✕</button></div>
+            <p style="margin:2px 0 10px">${s.phone ? `<a href="tel:+91${esc(s.phone)}" style="color:var(--brand);font-weight:600">📞 ${esc(s.phone)}</a> · ` : ''}
+               You owe: <b class="${s.balance > 0 ? 'minus' : 'plus'}">${inr(Math.max(s.balance, 0))}</b>${s.balance < 0 ? ' (advance ' + inr(-s.balance) + ')' : ''}</p>
+            <form id="se"><div class="seg" id="se-kind"><button type="button" data-k="purchase" aria-pressed="true">Maal liya (purchase)</button><button type="button" data-k="payment" aria-pressed="false">Paisa diya (payment)</button></div>
+            <label for="se-amt">Amount (₹)</label><input id="se-amt" inputmode="decimal" placeholder="e.g. 5200" required>
+            <label for="se-note">Bill no. / note (optional)</label><input id="se-note" maxlength="200">
+            <div id="se-mode-wrap" hidden><label>Paid by</label><div class="seg" id="se-mode"><button type="button" data-m="cash" aria-pressed="true">Cash</button><button type="button" data-m="upi" aria-pressed="false">UPI / bank</button></div></div>
+            <p class="err" role="alert"></p><button class="btn" type="submit">Save</button></form>
+            <h4 style="margin:16px 0 4px">History</h4>
+            ${s.entries.length ? s.entries.map(x => `<div class="item"><div class="mid"><div class="t">${x.kind === 'purchase' ? 'Purchase' : 'Payment' + (x.payment_mode === 'upi' ? ' (UPI)' : ' (cash)')}${x.note ? ' · <span style="font-weight:400">' + esc(x.note) + '</span>' : ''}</div>
+                <div class="muted">${esc(when(x.created_at))}</div></div><div class="amt ${x.kind === 'purchase' ? 'minus' : 'plus'}">${x.kind === 'purchase' ? '+ ' : '− '}${inr(x.amount)}</div></div>`).join('') : '<p class="empty">No entries yet.</p>'}
+            <button class="btn sec" id="se-remove" style="color:var(--red)">Remove supplier</button>`);
+        const kind = seg(w.querySelector('#se-kind'), 'k', k => { w.querySelector('#se-mode-wrap').hidden = k !== 'payment'; });
+        const mode = seg(w.querySelector('#se-mode'), 'm');
+        let saving = false;
+        w.querySelector('#se').onsubmit = async e => {
+            e.preventDefault(); if (saving) return;
+            const amount = parseFloat(w.querySelector('#se-amt').value);
+            if (!(amount > 0)) { w.querySelector('.err').textContent = 'Enter the amount.'; return; }
+            saving = true;
+            try {
+                await call(`/api/suppliers/${id}/entries`, { method: 'POST', body: JSON.stringify({ kind: kind(), amount, note: w.querySelector('#se-note').value, payment_mode: mode() }) });
+                w.remove(); KK.toast('Saved.', 'ok'); loaders.supplier(); openSupplier(id);
+            } catch (err) { w.querySelector('.err').textContent = err.message; saving = false; }
+        };
+        w.querySelector('#se-remove').onclick = async () => {
+            if (!confirm(`Remove ${s.name}?`)) return;
+            try { await call('/api/suppliers/' + id, { method: 'DELETE' }); w.remove(); loaders.supplier(); } catch (err) { KK.toast(err.message, 'error'); }
+        };
+    }
+
+    let start = new URLSearchParams(location.search).get('tab');
+    try { start = start || sessionStorage.getItem('kk_khata_tab'); } catch (e) {}
+    show(['galla', 'kharcha', 'supplier'].includes(start) ? start : 'galla');
+})();
+</script>
+</body>
+</html>

@@ -52,6 +52,8 @@
         scrollbar-width: none;
       }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-poppins bg-gray-50">
     <!-- Header Section -->
@@ -69,9 +71,9 @@
     <div id="shop-info" class="bg-white shadow-sm mt-16 p-3 border-b">
         <div class="text-center">
             <h2 class="text-base font-bold text-dark">Kirana Konnect</h2>
-            <h3 class="text-sm font-semibold text-dark mt-1">Sharma Kirana Store</h3>
-            <p class="text-xs text-gray-600 mt-1">GST: 24ABCDE1234F1Z5</p>
-            <p class="text-xs text-gray-600">UDYAM: UDYAM-UP-12-0012345</p>
+            <h3 class="text-sm font-semibold text-dark mt-1"></h3>
+            <p class="text-xs text-gray-600 mt-1"></p>
+            <p class="text-xs text-gray-600"></p>
         </div>
     </div>
 
@@ -96,7 +98,7 @@
             <div id="bill-section" class="mt-3">
                 <div class="text-center mb-3">
                     <p class="text-xs text-gray-600">Bill No:</p>
-                    <p class="text-lg font-bold text-primary">#KK-2025-001</p>
+                    <p class="text-sm font-medium text-gray-500">Given after the bill is saved</p>
                 </div>
                 <div class="border-t pt-3">
                     <p class="text-xs text-gray-600 mb-2">Add name to bill (optional):</p>
@@ -155,7 +157,7 @@
     <div id="tax-offer-section" class="px-4 mb-3">
         <div class="bg-white rounded-xl shadow-sm p-3">
             <div class="grid grid-cols-2 gap-3">
-                <button id="tax-btn" class="p-3 border-2 border-primary bg-primary/10 rounded-xl text-center" onclick="toggleTax()">
+                <button id="tax-btn" class="p-3 border-2 border-gray-200 rounded-xl text-center hover:border-primary hover:bg-primary/10" onclick="toggleTax()">
                     <i class="fa-solid fa-percentage text-primary text-lg mb-1"></i>
                     <p class="text-xs font-medium text-primary">Add Tax</p>
                 </button>
@@ -172,18 +174,31 @@
                         <span class="text-gray-600 text-sm">Subtotal</span>
                         <span class="font-medium text-sm" id="subtotal">₹955</span>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600 text-sm">GST (18%)</span>
-                        <span class="font-medium text-sm" id="gst">₹171.90</span>
+                    <div id="disc-row" class="flex justify-between hidden">
+                        <span class="text-gray-600 text-sm">Discount</span>
+                        <span class="font-medium text-sm" id="disc-amt" style="color:#C62828">− ₹0</span>
+                    </div>
+                    <div id="gst-row" class="flex justify-between items-center hidden">
+                        <label for="gst-rate" class="text-gray-600 text-sm" title="Used for items that have no GST % of their own">GST
+                            <select id="gst-rate" onchange="calculateTotals()" class="ml-1 border border-gray-300 rounded-md px-2 py-1 text-sm">
+                                <option value="5">5%</option>
+                                <option value="12">12%</option>
+                                <option value="18">18%</option>
+                            </select>
+                        </label>
+                        <span class="font-medium text-sm" id="gst">₹0.00</span>
                     </div>
                 </div>
             </div>
 
             <!-- Offer Section -->
             <div id="offer-section" class="mt-3 hidden">
+                <!-- Bill discount: type rupees OR percent (the other box clears). -->
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="number" placeholder="Discount ₹" class="p-2 border border-gray-200 rounded-lg text-sm" onchange="calculateDiscount()">
-                    <input type="number" placeholder="Discount %" class="p-2 border border-gray-200 rounded-lg text-sm" onchange="calculateDiscount()">
+                    <div><label for="disc-rs" class="text-xs text-gray-600">Discount ₹</label>
+                        <input type="text" inputmode="decimal" id="disc-rs" placeholder="e.g. 20" class="w-full p-2 border border-gray-200 rounded-lg text-sm" oninput="document.getElementById('disc-pct').value='';calculateTotals()"></div>
+                    <div><label for="disc-pct" class="text-xs text-gray-600">Discount %</label>
+                        <input type="text" inputmode="decimal" id="disc-pct" placeholder="e.g. 5" class="w-full p-2 border border-gray-200 rounded-lg text-sm" oninput="document.getElementById('disc-rs').value='';calculateTotals()"></div>
                 </div>
             </div>
         </div>
@@ -236,11 +251,13 @@
             <!-- Online Payment Section -->
             <div id="online-payment-section" class="hidden">
                 <div class="space-y-2">
-                    <div class="grid grid-cols-2 gap-2">
-                        <button class="p-2 border border-gray-200 rounded-lg text-sm bg-blue-50 text-blue-600">UPI</button>
-                        <button class="p-2 border border-gray-200 rounded-lg text-sm bg-green-50 text-green-600">Card</button>
+                    <!-- Customer scans this with GPay / PhonePe / Paytm; amount is filled in. -->
+                    <div id="cart-upi" style="text-align:center">
+                        <div id="cart-upi-qr" style="display:flex;justify-content:center"></div>
+                        <p id="cart-upi-text" class="text-sm text-gray-600" style="margin-top:6px"></p>
                     </div>
-                    <input type="text" placeholder="UPI ID or Transaction Reference" class="w-full p-2 border border-gray-200 rounded-lg text-sm">
+                    <label for="payment-ref" class="text-sm text-gray-700">UPI / transaction reference (optional)</label>
+                    <input type="text" id="payment-ref" maxlength="40" autocomplete="off" placeholder="e.g. last 4-6 digits of UPI Ref No." class="w-full p-2 border border-gray-200 rounded-lg text-sm">
                 </div>
             </div>
 
@@ -380,67 +397,21 @@
 
     <script>
         // Cart items storage
-        let cartItems = [
-            {
-                id: 1,
-                name: 'Aashirvaad Atta',
-                quantity: 10,
-                unit: 'Kg',
-                price: 450,
-                mfgDate: '01/05/2025',
-                expDate: '01/09/2025',
-                showDates: true
-            },
-            {
-                id: 2,
-                name: 'Real Fruit Juice',
-                quantity: 2,
-                unit: 'Bottles',
-                price: 120,
-                mfgDate: '12/05/2025',
-                expDate: '25/07/2025',
-                showDates: true
-            },
-            {
-                id: 3,
-                name: 'Colgate Paste',
-                quantity: 3,
-                unit: 'Pieces',
-                price: 90,
-                showDates: false
-            },
-            {
-                id: 4,
-                name: 'Good Day Biscuits',
-                quantity: 5,
-                unit: 'Packets',
-                price: 60,
-                mfgDate: '10/04/2025',
-                expDate: '10/08/2025',
-                showDates: true
-            },
-            {
-                id: 5,
-                name: 'Surf Excel (500gm)',
-                quantity: 1,
-                unit: 'Packet',
-                price: 55,
-                showDates: false
-            },
-            {
-                id: 6,
-                name: 'Dabur Honey',
-                quantity: 1,
-                unit: 'Bottle',
-                price: 180,
-                mfgDate: '05/03/2025',
-                expDate: '05/01/2026',
-                showDates: true
-            }
-        ];
+        // Cart starts EMPTY. (It used to start with 6 hard-coded demo items, which
+        // reappeared every time the cart was emptied and could be billed for real.)
+        let cartItems = [];
 
         let currentTab = 'billing';
-        let taxEnabled = true;
+        // GST is OFF by default and can only be switched on when the shop has
+        // saved a GSTIN: unregistered shops must not charge GST, and most
+        // kirana goods are 0/5/12% - not a flat 18%.
+        let taxEnabled = false;
+        let shopGstin = null;
+        let shopUpi = null, shopName = '';
+        function gstRate() {
+            const el = document.getElementById('gst-rate');
+            return el ? (parseFloat(el.value) || 0) / 100 : 0;
+        }
         let offerEnabled = false;
         let editingItemIndex = -1;
 
@@ -450,7 +421,7 @@
                 const saved = localStorage.getItem('kiranakonnect_persistent_cart');
                 if (saved) {
                     const items = JSON.parse(saved);
-                    if (items.length > 0) {
+                    if (Array.isArray(items)) {
                         cartItems = items;
                     }
                 }
@@ -504,6 +475,15 @@
             const container = document.getElementById('cart-items');
             container.innerHTML = '';
 
+            if (cartItems.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-sm p-6 text-center">
+                        <i class="fa-solid fa-cart-shopping text-gray-300 text-4xl mb-3"></i>
+                        <p class="font-semibold text-dark">Cart is empty</p>
+                        <p class="text-sm text-gray-600 mt-1">Tap "Add More Items to Cart" below or scan a barcode.</p>
+                    </div>`;
+            }
+
             cartItems.forEach((item, index) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'bg-white rounded-xl shadow-sm p-3 relative';
@@ -520,6 +500,7 @@
                                 <span class="text-sm text-gray-700 font-medium">${item.quantity} ${item.unit}</span>
                                 <span class="text-lg font-bold text-primary">₹${item.price}</span>
                             </div>
+                            ${((typeof productTax !== 'undefined' && productTax[String(item.product_id)]) || {}).offer ? `<span style="display:inline-block;margin-top:4px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;background:#FFF3E0;color:#E65100">Expiry offer ${productTax[String(item.product_id)].offer}% OFF</span>` : ''}
                 `;
                 
                 if (item.showDates && item.mfgDate && item.expDate) {
@@ -557,14 +538,61 @@
         }
 
         // Calculate totals
+        // One place for the bill maths (screen and saved bill use the same numbers).
+        // Discount comes off first; GST is charged on what is left. Each item
+        // uses its own GST % when the product has one, else the rate chosen here.
+        let productTax = {};   // product id -> { gst_rate, hsn_code }
+        fetch('/api/products', { credentials: 'same-origin' }).then(r => r.json()).then(d => {
+            (d.products || []).forEach(p => { productTax[String(p.id)] = { gst_rate: p.gst_rate, hsn_code: p.hsn_code, offer: p.offer_percent || 0 }; });
+            if (typeof renderCart === 'function') renderCart();
+            calculateTotals();
+        }).catch(() => {});
+        function itemTax(item) {
+            const t = productTax[String(item.product_id)] || {};
+            const rate = (t.gst_rate === null || t.gst_rate === undefined) ? gstRate() * 100 : t.gst_rate;
+            return { rate: rate, hsn: t.hsn_code || null };
+        }
+        function billMaths() {
+            const r2 = v => Math.round(v * 100) / 100;
+            const subtotal = r2(cartItems.reduce((sum, item) => sum + item.price, 0));
+            let discount = 0;
+            if (offerEnabled) {
+                const rs = parseFloat((document.getElementById('disc-rs') || {}).value);
+                const pct = parseFloat((document.getElementById('disc-pct') || {}).value);
+                if (rs > 0) discount = rs; else if (pct > 0) discount = subtotal * Math.min(pct, 100) / 100;
+            }
+            // Near-expiry offers set on the Expiry screen come off automatically.
+            let offer = 0;
+            cartItems.forEach(item => { offer += item.price * ((productTax[String(item.product_id)] || {}).offer || 0) / 100; });
+            offer = r2(offer);
+            discount = r2(Math.min(Math.max(discount + offer, 0), subtotal));
+            const keep = subtotal > 0 ? (subtotal - discount) / subtotal : 0;
+            let gst = 0;
+            if (taxEnabled) cartItems.forEach(item => { gst += item.price * keep * itemTax(item).rate / 100; });
+            gst = r2(gst);
+            return { subtotal, discount, offer: Math.min(offer, discount), gst, total: r2(subtotal - discount + gst) };
+        }
         function calculateTotals() {
-            const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-            const gst = taxEnabled ? subtotal * 0.18 : 0;
-            const total = subtotal + gst;
-
-            document.getElementById('subtotal').textContent = `₹${subtotal.toFixed(2)}`;
-            document.getElementById('gst').textContent = `₹${gst.toFixed(2)}`;
-            document.getElementById('total').textContent = `₹${total.toFixed(2)}`;
+            const m = billMaths();
+            document.getElementById('subtotal').textContent = KK.inr(m.subtotal);
+            document.getElementById('gst').textContent = KK.inr(m.gst);
+            document.getElementById('total').textContent = KK.inr(m.total);
+            document.getElementById('disc-row').classList.toggle('hidden', !(m.discount > 0));
+            document.getElementById('disc-amt').textContent = '− ' + KK.inr(m.discount);
+            document.getElementById('disc-row').firstElementChild.textContent = m.offer > 0 ? (m.discount > m.offer ? 'Offer + discount' : 'Expiry offer') : 'Discount';
+            if (selectedPaymentType === 'online') drawCartUpi(m.total);
+        }
+        function drawCartUpi(total) {
+            const box = document.getElementById('cart-upi-qr'), txt = document.getElementById('cart-upi-text');
+            if (!box) return;
+            if (!shopUpi) {
+                box.innerHTML = '';
+                txt.innerHTML = 'Add your shop\'s UPI ID in <a href="/profile" style="color:#2E7D32;text-decoration:underline">Profile</a> to show a payment QR here.';
+                return;
+            }
+            if (!(total > 0)) { box.innerHTML = ''; txt.textContent = ''; return; }
+            KK.qr(box, KK.upiLink(shopUpi, shopName, total, 'Kirana bill'), 190);
+            txt.textContent = `UPI: ${shopUpi} · ${KK.inr(total)}`;
         }
 
         // Tab functions
@@ -609,6 +637,7 @@
 
         function selectPayment(type) {
             selectedPaymentType = type;
+            if (type === 'online') setTimeout(calculateTotals, 0);
             const buttons = ['credit-payment', 'cash-payment', 'online-payment', 'split-payment'];
             buttons.forEach(btn => {
                 const element = document.getElementById(btn);
@@ -633,7 +662,13 @@
 
         // Tax and offer functions
         function toggleTax() {
+            if (!taxEnabled && !shopGstin) {
+                alert('GST can only be added after you save your GSTIN in Profile. Shops without GST registration should not charge GST.');
+                return;
+            }
             taxEnabled = !taxEnabled;
+            const gstRow = document.getElementById('gst-row');
+            if (gstRow) gstRow.classList.toggle('hidden', !taxEnabled);
             const btn = document.getElementById('tax-btn');
             if (taxEnabled) {
                 btn.className = 'p-3 border-2 border-primary bg-primary/10 rounded-xl text-center';
@@ -647,6 +682,7 @@
             offerEnabled = !offerEnabled;
             const section = document.getElementById('offer-section');
             section.classList.toggle('hidden', !offerEnabled);
+            calculateTotals();
         }
 
         // Other functions
@@ -764,12 +800,15 @@
                     unit_price: parseFloat(unitPrice.toFixed(2)),
                     total_price: item.price,
                     weight: isWeight ? qtyInKg : null,
-                    price_per_kg: isWeight ? parseFloat(unitPrice.toFixed(2)) : null
+                    price_per_kg: isWeight ? parseFloat(unitPrice.toFixed(2)) : null,
+                    gst_rate: taxEnabled ? itemTax(item).rate : null,
+                    hsn_code: itemTax(item).hsn
                 };
             });
 
             const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-            const gst = taxEnabled ? subtotal * 0.18 : 0;
+            const maths = billMaths();
+            const gst = maths.gst;
             const generatorSelect = document.getElementById('bill-generator');
             const billButton = document.querySelector('[onclick="generateBill()"]');
             if (billButton) { billButton.disabled = true; billButton.textContent = 'Generating...'; }
@@ -780,11 +819,12 @@
                 body: JSON.stringify({
                     customer_id: selectedCustomer ? selectedCustomer.id : null,
                     customer_name: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
-                    subtotal: parseFloat(subtotal.toFixed(2)),
-                    tax_amount: parseFloat(gst.toFixed(2)),
-                    discount_amount: 0,
-                    total_amount: parseFloat((subtotal + gst).toFixed(2)),
+                    subtotal: maths.subtotal,
+                    tax_amount: gst,
+                    discount_amount: maths.discount,
+                    total_amount: maths.total,
                     payment_mode: selectedPaymentType,
+                    reference_number: (document.getElementById('payment-ref') || {}).value || null,
                     generated_by: generatorSelect ? generatorSelect.options[generatorSelect.selectedIndex].text : 'Owner',
                     items: items
                 })
@@ -1142,11 +1182,15 @@
                     const h3 = shopInfo.querySelector('h3');
                     if (h3) h3.textContent = info.shop_name;
                     const ps = shopInfo.querySelectorAll('p');
-                    if (ps[0]) ps[0].textContent = info.gst_number ? `GST: ${info.gst_number}` : '';
+                    if (ps[0]) ps[0].textContent = info.gst_number ? `GSTIN: ${info.gst_number}` : '';
+                    shopGstin = info.gst_number || null;
+                    shopUpi = info.upi_id || null;
+                    shopName = info.shop_name || '';
                     if (ps[1]) ps[1].textContent = '';
                 }
             }
         });
     </script>
+    {% include '_nav.html' %}
 </body>
 </html>

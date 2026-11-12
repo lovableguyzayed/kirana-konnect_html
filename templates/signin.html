@@ -41,6 +41,8 @@
     scrollbar-width: none;
   }
 </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-poppins bg-light min-h-screen">
     
@@ -111,8 +113,9 @@
                 <span class="text-lg">Sign In</span>
             </button>
 
-            <!-- Alternative Login Methods -->
-            <div id="alternative-login" class="space-y-4">
+            <!-- Alternative Login Methods: hidden until real SMS OTP exists. The old
+                 OTP flow sent no SMS and "verified" any 6 digits (see audit KK-013). -->
+            <div id="alternative-login" class="space-y-4 hidden" aria-hidden="true">
                 <div class="relative">
                     <div class="absolute inset-0 flex items-center">
                         <div class="w-full border-t border-gray-300"></div>
@@ -123,27 +126,26 @@
                 </div>
 
                 <!-- OTP Login -->
-                <button id="otp-btn" class="w-full bg-white border border-gray-300 text-dark font-medium py-3 px-6 rounded-xl shadow-sm hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-3">
+                <button id="otp-btn" type="button" class="w-full bg-white border border-gray-300 text-dark font-medium py-3 px-6 rounded-xl shadow-sm hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-3">
                     <i class="fa-solid fa-mobile-alt text-accent text-lg"></i>
                     <span>Login with OTP</span>
                 </button>
             </div>
 
             <!-- Language Selection -->
+            <!-- English / Hindi (static/js/app-ui.js). Other languages come later. -->
             <div id="language-selection" class="space-y-2">
-                <label class="text-dark text-sm font-medium">Preferred Language</label>
-                <select class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
-                    <option value="english">English</option>
-                    <option value="hindi">हिंदी (Hindi)</option>
-                    <option value="tamil">தமிழ் (Tamil)</option>
-                    <option value="bengali">বাংলা (Bengali)</option>
-                    <option value="marathi">मराठी (Marathi)</option>
+                <label for="kk-lang-select" class="text-dark text-sm font-medium">Preferred Language</label>
+                <select id="kk-lang-select" class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-dark focus:border-primary focus:outline-none">
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी (Hindi)</option>
                 </select>
             </div>
 
             <!-- Sign Up Link -->
             <div id="signup-link" class="text-center pt-4">
                 <p class="text-gray-600 text-sm">Don't have an account? <span class="text-secondary font-semibold underline cursor-pointer" onclick="goToSignup()">Create Account</span></p>
+                <p class="text-gray-500 text-xs mt-3"><a href="/privacy" class="underline">Privacy Policy</a> &middot; <a href="/terms" class="underline">Terms</a> &middot; <a href="/contact" class="underline">Help</a></p>
             </div>
         </form>
     </div>
@@ -160,30 +162,30 @@
     </div>
 
     <!-- OTP Modal -->
-    <div id="otp-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-2xl p-8 mx-6 w-full max-w-sm">
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 mx-auto bg-accent rounded-full flex items-center justify-center mb-4">
+    <div id="otp-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden" role="dialog" aria-labelledby="otp-title">
+        <div class="bg-white rounded-2xl p-6 mx-4 w-full max-w-sm">
+            <div class="text-center mb-4">
+                <div class="w-16 h-16 mx-auto bg-accent rounded-full flex items-center justify-center mb-3">
                     <i class="fa-solid fa-mobile-alt text-white text-2xl"></i>
                 </div>
-                <h3 class="text-dark text-lg font-semibold mb-2">Enter OTP</h3>
-                <p class="text-gray-600 text-sm">We've sent a 6-digit code to your phone number</p>
+                <h3 id="otp-title" class="text-dark text-lg font-semibold mb-1">Enter OTP</h3>
+                <p id="otp-sent-to" class="text-gray-600 text-sm"></p>
+                <button type="button" id="otp-change-number" class="text-secondary text-sm underline py-2">Change number</button>
             </div>
-            
-            <div class="flex space-x-2 mb-6">
-                <input type="text" maxlength="1" class="w-12 h-12 text-center border border-gray-300 rounded-lg text-dark font-bold text-lg focus:border-primary focus:outline-none">
-                <input type="text" maxlength="1" class="w-12 h-12 text-center border border-gray-300 rounded-lg text-dark font-bold text-lg focus:border-primary focus:outline-none">
-                <input type="text" maxlength="1" class="w-12 h-12 text-center border border-gray-300 rounded-lg text-dark font-bold text-lg focus:border-primary focus:outline-none">
-                <input type="text" maxlength="1" class="w-12 h-12 text-center border border-gray-300 rounded-lg text-dark font-bold text-lg focus:border-primary focus:outline-none">
-                <input type="text" maxlength="1" class="w-12 h-12 text-center border border-gray-300 rounded-lg text-dark font-bold text-lg focus:border-primary focus:outline-none">
-                <input type="text" maxlength="1" class="w-12 h-12 text-center border border-gray-300 rounded-lg text-dark font-bold text-lg focus:border-primary focus:outline-none">
+            <label for="otp-code" class="sr-only">6-digit OTP</label>
+            <input id="otp-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*"
+                   style="letter-spacing: .5em; font-size: 26px; text-align: center; width: 100%; padding: 12px; border: 1px solid #9AA5B1; border-radius: 12px;"
+                   placeholder="______">
+            <div id="otp-newpass-wrap" class="hidden mt-3">
+                <label for="otp-new-password" class="text-dark text-sm font-medium mb-1 block">New Password</label>
+                <input id="otp-new-password" type="password" autocomplete="new-password" minlength="6" placeholder="At least 6 characters"
+                       class="w-full bg-white border border-gray-300 rounded-xl px-4 py-3">
             </div>
-            
-            <button id="verify-otp-btn" class="w-full bg-accent text-white font-bold py-3 px-6 rounded-xl mb-4">Verify OTP</button>
-            <button id="close-otp" class="w-full bg-gray-200 text-dark font-medium py-3 px-6 rounded-xl">Cancel</button>
-            
-            <div class="text-center mt-4">
-                <p class="text-gray-600 text-sm">Didn't receive code? <span class="text-secondary underline cursor-pointer" onclick="resendOTP()">Resend</span></p>
+            <p id="otp-error" class="text-sm text-red-600 mt-2 hidden" role="alert"></p>
+            <button type="button" id="verify-otp-btn" class="w-full bg-accent text-white font-bold py-3 px-6 rounded-xl mt-4 mb-3">Verify OTP</button>
+            <button type="button" id="close-otp" class="w-full bg-gray-200 text-dark font-medium py-3 px-6 rounded-xl">Cancel</button>
+            <div class="text-center mt-3">
+                <p class="text-gray-600 text-sm">Didn't receive code? <button type="button" id="otp-resend" class="text-secondary underline py-2" disabled>Resend</button></p>
             </div>
         </div>
     </div>
@@ -196,17 +198,29 @@
                     <i class="fa-solid fa-key text-white text-2xl"></i>
                 </div>
                 <h3 class="text-dark text-xl font-bold mb-2">Reset Password</h3>
-                <p class="text-gray-600 text-sm">Enter your registered phone number and choose a new password.</p>
+                <p class="text-gray-600 text-sm">Enter your registered phone number, your shop's recovery code and a new password.</p>
             </div>
 
             <div id="reset-error" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-3"></div>
 
+            <div id="otp-reset-option" class="hidden mb-4">
+                <button type="button" onclick="openOtp('reset', document.getElementById('resetContact').value || document.querySelector('input[name=identifier]').value)"
+                        class="w-full bg-primary text-white font-bold py-3 px-6 rounded-xl">Get OTP on my mobile</button>
+                <p class="text-center text-gray-500 text-sm mt-3">or use your recovery code:</p>
+            </div>
             <form id="forgotPasswordForm" class="space-y-4">
                 <div>
                     <label class="text-dark text-sm font-medium mb-2 block">Registered Phone or Email</label>
                     <div class="relative">
                         <i class="fa-solid fa-phone absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
                         <input type="text" id="resetContact" placeholder="Enter your phone number or email" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-secondary focus:outline-none" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="resetCode" class="text-dark text-sm font-medium mb-2 block">Recovery Code</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-shield-halved absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                        <input type="text" id="resetCode" autocomplete="one-time-code" autocapitalize="off" placeholder="Recovery code from your setup" class="w-full bg-white border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-dark placeholder-gray-500 focus:border-secondary focus:outline-none" required>
                     </div>
                 </div>
                 <div>
@@ -325,9 +339,6 @@
             document.getElementById('forgotPasswordModal').classList.remove('hidden');
         }
 
-        function resendOTP() {
-            showNotification('OTP resent successfully!', 'success');
-        }
 
         // Forgot Password Modal Functions
         function closeForgotPasswordModal() {
@@ -368,9 +379,14 @@
 
                 const contact = document.getElementById('resetContact').value.trim();
                 const newPassword = document.getElementById('resetNewPassword').value;
+                const recoveryCode = document.getElementById('resetCode').value.trim();
 
                 if (!contact) {
                     showResetError('Please enter your registered phone number or email.');
+                    return;
+                }
+                if (!recoveryCode) {
+                    showResetError('Please enter your recovery code.');
                     return;
                 }
                 if (!newPassword || newPassword.length < 6) {
@@ -388,7 +404,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
-                    body: JSON.stringify({ identifier: contact, new_password: newPassword })
+                    body: JSON.stringify({ identifier: contact, new_password: newPassword, recovery_code: recoveryCode })
                 })
                 .then(function(res) { return res.json().then(function(body) { return { ok: res.ok, body: body }; }); })
                 .then(function(result) {
@@ -471,60 +487,109 @@
         // Show the error banner if the server redirected back with ?error
         if (new URLSearchParams(location.search).has('error')) {
             const banner = document.getElementById('signin-error');
+            const code = new URLSearchParams(location.search).get('error');
+            if (banner && code === 'locked') {
+                banner.textContent = 'Too many wrong attempts. Please wait 15 minutes and try again.';
+            } else if (banner && code === 'exists') {
+                banner.textContent = 'This shop is already set up. Please sign in.';
+            }
             if (banner) banner.classList.remove('hidden');
         }
 
-        // OTP Login
+        // ---- SMS OTP (real; shown only when the server has SMS set up) ----
+        const OTP = { phone: null, purpose: 'login', timer: null };
+        function cleanMobile(v) {
+            let d = String(v || '').replace(/\D/g, '');
+            if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+            else if (d.length === 11 && d.startsWith('0')) d = d.slice(1);
+            return /^[6-9]\d{9}$/.test(d) ? d : null;
+        }
+        function otpError(msg) {
+            const el = document.getElementById('otp-error');
+            el.textContent = msg || '';
+            el.classList.toggle('hidden', !msg);
+        }
+        function startResendTimer(seconds) {
+            const btn = document.getElementById('otp-resend');
+            clearInterval(OTP.timer);
+            let left = seconds;
+            btn.disabled = true;
+            btn.textContent = `Resend in ${left}s`;
+            OTP.timer = setInterval(() => {
+                left -= 1;
+                if (left <= 0) { clearInterval(OTP.timer); btn.disabled = false; btn.textContent = 'Resend'; }
+                else btn.textContent = `Resend in ${left}s`;
+            }, 1000);
+        }
+        async function sendOtp(phone, purpose) {
+            const r = await fetch('/api/auth/otp/send', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ phone, purpose }) });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || !d.success) throw new Error(d.error || 'Could not send OTP. Please try again.');
+            return d;
+        }
+        async function openOtp(purpose, rawPhone) {
+            const phone = cleanMobile(rawPhone);
+            if (!phone) { alert('Please enter your 10-digit mobile number first.'); return; }
+            OTP.phone = phone; OTP.purpose = purpose;
+            try {
+                const d = await sendOtp(phone, purpose);
+                document.getElementById('otp-sent-to').textContent = d.message || ('OTP sent to +91 ' + phone);
+                document.getElementById('otp-newpass-wrap').classList.toggle('hidden', purpose !== 'reset');
+                document.getElementById('otp-code').value = '';
+                otpError('');
+                document.getElementById('forgotPasswordModal').classList.add('hidden');
+                document.getElementById('otp-modal').classList.remove('hidden');
+                document.getElementById('otp-code').focus();
+                startResendTimer(d.resend_after || 30);
+            } catch (e) { alert(e.message); }
+        }
         document.getElementById('otp-btn').addEventListener('click', function() {
-            const phoneField = document.querySelector('input[placeholder*="phone number or email"]');
-            if (!phoneField.value.trim()) {
-                showNotification('Please enter your phone number first.', 'error');
-                return;
-            }
-            document.getElementById('otp-modal').classList.remove('hidden');
+            openOtp('login', document.querySelector('input[name="identifier"]').value);
         });
-
+        document.getElementById('otp-resend').addEventListener('click', async function() {
+            try { const d = await sendOtp(OTP.phone, OTP.purpose); startResendTimer(d.resend_after || 30); alert('New OTP sent.'); }
+            catch (e) { otpError(e.message); }
+        });
+        document.getElementById('otp-change-number').addEventListener('click', function() {
+            document.getElementById('otp-modal').classList.add('hidden');
+            const f = document.querySelector('input[name="identifier"]'); f.focus(); f.select();
+        });
         document.getElementById('close-otp').addEventListener('click', function() {
             document.getElementById('otp-modal').classList.add('hidden');
         });
-
-        // OTP verification
-        document.getElementById('verify-otp-btn').addEventListener('click', function() {
-            const otpInputs = document.querySelectorAll('#otp-modal input[type="text"]');
-            const otp = Array.from(otpInputs).map(input => input.value).join('');
-            
-            if (otp.length !== 6) {
-                showNotification('Please enter the complete 6-digit OTP.', 'error');
-                return;
+        document.getElementById('otp-code').addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '').slice(0, 6);
+            if (this.value.length === 6 && OTP.purpose === 'login') document.getElementById('verify-otp-btn').click();
+        });
+        document.getElementById('verify-otp-btn').addEventListener('click', async function() {
+            const btn = this;
+            const code = document.getElementById('otp-code').value;
+            if (code.length !== 6) { otpError('Please enter the 6-digit OTP.'); return; }
+            const body = { phone: OTP.phone, purpose: OTP.purpose, code };
+            if (OTP.purpose === 'reset') {
+                body.new_password = document.getElementById('otp-new-password').value;
+                if (body.new_password.length < 6) { otpError('New password must be at least 6 characters.'); return; }
             }
-            
-            document.getElementById('otp-modal').classList.add('hidden');
-            document.getElementById('loading-overlay').classList.remove('hidden');
-            
-            setTimeout(() => {
-                document.getElementById('loading-overlay').classList.add('hidden');
-                showNotification('OTP verified successfully! Welcome to Kirana Konnect.', 'success');
-                setTimeout(() => {
-                    window.location.href = '/dashboard';
-                }, 1000);
-            }, 2000);
+            if (btn.disabled) return;
+            btn.disabled = true; btn.textContent = 'Checking...';
+            try {
+                const r = await fetch('/api/auth/otp/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                        credentials: 'same-origin', body: JSON.stringify(body) });
+                const d = await r.json().catch(() => ({}));
+                if (r.ok && d.success) { window.location.href = '/dashboard'; return; }
+                otpError(d.error || 'Wrong OTP. Please try again.');
+            } catch (e) { otpError('No internet. Please try again.'); }
+            btn.disabled = false; btn.textContent = 'Verify OTP';
         });
-
-        // OTP Input handling
-        const otpInputs = document.querySelectorAll('#otp-modal input[type="text"]');
-        otpInputs.forEach((input, index) => {
-            input.addEventListener('input', function(e) {
-                if (e.target.value.length === 1 && index < otpInputs.length - 1) {
-                    otpInputs[index + 1].focus();
-                }
-            });
-            
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Backspace' && e.target.value === '' && index > 0) {
-                    otpInputs[index - 1].focus();
-                }
-            });
-        });
+        // Show OTP options only when SMS is configured on the server.
+        fetch('/api/auth/status', { cache: 'no-store' }).then(r => r.json()).then(st => {
+            if (!st.otp_enabled) return;
+            const alt = document.getElementById('alternative-login');
+            alt.classList.remove('hidden'); alt.removeAttribute('aria-hidden');
+            const box = document.getElementById('otp-reset-option');
+            if (box) box.classList.remove('hidden');
+        }).catch(() => {});
 
         // Phone number formatting for login field
         document.querySelector('input[placeholder*="phone number or email"]').addEventListener('input', function(e) {
@@ -532,10 +597,11 @@
             // If it looks like a phone number (starts with + or digits), format it
             if (/^[\d+]/.test(value)) {
                 value = value.replace(/\D/g, '');
-                if (value.length > 10) {
-                    value = value.slice(0, 10);
-                }
-                e.target.value = value;
+                // "+91 98765 43210" / "098765 43210": drop the country code or
+                // leading 0 instead of cutting off the last digits.
+                if (value.length > 10 && value.startsWith('91')) value = value.slice(2);
+                else if (value.length > 10 && value.startsWith('0')) value = value.slice(1);
+                e.target.value = value.slice(0, 10);
             }
         });
 

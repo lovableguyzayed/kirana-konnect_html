@@ -14,6 +14,8 @@
         body { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { display: none; }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 <body class="font-inter bg-gray-100">
     <!-- Header Section -->
@@ -35,7 +37,7 @@
         <!-- Product Summary Section -->
         <div class="bg-white mx-4 mt-4 p-4 rounded-lg shadow-sm">
             <div class="flex items-center space-x-3 mb-4">
-                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400" alt="Product image">
+                <img id="product-image" class="w-16 h-16 rounded-lg object-cover border border-gray-200" alt="Product image">
                 <div class="flex-1">
                     <h2 id="product-name" class="text-lg font-bold text-dark">Product Name</h2>
                     <p id="product-size" class="text-sm text-gray-600">Size/Unit</p>
@@ -160,29 +162,7 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button onclick="goToDashboard()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button onclick="goToInventory()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-box text-primary text-lg"></i>
-                <span class="text-xs mt-1 text-primary">Inventory</span>
-            </button>
-            <button onclick="openScanner()" class="relative -top-3 bg-primary rounded-full p-3 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button onclick="goToCart()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button onclick="goToProfile()" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <!-- Universal Scanner Modal -->
     <div id="scanner-modal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden">
@@ -323,7 +303,7 @@
                 reorderLevel: 6,
                 sellingPrice: 20,
                 barcode: '8901030821213',
-                image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'
+                image: '/static/icons/product.svg'
             },
             2: {
                 id: 2,
@@ -336,13 +316,13 @@
                 reorderLevel: 5,
                 sellingPrice: 25,
                 barcode: null, // No barcode for this product
-                image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400'
+                image: '/static/icons/product.svg'
             }
         };
         
         // Get product from localStorage or URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const productId = urlParams.get('id') || '1';
+        const productId = urlParams.get('id');
         
         // Load product data from localStorage if available
         const storedProductData = localStorage.getItem('refillProductData');
@@ -357,16 +337,49 @@
                 category: stored.category || 'Grocery',
                 isWeightBased: stored.type === 'weight-based' || false,
                 unit: stored.unit || 'Piece',
-                currentStock: stored.stock || 10,
+                currentStock: stored.stock ?? 0,
                 reorderLevel: stored.threshold || 5,
                 sellingPrice: stored.sellingPrice || stored.price || 20,
                 barcode: stored.barcode || null,
-                image: stored.image || 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'
+                image: stored.image || ''
             };
         } else {
-            // Fallback to sample data
-            productData = sampleProducts[productId] || sampleProducts[1];
+            productData = null; // filled from the server below
         }
+
+        // Always refill the product the user actually tapped (?id=...).
+        // Previously a stale 'refillProductData' from an earlier product, or
+        // the built-in sample product, was shown and its id was used for the
+        // save - so stock could be added to the WRONG product.
+        if (!productId) {
+            window.location.replace('/inventory');
+        } else if (!productData || String(productData.id) !== String(productId)) {
+            productData = { id: productId, name: 'Loading…', size: '', category: '',
+                isWeightBased: false, unit: 'Piece', currentStock: 0,
+                reorderLevel: 0, sellingPrice: 0, barcode: null, image: '' };
+        }
+        function loadLiveProduct() {
+            if (!productId) return;
+            fetch(`/api/products/${encodeURIComponent(productId)}`, { cache: 'no-store' })
+                .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                .then(({ ok, d }) => {
+                    if (!ok || !d.success) { showErrorPopup('This product was not found. It may have been deleted.'); return; }
+                    const p = d.product;
+                    Object.assign(productData, {
+                        id: p.id, name: p.name, category: p.category,
+                        isWeightBased: !!p.is_weight_based,
+                        unit: p.is_weight_based ? 'Kg' : (productData.unit && productData.unit !== 'Loading…' ? productData.unit : 'Piece'),
+                        currentStock: p.stock_quantity ?? 0,
+                        reorderLevel: p.reorder_level ?? 0,
+                        sellingPrice: (p.is_weight_based ? (p.price_per_kg || p.price) : p.price) || 0,
+                        barcode: p.barcode || null
+                    });
+                    localStorage.removeItem('refillProductData');
+                    try { updateProductDisplay(); updateCalculations(); } catch (e) {}
+                })
+                .catch(() => showErrorPopup('No internet. Product details could not be loaded - please retry.'));
+        }
+        document.addEventListener('DOMContentLoaded', loadLiveProduct);
 
         // Price mode: 'per-unit' or 'all-units'
         let priceMode = 'per-unit';
@@ -432,6 +445,12 @@
             
             // Update product image
             const productImage = document.getElementById('product-image');
+            if (productImage && !productData.image) {
+                // No photo: show a neutral box instead of a broken-image icon.
+                productImage.removeAttribute('src');
+                productImage.alt = '';
+                productImage.style.background = '#F3F4F6';
+            }
             if (productImage && productData.image) {
                 productImage.src = productData.image;
                 productImage.alt = productData.name || 'Product';

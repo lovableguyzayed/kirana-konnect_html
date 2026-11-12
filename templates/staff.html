@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance - Kirana Konnect</title>
+    <title>My Team - Kirana Konnect</title>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
@@ -23,6 +23,8 @@
             scrollbar-width: none;
         }
     </style>
+    <script src="/static/js/app-ui.js"></script>
+    <script src="/static/js/scanner.js" defer></script>
 </head>
 
 <body class="font-inter bg-gray-100">
@@ -33,10 +35,10 @@
                 <i class="fa-solid fa-arrow-left text-gray-600 text-lg"></i>
             </button>
             <div class="text-center">
-                <h1 class="text-lg font-semibold text-dark">Attendance</h1>
+                <h1 class="text-lg font-semibold text-dark">My Team</h1>
                 <p class="text-xs text-gray-500">Kirana Konnect</p>
             </div>
-            <button onclick="showFilterModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+            <button onclick="showFilterModal()" class="p-2 hover:bg-gray-100 rounded-lg" hidden style="display:none">
                 <i class="fa-solid fa-filter text-primary text-lg"></i>
             </button>
         </div>
@@ -69,6 +71,10 @@
             </div>
         </div>
 
+        <!-- Attendance (date, summary, present/absent lists, clock-in) was a
+             static demo with made-up staff and buttons that only said "would be
+             implemented". Hidden until real attendance exists (audit KK-025). -->
+        <div id="attendance-demo" hidden aria-hidden="true" style="display:none">
         <!-- Date Selector -->
         <div class="bg-white px-4 py-3 border-b border-gray-100">
             <div class="flex items-center justify-between">
@@ -135,7 +141,7 @@
                 <!-- Present Staff -->
                 <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-2.jpg" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full">
                         <div>
                             <p class="font-medium text-dark">Anil Kumar</p>
                             <p class="text-sm text-gray-500">Cashier</p>
@@ -153,7 +159,7 @@
 
                 <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-5.jpg" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full">
                         <div>
                             <p class="font-medium text-dark">Priya Sharma</p>
                             <p class="text-sm text-gray-500">Assistant</p>
@@ -171,7 +177,7 @@
 
                 <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-8.jpg" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full">
                         <div>
                             <p class="font-medium text-dark">Suresh Patel</p>
                             <p class="text-sm text-gray-500">Manager</p>
@@ -190,7 +196,7 @@
                 <!-- Absent Staff -->
                 <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-3.jpg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
                         <div>
                             <p class="font-medium text-dark">Ravi Verma</p>
                             <p class="text-sm text-gray-500">Helper</p>
@@ -208,7 +214,7 @@
 
                 <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
                     <div class="flex items-center space-x-3">
-                        <img src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-6.jpg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
+                        <img src="/static/icons/person.svg" alt="Avatar" class="w-12 h-12 rounded-full opacity-60">
                         <div>
                             <p class="font-medium text-dark">Meera Singh</p>
                             <p class="text-sm text-gray-500">Accountant</p>
@@ -269,32 +275,11 @@
                 </div>
             </div>
         </div>
+        </div>
     </main>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-        <div class="flex justify-around items-end py-2">
-            <button onclick="window.location.href='/dashboard'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-home text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Home</span>
-            </button>
-            <button onclick="window.location.href='/inventory'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-box text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Inventory</span>
-            </button>
-            <button class="relative -top-3 bg-primary rounded-full p-3 shadow-lg">
-                <i class="fa-solid fa-barcode text-white text-lg"></i>
-            </button>
-            <button onclick="window.location.href='/cart'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-shopping-cart text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Cart</span>
-            </button>
-            <button onclick="window.location.href='/profile'" class="flex flex-col items-center py-1 px-3">
-                <i class="fa-solid fa-user text-gray-400 text-lg"></i>
-                <span class="text-xs mt-1 text-gray-400">Profile</span>
-            </button>
-        </div>
-    </nav>
+    {% include '_nav.html' %}
 
     <script>
         function goBack() {
