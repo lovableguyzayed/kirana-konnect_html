@@ -679,6 +679,17 @@
             if (!container) return;
             container.innerHTML = '';
 
+            if (!filteredProducts.length) {
+                const none = !products.length;
+                container.innerHTML = `<div style="background:#fff;border-radius:14px;padding:28px 18px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+                    <i class="fa-solid fa-boxes-stacked" style="font-size:40px;color:#CFD8DC"></i>
+                    <p style="font-weight:700;font-size:17px;margin:12px 0 4px">${none ? KK.t('No products yet') : KK.t('No products match')}</p>
+                    <p style="color:#52606D;font-size:14px;margin:0 0 14px">${none ? KK.t('Add your first product, or scan its barcode.') : KK.t('Try another category or search.')}</p>
+                    ${none ? `<a href="/add-item" style="display:block;min-height:50px;line-height:50px;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700;text-decoration:none">+ ${KK.t('Add Item')}</a>
+                    <button onclick="KKScan.open()" style="width:100%;min-height:48px;margin-top:8px;border-radius:12px;border:1px solid #CBD2D9;background:#fff;font-weight:700">${KK.t('Scan Barcode')}</button>` : ''}</div>`;
+                return;
+            }
+
             filteredProducts.forEach((product, index) => {
                 const statusClass = product.is_expired ? 'bg-red-500' : 
                                   product.is_low_stock ? 'bg-accent' : 'bg-primary';

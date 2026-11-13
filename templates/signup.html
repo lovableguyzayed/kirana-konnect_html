@@ -70,6 +70,7 @@
 
         <!-- Signup Form -->
         <form id="signup-form" class="space-y-6" method="POST" action="/signup">
+            <div id="signup-error" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3" role="alert"></div>
             
             <!-- Personal Information -->
             <div id="personal-info" class="space-y-4">
@@ -335,11 +336,22 @@
 
 
     <script>
+        // Server sent us back with a problem: say what it was.
+        (function () {
+            const code = new URLSearchParams(location.search).get('error');
+            const box = document.getElementById('signup-error');
+            if (!code || !box) return;
+            box.textContent = code === 'server'
+                ? 'Could not create the account right now. Please try again in a minute.'
+                : 'Please check: your name, a valid 10-digit mobile number, shop name and a password of at least 6 characters.';
+            box.classList.remove('hidden');
+        })();
         fetch('/api/auth/status', { cache: 'no-store' })
             .then(r => r.json())
             .then(info => {
+                // Many shops can sign up on one server: only skip sign-up when
+                // this phone is already signed in.
                 if (info.authenticated) window.location.replace('/dashboard');
-                else if (info.account_exists) window.location.replace('/signin');
             })
             .catch(() => {});
     </script>

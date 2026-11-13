@@ -889,13 +889,8 @@
         }
 
         function showConfirmPopup(message, onConfirm) {
-            const popup = document.getElementById('confirm-popup');
-            const messageElement = document.getElementById('confirm-message');
-            messageElement.textContent = message;
-            popup.classList.remove('hidden');
-            
-            // Store the callback for later use
-            window.confirmCallback = onConfirm;
+            // This page has no custom confirm box (the old code crashed here).
+            if (confirm(message) && typeof onConfirm === 'function') onConfirm();
         }
 
         function confirmAction() {
@@ -1019,5 +1014,28 @@
         window.addEventListener('load', initializePage);
     </script>
     <script src="{{ url_for('static', filename='js/universal-scanner.js') }}"></script>
+<script>
+    // The page's own camera scanner referred to boxes that don't exist here.
+    // Use the app-wide scanner; the code goes into this screen's Barcode box.
+    window.openCameraScanner = function () {
+        window.KK_SCAN_TARGET = function (code) {
+            const box = document.getElementById('barcode-input');
+            if (box) { box.value = code; box.dispatchEvent(new Event('input')); }
+            KK.toast('Barcode added: ' + code, 'ok');
+        };
+        KKScan.open();
+    };
+</script>
+<script>
+    // Old link or deleted product: say so clearly (this screen used to crash
+    // or show a different, remembered product).
+    (function () {
+        const id = new URLSearchParams(location.search).get('id');
+        const show = () => KK.notFound('Product not found', 'It may have been deleted.', '/inventory', 'Go to Stock');
+        if (!id || !/^\d+$/.test(id)) { show(); return; }
+        fetch('/api/products/' + id, { credentials: 'same-origin', cache: 'no-store' })
+            .then(r => { if (r.status === 404) show(); }).catch(() => {});
+    })();
+</script>
 </body>
 </html>

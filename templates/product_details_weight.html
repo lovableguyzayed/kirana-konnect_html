@@ -524,16 +524,20 @@
             calculatedPrice.textContent = `₹${price.toFixed(2)}`;
         }
 
-        function refillStock() {
-            // Navigate to refill stock page
-            window.location.href = '/refill-stock';
-        }
 
+        // Real delete (it used to only show "deleted" and keep the product).
         function deleteProduct() {
-            if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
-                alert('Product has been deleted successfully!');
-                window.location.href = '/inventory';
-            }
+            const id = new URLSearchParams(location.search).get('id');
+            const name = (document.getElementById('product-name') || {}).textContent || 'this product';
+            if (!id || !/^\d+$/.test(id)) { alert('Product not found.'); return; }
+            if (!confirm(`Delete ${name.trim()} from your stock?\n\nOld bills keep their record. This cannot be undone.`)) return;
+            fetch(`/api/products/${id}`, { method: 'DELETE', credentials: 'same-origin' })
+                .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                .then(({ ok, d }) => {
+                    if (ok && d.success) { alert(`${name.trim()} deleted.`); window.location.replace('/inventory'); }
+                    else alert(d.error || 'Could not delete the product.');
+                })
+                .catch(() => alert('No internet. Product was NOT deleted.'));
         }
 
         // Load product data from localStorage
@@ -611,44 +615,11 @@
 
         // Refill stock function
         function refillStock() {
-            // Get current product data
-            const productDataStr = localStorage.getItem('currentProduct');
-            const currentProductId = localStorage.getItem('currentProductId') || '1';
-            
-            let productData;
-            if (productDataStr) {
-                productData = JSON.parse(productDataStr);
-            } else {
-                // Get from page elements if localStorage is empty
-                productData = {
-                    name: document.getElementById('product-name').textContent,
-                    price: parseFloat(document.getElementById('price-per-kg').textContent.replace('₹', '')) || 110,
-                    stock: parseFloat(document.getElementById('available-stock').textContent.split(' ')[0]) || 25.5
-                };
-            }
-            
-            // Create comprehensive refill data structure
-            const refillData = {
-                id: currentProductId,
-                name: productData.name || 'Weight-Based Product',
-                size: productData.size || 'Premium Quality',
-                category: productData.category || 'Grocery',
-                type: 'weight-based',
-                unit: productData.unit || 'Kg',
-                stock: productData.stock || productData.currentStock || 25.5,
-                threshold: productData.threshold || productData.reorderLevel || Math.round((productData.stock || 25.5) * 0.2),
-                sellingPrice: productData.price || productData.sellingPrice || 110,
-                price: productData.price || productData.sellingPrice || 110,
-                barcode: productData.barcode || null,
-                image: productData.image || '/static/icons/product.svg'
-            };
-            
-            // Store product data for refill page
-            localStorage.setItem('refillProductData', JSON.stringify(refillData));
-            localStorage.setItem('currentProductId', currentProductId);
-            
-            // Navigate to weight-based refill stock page
-            window.location.href = `/refill-stock-weight?id=${currentProductId}`;
+            // Always the product shown on this screen (was: a remembered id or '1').
+            const id = new URLSearchParams(location.search).get('id');
+            if (!id || !/^\d+$/.test(id)) { alert('Product not found.'); return; }
+            localStorage.removeItem('refillProductData');
+            window.location.href = `/refill-stock-weight?id=${id}`;
         }
 
         // Initialize on page load
@@ -673,6 +644,17 @@
         img.addEventListener('error', () => { img.src = BLANK; img.alt = ''; });
         new MutationObserver(() => setTimeout(fix, 50)).observe(img, { attributes: true, attributeFilter: ['src'] });
         fix();
+    })();
+</script>
+<script>
+    // Old link or deleted product: say so clearly (this screen used to crash
+    // or show a different, remembered product).
+    (function () {
+        const id = new URLSearchParams(location.search).get('id');
+        const show = () => KK.notFound('Product not found', 'It may have been deleted.', '/inventory', 'Go to Stock');
+        if (!id || !/^\d+$/.test(id)) { show(); return; }
+        fetch('/api/products/' + id, { credentials: 'same-origin', cache: 'no-store' })
+            .then(r => { if (r.status === 404) show(); }).catch(() => {});
     })();
 </script>
 </body>

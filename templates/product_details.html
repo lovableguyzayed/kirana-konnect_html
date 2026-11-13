@@ -416,7 +416,7 @@
 
         function refillStock() {
             // Get current product ID from localStorage or productData
-            const currentProductId = localStorage.getItem('currentProductId') || productData.id || '1';
+            const currentProductId = new URLSearchParams(location.search).get('id');
             
             // Store product data for refill page to access
             localStorage.setItem('refillProductData', JSON.stringify(productData));
@@ -434,11 +434,19 @@
             openCartModal();
         }
 
+        // Real delete (it used to only show "deleted" and keep the product).
         function deleteProduct() {
-            if (confirm(`Are you sure you want to delete ${productData.name} from inventory?\n\nThis action cannot be undone.`)) {
-                alert(`${productData.name} has been deleted from inventory.`);
-                window.location.href = '/inventory';
-            }
+            const id = new URLSearchParams(location.search).get('id');
+            const name = (document.getElementById('product-name') || {}).textContent || 'this product';
+            if (!id || !/^\d+$/.test(id)) { alert('Product not found.'); return; }
+            if (!confirm(`Delete ${name.trim()} from your stock?\n\nOld bills keep their record. This cannot be undone.`)) return;
+            fetch(`/api/products/${id}`, { method: 'DELETE', credentials: 'same-origin' })
+                .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                .then(({ ok, d }) => {
+                    if (ok && d.success) { alert(`${name.trim()} deleted.`); window.location.replace('/inventory'); }
+                    else alert(d.error || 'Could not delete the product.');
+                })
+                .catch(() => alert('No internet. Product was NOT deleted.'));
         }
 
         // Navigation functions
@@ -777,9 +785,9 @@
             
             // Navigate to appropriate refill page based on product type
             if (productData.type === 'weight-based' || productData.isWeightBased) {
-                window.location.href = `/refill-stock-weight?id=${productData.id || 1}`;
+                window.location.href = `/refill-stock-weight?id=${new URLSearchParams(location.search).get('id')}`;
             } else {
-                window.location.href = `/refill-stock?id=${productData.id || 1}`;
+                window.location.href = `/refill-stock?id=${new URLSearchParams(location.search).get('id')}`;
             }
         }
 
@@ -804,6 +812,17 @@
         img.addEventListener('error', () => { img.src = BLANK; img.alt = ''; });
         new MutationObserver(() => setTimeout(fix, 50)).observe(img, { attributes: true, attributeFilter: ['src'] });
         fix();
+    })();
+</script>
+<script>
+    // Old link or deleted product: say so clearly (this screen used to crash
+    // or show a different, remembered product).
+    (function () {
+        const id = new URLSearchParams(location.search).get('id');
+        const show = () => KK.notFound('Product not found', 'It may have been deleted.', '/inventory', 'Go to Stock');
+        if (!id || !/^\d+$/.test(id)) { show(); return; }
+        fetch('/api/products/' + id, { credentials: 'same-origin', cache: 'no-store' })
+            .then(r => { if (r.status === 404) show(); }).catch(() => {});
     })();
 </script>
 </body>

@@ -187,6 +187,12 @@ Severity: P0 Blocker · P1 Critical · P2 Major · P3 Minor · P4 Polish. Person
 | KK-063 | Data safety | — | No backup the owner can keep | R | P2 | Profile → Download full backup (one JSON file, no passwords); weekly reminder on Home | S | ✅ Round 7 |
 | KK-064 | Expiry | `expiry_alert.html` | "Quick Sale", "Set Discount", "Bulk Discount" buttons only logged; no way to sell near-expiry stock at an offer | R | P1 | Offer % per item or on all items expiring in 30 days; applied automatically in the cart (any way the item is added), shown on scanner, receipt and invoice; ends on a fresh batch; never on expired stock; WhatsApp "Send offers to customers" | M | ✅ Round 8, Verified |
 | KK-065 | GST | — | No GST summary for the accountant | A | P3 | Profile → GST summary (month) as Excel: by HSN and rate, taxable value, CGST/SGST | S | ✅ Round 8 |
+| KK-066 | Auth | `signup.html:342`, `app.py` signup | **One shop per server**: once any account existed, Sign up jumped straight to Sign in for everyone and the server refused new accounts. Reported by the owner from the APK. **Verified** | All | P0 | Many shops on one server: `shop_id` on every shop table; every query auto-limited to the signed-in shop; per-shop bill numbers; same mobile can't sign up twice (clear message); old data goes to the first shop | L | ✅ Round 9, Verified (isolation test) |
+| KK-067 | Data loss | `app.py` start-up | Every restart deleted products/staff with the same name - harmless with one shop, would delete other shops' items | All | P0 | De-duplicate only inside one shop; no auto demo data | S | ✅ Round 9 |
+| KK-068 | Splash | `splash.html` | 2-second fake wait; whole screen incl. buttons bobbed up and down (hard to tap); signed-in users saw the welcome screen every time | R | P2 | Signed-in → straight to Home; two clear buttons (Create my shop account / I already have an account) | S | ✅ Round 9, Verified |
+| KK-069 | Products | `product_details*.html` | "Delete" said "deleted successfully" but kept the product; Refill could open product #1 | R | P1 | Real delete; refill the product on screen | S | ✅ Round 9, Verified |
+| KK-070 | Crashes | `customer_ledger.html` filters; `product_details_weight.html` Refill; `refill_stock_weight.html` Cancel; refill barcode scanner | JavaScript crashes found by tapping every button | R | P1 | Fixed; refill scanners use the shared scanner; "Product not found" screen for old links | S | ✅ Round 9, Verified |
+| KK-071 | Fake content | dashboard bell + drop-down, notifications, top selling, sales growth, empty inventory | Made-up alerts ("Premium expires in 7 days", "Backup disabled 2 days ago", badge "5"), fake "Aashirvaad" top seller, fake "+15% growth"; blank inventory for new shops | All | P2 | Real counts and data only; real backup reminder; empty states with next step | S | ✅ Round 9, Verified |
 | KK-036 | Auth | `app.py` `/logout` (GET) | Logout by GET link (minor CSRF nuisance); single shared login for owner + staff (no per-staff accounts) | F | P3 | POST logout; staff PINs later | M | Open |
 
 ### Before / after screenshots
@@ -199,6 +205,15 @@ Gallery: [`mockups/index.html`](mockups/index.html). Every screen of the app: `d
 - **Wiring check** (`docs/audit/tools/check_wiring.py`): every server call and link in every screen points at a real route, and every button handler exists. Result: **0 broken**. Remaining log-only handlers belong to hidden demo markup (not reachable on screen; checked in the browser).
 - **"One shop day" end-to-end test** (`docs/audit/tools/e2e_shop_day.js`, real phone-size browser, fresh database): sign up → save UPI + address → add a product → scan → cash bill → stock down → invoice PDF → new customer → udhar bill → collect part payment (UPI QR) → history → refill → search bills → cancel bill (stock back) → dashboard and sales totals → add staff → logout → Back does not reopen private screens. **39/39 steps pass (rounds 6–8 add expenses, supplier ledger, galla closing, net profit, product edit, discount + per-item GST, part return, backup, expiry offers, GST summary); 221 server calls, none failed; no JavaScript errors.**
 - 23 automatic backend tests pass; 21 screens × 4 sizes: no errors, no sideways scroll.
+
+## 3c. "Tap everything" bug hunt (round 9)
+
+`docs/audit/tools/tap_everything.js` opens 19 screens and taps every visible button and link one by one (skipping delete / logout / cancel), recording JavaScript errors, failed server calls, error pop-ups and broken text (NaN / undefined).
+
+| Run | Taps | Problems before fixes | After fixes |
+|---|---|---|---|
+| New empty shop | ~220 | 15 | 0 real (the rest were deliberate "product id 0" links, which now show "Product not found") |
+| Shop with data | 247 | 6 | **0** |
 
 ## 4. QA walkthrough highlights (desi personas)
 

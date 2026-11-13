@@ -366,29 +366,21 @@
         }
 
         function addSystemNotifications() {
-            var backupEnabled = localStorage.getItem('emailBackupEnabled') === 'true';
-            
-            // Add backup notification if backup is disabled
-            if (!backupEnabled) {
-                var hasBackupNotification = false;
-                for (var i = 0; i < allNotifications.length; i++) {
-                    if (allNotifications[i].type === 'backup') {
-                        hasBackupNotification = true;
-                        break;
-                    }
-                }
-                
-                if (!hasBackupNotification) {
-                    allNotifications.unshift({
-                        id: 'backup-local',
-                        type: 'backup',
-                        priority: 'urgent',
-                        title: 'Data Backup Disabled',
-                        message: 'Enable backup to protect your business data from loss',
-                        time_ago: '2 days ago',
-                        is_read: false
-                    });
-                }
+            // Real reminder: only when no backup was downloaded in the last 7 days.
+            var last = 0;
+            try { last = Number(localStorage.getItem('kk_last_backup') || 0); } catch (e) {}
+            var days = last ? Math.floor((Date.now() - last) / 864e5) : null;
+            if (days === null || days >= 7) {
+                allNotifications.unshift({
+                    id: 'backup-local',
+                    type: 'backup',
+                    priority: 'medium',
+                    title: 'Download a backup of your shop data',
+                    message: days === null ? 'You have not downloaded a backup yet. Profile → Download full backup.'
+                                           : 'Last backup was ' + days + ' days ago. Profile → Download full backup.',
+                    time_ago: 'Reminder',
+                    is_read: false
+                });
             }
         }
 

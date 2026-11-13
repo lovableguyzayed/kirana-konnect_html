@@ -177,6 +177,46 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = _engine_options
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
+# --- Many shops on one server ------------------------------------------------
+# Every shop-owned table carries shop_id (= the owner's User.id). While a shop
+# owner is signed in, EVERY ORM query is automatically limited to that shop
+# (SELECT, UPDATE and DELETE) and every new row is stamped with it, so one
+# shop can never see or change another shop's stock, bills or udhar.
+from flask import g
+from sqlalchemy import event as _sa_event
+from sqlalchemy.orm import Session as _SASession, with_loader_criteria
+
+class ShopScoped:
+    shop_id = db.Column(db.Integer, index=True)
+
+def current_shop_id():
+    try:
+        return g.get('shop_id')
+    except RuntimeError:  # outside a request (start-up jobs, scripts)
+        return None
+
+@_sa_event.listens_for(_SASession, 'do_orm_execute')
+def _limit_to_shop(state):
+    sid = current_shop_id()
+    if sid is None or state.is_column_load:
+        return
+    if state.is_select or state.is_update or state.is_delete or state.is_relationship_load:
+        state.statement = state.statement.options(
+            with_loader_criteria(ShopScoped, lambda cls: cls.shop_id == sid, include_aliases=True))
+
+@_sa_event.listens_for(_SASession, 'before_flush')
+def _stamp_shop(session, flush_context, instances):
+    sid = current_shop_id()
+    if sid is None:
+        return
+    for obj in session.new:
+        if isinstance(obj, ShopScoped) and getattr(obj, 'shop_id', None) is None:
+            obj.shop_id = sid
+
+def enter_shop(user):
+    """Scope the rest of this request to `user`'s shop."""
+    g.shop_id = user.id if user is not None else None
+
 # Authentication setup (single-shop instance: one owner account)
 from datetime import timedelta as _timedelta
 app.permanent_session_lifetime = _timedelta(days=30)
@@ -197,6 +237,7 @@ class User(UserMixin, db.Model):
     shop_address = db.Column(db.Text)
     owner_pin_hash = db.Column(db.String(256))  # staff-mode unlock PIN
     upi_id = db.Column(db.String(100))  # shop's UPI ID for "Scan to pay" QR
+    bill_seq = db.Column(db.Integer, default=0)  # this shop's last bill number
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -221,9 +262,12 @@ PUBLIC_ENDPOINTS = {
 
 @app.before_request
 def require_login():
+    if current_user.is_authenticated:
+        enter_shop(current_user)  # public pages too (e.g. account deletion, status)
     if request.endpoint is None or request.endpoint in PUBLIC_ENDPOINTS:
         return None
     if current_user.is_authenticated:
+        enter_shop(current_user)
         return _enforce_staff_mode()
     if request.path.startswith('/api/'):
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
@@ -263,7 +307,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-11-12-audit-round8"
+APP_VERSION = "2026-11-13-multi-shop"
 
 NAV_TABS = {
     'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
@@ -333,11 +377,8 @@ def auth_status():
 
 @app.route('/api/auth/signup', methods=['POST'])
 def auth_signup():
-    """Create the shop owner account (first run only on this instance)."""
+    """Create a new shop (owner account). Any number of shops can sign up."""
     try:
-        if db.session.query(User.id).first() is not None:
-            return jsonify({'success': False,
-                            'error': 'This shop is already set up. Please sign in.'}), 403
         data = request.get_json() or {}
         owner_name = (data.get('owner_name') or '').strip()
         phone = ''.join(ch for ch in (data.get('phone') or '') if ch.isdigit())[-10:]
@@ -351,6 +392,9 @@ def auth_signup():
             return jsonify({'success': False, 'error': 'A valid 10-digit phone number is required'}), 400
         if len(password) < 6:
             return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
+        taken = _account_taken(phone, email)
+        if taken:
+            return jsonify({'success': False, 'error': taken}), 409
 
         user = User(owner_name=owner_name, phone=phone, email=email,
                     shop_name=shop_name,
@@ -359,6 +403,7 @@ def auth_signup():
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
+        _after_new_shop(user)
         login_user(user, remember=True)
         return jsonify({'success': True, 'shop_name': user.shop_name}), 201
     except Exception as e:
@@ -567,26 +612,44 @@ def form_login():
     login_user(user, remember=True)
     return redirect(url_for('dashboard'))
 
+def _account_taken(phone, email):
+    """Message if this mobile number / email already has a shop, else None."""
+    if User.query.filter(User.phone == phone).first():
+        return 'This mobile number already has a shop account. Please sign in.'
+    if email and User.query.filter(User.email == email).first():
+        return 'This email already has a shop account. Please sign in.'
+    return None
+
+def _after_new_shop(user):
+    """The very first shop on a server keeps the data that was there before
+    shops were separated (rows with no shop_id)."""
+    enter_shop(user)
+    if User.query.count() == 1:
+        claim_unowned_rows(user.id)
+
 @app.route('/signup', methods=['POST'])
 def form_signup():
-    """Create the shop owner account via an HTML form POST that redirects."""
-    if db.session.query(User.id).first() is not None:
-        return redirect(url_for('signin', error='exists'))
+    """Create a new shop via an HTML form POST that redirects."""
     owner_name = (request.form.get('owner_name') or '').strip()
     phone = ''.join(ch for ch in (request.form.get('phone') or '') if ch.isdigit())[-10:]
     password = request.form.get('password') or ''
     shop_name = (request.form.get('shop_name') or '').strip()
     if not owner_name or not shop_name or len(phone) != 10 or len(password) < 6:
         return redirect(url_for('signup', error='1'))
+    email = (request.form.get('email') or '').strip().lower() or None
+    if _account_taken(phone, email):
+        # This number already has a shop: send them to sign in with a clear message.
+        return redirect(url_for('signin', error='exists', phone=phone))
     try:
         user = User(owner_name=owner_name, phone=phone,
-                    email=(request.form.get('email') or '').strip().lower() or None,
+                    email=email,
                     shop_name=shop_name,
                     gst_number=(request.form.get('gst_number') or '').strip() or None,
                     udyam_number=(request.form.get('udyam_number') or '').strip() or None)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
+        _after_new_shop(user)
         login_user(user, remember=True)
         return redirect(url_for('dashboard'))
     except Exception as e:
@@ -716,13 +779,17 @@ def contact():
     return render_template('public_page.html', page='contact', title='Help & Contact',
                            support=_support())
 
-def delete_all_shop_data():
-    """Erase the shop: this is a single-shop instance, so every table goes."""
+def delete_all_shop_data(user):
+    """Erase ONE shop: its account and every row it owns. Other shops on the
+    server are untouched (explicit shop_id filter, not only the auto-scope)."""
+    uid = user.id
+    enter_shop(user)
     # Children before parents (PostgreSQL enforces foreign keys).
     for model in (Notification, Payment, BillReturn, BillItem, Bill, Customer, Product,
-                  Staff, NotificationSettings, OtpCode, Expense, SupplierEntry, Supplier,
-                  DayClose, User):
-        model.query.delete(synchronize_session=False)
+                  Staff, NotificationSettings, Expense, SupplierEntry, Supplier, DayClose):
+        model.query.filter(model.shop_id == uid).delete(synchronize_session=False)
+    OtpCode.query.filter(OtpCode.phone == user.phone).delete(synchronize_session=False)
+    User.query.filter(User.id == uid).delete(synchronize_session=False)
     db.session.commit()
 
 @app.route('/account-deletion', methods=['GET', 'POST'])
@@ -749,7 +816,7 @@ def account_deletion():
         return render_template('public_page.html', **ctx), 400
     try:
         logout_user()
-        delete_all_shop_data()
+        delete_all_shop_data(user)
         app.logger.info("Shop account and data deleted on owner request")
     except Exception as e:
         db.session.rollback()
@@ -807,7 +874,7 @@ def logout():
     return redirect(url_for('signin'))
 
 # Database Models
-class Customer(db.Model):
+class Customer(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(15), nullable=False)
@@ -846,7 +913,7 @@ class Customer(db.Model):
 
         return max(total_bills - total_payments, 0)
 
-class Bill(db.Model):
+class Bill(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bill_number = db.Column(db.String(20), unique=True, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=True)
@@ -870,7 +937,7 @@ class Bill(db.Model):
     # Relationships
     items = db.relationship('BillItem', backref='bill', lazy=True, cascade='all, delete-orphan')
 
-class BillItem(db.Model):
+class BillItem(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
     
@@ -885,7 +952,7 @@ class BillItem(db.Model):
     gst_rate = db.Column(db.Float)       # % charged on this line (None = no GST)
     hsn_code = db.Column(db.String(12))
 
-class Payment(db.Model):
+class Payment(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=True)
@@ -897,7 +964,7 @@ class Payment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     notes = db.Column(db.Text)
 
-class Product(db.Model):
+class Product(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, index=True)
     barcode = db.Column(db.String(50), index=True)
@@ -921,7 +988,7 @@ class Product(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class Staff(db.Model):
+class Staff(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(50), default='Cashier')  # Owner, Manager, Cashier, Helper
@@ -929,7 +996,7 @@ class Staff(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class Notification(db.Model):
+class Notification(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     message = db.Column(db.Text, nullable=False)
@@ -943,7 +1010,7 @@ class Notification(db.Model):
     bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=True)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=True)
 
-class NotificationSettings(db.Model):
+class NotificationSettings(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     
     # Business alerts settings
@@ -968,7 +1035,7 @@ class NotificationSettings(db.Model):
 
 # --- Khata: expenses, suppliers, day book (galla closing) ----------------------
 # Added Nov 2026. New tables only (created automatically by db.create_all()).
-class BillReturn(db.Model):
+class BillReturn(ShopScoped, db.Model):
     """One return against a bill: what was refunded and how (for the galla)."""
     id = db.Column(db.Integer, primary_key=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
@@ -977,7 +1044,7 @@ class BillReturn(db.Model):
     note = db.Column(db.String(300))
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
-class Expense(db.Model):
+class Expense(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String(40), nullable=False, default='Other')
     amount = db.Column(db.Float, nullable=False)
@@ -985,7 +1052,7 @@ class Expense(db.Model):
     payment_mode = db.Column(db.String(20), default='cash')  # cash | upi
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
-class Supplier(db.Model):
+class Supplier(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(15))
@@ -1001,7 +1068,7 @@ class Supplier(db.Model):
             total += e.amount if e.kind == 'purchase' else -e.amount
         return round(total, 2)
 
-class SupplierEntry(db.Model):
+class SupplierEntry(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey('supplier.id'), nullable=False)
     kind = db.Column(db.String(10), nullable=False)  # purchase | payment
@@ -1010,9 +1077,10 @@ class SupplierEntry(db.Model):
     payment_mode = db.Column(db.String(20))  # for payments: cash | upi
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
-class DayClose(db.Model):
+class DayClose(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    day = db.Column(db.Date, unique=True, nullable=False)
+    __table_args__ = (db.UniqueConstraint('shop_id', 'day', name='uq_day_close_shop_day'),)
+    day = db.Column(db.Date, nullable=False)
     opening_cash = db.Column(db.Float, default=0)
     counted_cash = db.Column(db.Float)
     note = db.Column(db.String(200))
@@ -1629,11 +1697,41 @@ def _ensure_schema_columns():
                 app.logger.warning(f"Schema migration skipped {table_name}.{col.name}: {col_error}")
 
 
+def claim_unowned_rows(shop_id):
+    """Give rows that have no shop yet (data from the single-shop days) to shop_id."""
+    from sqlalchemy import text as _text
+    for model in (Customer, Bill, BillItem, Payment, Product, Staff, Notification,
+                  NotificationSettings, BillReturn, Expense, Supplier, SupplierEntry, DayClose):
+        db.session.execute(_text(f'UPDATE "{model.__tablename__}" SET shop_id = :s WHERE shop_id IS NULL'), {'s': shop_id})
+    db.session.commit()
+
+def _shop_migrations():
+    """Indexes on shop_id, and the old 'one closing per day for the whole
+    server' rule becomes 'one closing per day per shop' (PostgreSQL)."""
+    from sqlalchemy import text as _text
+    for model in (Customer, Bill, BillItem, Payment, Product, Staff, Notification,
+                  NotificationSettings, BillReturn, Expense, Supplier, SupplierEntry, DayClose):
+        try:
+            db.session.execute(_text(f'CREATE INDEX IF NOT EXISTS ix_{model.__tablename__}_shop_id '
+                                     f'ON "{model.__tablename__}" (shop_id)'))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+    if db.engine.dialect.name == 'postgresql':
+        try:
+            db.session.execute(_text('ALTER TABLE day_close DROP CONSTRAINT IF EXISTS day_close_day_key'))
+            db.session.execute(_text('CREATE UNIQUE INDEX IF NOT EXISTS uq_day_close_shop_day ON day_close (shop_id, day)'))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.warning(f"day_close constraint migration skipped: {e}")
+
 # Initialize database tables once at startup
 try:
     with app.app_context():
         db.create_all()
         _ensure_schema_columns()
+        _shop_migrations()
 
         # Heal duplicates left by older deployments where multiple gunicorn
         # workers raced the startup seeding (fixed going forward by --preload):
@@ -1642,7 +1740,9 @@ try:
             for model in (Staff, Product):
                 seen = {}
                 for row in model.query.order_by(model.id).all():
-                    key = row.name.strip().lower()
+                    # Same name in two DIFFERENT shops is normal - only heal
+                    # duplicates inside one shop.
+                    key = (row.shop_id, row.name.strip().lower())
                     if key in seen:
                         db.session.delete(row)
                     else:
@@ -1663,15 +1763,16 @@ try:
             db.session.rollback()
             app.logger.warning(f"Fake-notification cleanup skipped: {cleanup_error}")
 
-        # A store with fewer than 40 products is a fresh (or barely-touched)
-        # instance: give it the full demo catalog, customers, staff and sales
-        # history so every screen is alive out of the box. seed_demo is
-        # idempotent (matches products by name, customers by phone), so this
-        # never duplicates data on later restarts.
-        if db.session.query(Product.id).count() < 40:
-            from seed_data import seed_demo
-            added = seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=Staff)
-            app.logger.info(f"Auto-seeded demo data: {added}")
+        # Shops are separate now: rows from before that change belong to the
+        # first shop. No automatic demo data any more - a new shop starts
+        # empty (Home offers "Try with sample data").
+        try:
+            first = User.query.order_by(User.id).first()
+            if first:
+                claim_unowned_rows(first.id)
+        except Exception as claim_error:
+            db.session.rollback()
+            app.logger.warning(f"Assigning old rows to the first shop skipped: {claim_error}")
         app.logger.info("Database initialized successfully")
 except Exception as e:
     app.logger.error(f"Database initialization failed: {e}")
@@ -1682,8 +1783,10 @@ def ensure_db_initialized():
 
 @app.route('/')
 def index():
-    """Serve the Kirana Konnect splash screen"""
-    ensure_db_initialized()
+    """App start: signed-in shops go straight to Home (like a native app);
+    everyone else sees the welcome screen with Create account / Sign in."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
     return render_template('splash.html')
 
 @app.route('/pricing')
@@ -2035,7 +2138,8 @@ def seed_demo_data():
     so calling it again never duplicates data. Requires login."""
     try:
         from seed_data import seed_demo
-        added = seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=Staff)
+        added = seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=Staff,
+                          bill_prefix=f"KK{current_shop_id() or 0}-DEMO-")
         return jsonify({
             'success': True,
             'added': added,
@@ -2340,7 +2444,16 @@ def create_bill():
         db.session.flush()  # Get the bill ID
         # Sequential, collision-free bill number (the old random 4-digit
         # number collided after ~100 bills a year and the sale was lost).
-        bill.bill_number = f"KK-{ist_now().year}-{bill.id:06d}"
+        sid = current_shop_id()
+        if sid:
+            # Each shop gets its own running number (KK<shop>-<year>-00001, 00002 ...).
+            # Atomic UPDATE ... RETURNING so two bills at once never share a number.
+            from sqlalchemy import text as _text
+            seq = db.session.execute(_text('UPDATE "user" SET bill_seq = COALESCE(bill_seq, 0) + 1 '
+                                           'WHERE id = :i RETURNING bill_seq'), {'i': sid}).scalar()
+            bill.bill_number = f"KK{sid}-{ist_now().year}-{seq:05d}"
+        else:
+            bill.bill_number = f"KK-{ist_now().year}-{bill.id:06d}"
 
         # Add bill items and decrement inventory for each sold product.
         # Items are matched to products by product_id when the client sends
@@ -2707,7 +2820,7 @@ def export_backup():
             out.append(d)
         return out
     dump = {'app': 'Kirana Konnect', 'version': APP_VERSION, 'exported_at_ist': ist_now().strftime('%d/%m/%Y %I:%M %p'),
-            'shop': rows(User, skip=('password_hash', 'owner_pin_hash')),
+            'shop': [u for u in rows(User, skip=('password_hash', 'owner_pin_hash')) if u.get('id') == current_user.id],
             'products': rows(Product), 'customers': rows(Customer, skip=('aadhar_number',)), 'bills': rows(Bill),
             'bill_items': rows(BillItem), 'payments': rows(Payment), 'bill_returns': rows(BillReturn),
             'expenses': rows(Expense), 'suppliers': rows(Supplier), 'supplier_entries': rows(SupplierEntry),
@@ -2822,7 +2935,7 @@ def bill_pdf(bill_number):
     if not bill:
         return jsonify({'success': False, 'error': 'Bill not found'}), 404
 
-    shop = User.query.first()
+    shop = current_user if current_user.is_authenticated else None
     shop_name = shop.shop_name if shop else 'Kirana Konnect'
     owner_phone = shop.phone if shop else ''
     gst = shop.gst_number if shop else None
@@ -3642,7 +3755,7 @@ def export_business_data():
         
         # Professional Header with branding
         header_table = Table([
-            [((User.query.first().shop_name if User.query.first() else None) or 'Kirana Konnect').upper(), 'Business Report'],
+            [((current_user.shop_name if current_user.is_authenticated else None) or 'Kirana Konnect').upper(), 'Business Report'],
             ['Your Store Management Solution', f'Generated: {ist_now().strftime("%d/%m/%Y")}']
         ], colWidths=[3*inch, 3*inch])
         header_table.setStyle(TableStyle([

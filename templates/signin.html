@@ -491,7 +491,10 @@
             if (banner && code === 'locked') {
                 banner.textContent = 'Too many wrong attempts. Please wait 15 minutes and try again.';
             } else if (banner && code === 'exists') {
-                banner.textContent = 'This shop is already set up. Please sign in.';
+                banner.textContent = 'This mobile number already has a shop account. Please sign in (or use Forgot Password).';
+                const ph = new URLSearchParams(location.search).get('phone');
+                const idf = document.querySelector('input[name="identifier"]');
+                if (ph && idf) idf.value = ph;
             }
             if (banner) banner.classList.remove('hidden');
         }
@@ -684,7 +687,7 @@
             .then(r => r.json())
             .then(info => {
                 if (info.authenticated) window.location.replace('/dashboard');
-                else if (!info.account_exists) window.location.replace('/signup');
+
             })
             .catch(() => {});
     </script>
