@@ -162,6 +162,12 @@ database_url = os.environ.get("DATABASE_URL")
 # out legacy "postgres://" URLs, so normalize it here.
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
+# SQLAlchemy 2.1 switched the default PostgreSQL driver from psycopg2 to
+# psycopg (v3). We ship psycopg2-binary, so name the driver explicitly -
+# otherwise the app crashes at start-up ("No module named 'psycopg'") and
+# every Render deploy fails (this is what kept the July build live).
+if database_url and database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 _engine_options = {
     "pool_recycle": 300,
@@ -307,7 +313,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-11-13-multi-shop"
+APP_VERSION = "2026-11-14-db-driver-fix"
 
 NAV_TABS = {
     'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
@@ -1726,7 +1732,19 @@ def _shop_migrations():
             db.session.rollback()
             app.logger.warning(f"day_close constraint migration skipped: {e}")
 
-# Initialize database tables once at startup
+# Initialize database tables once at startup.
+# Gunicorn starts 2 workers at the same time; on PostgreSQL an advisory lock
+# makes them run this set-up one after the other (otherwise both try to create
+# the same tables and one fails with "duplicate key ... pg_type").
+_init_lock = None
+try:
+    if database_url and database_url.startswith("postgresql"):
+        from sqlalchemy import create_engine as _ce, text as _lt
+        _init_lock = _ce(database_url, connect_args={"connect_timeout": 10}).connect()
+        _init_lock.execute(_lt("SELECT pg_advisory_lock(727274)"))
+except Exception as lock_error:
+    _init_lock = None
+    app.logger.warning(f"Start-up lock not taken: {lock_error}")
 try:
     with app.app_context():
         db.create_all()
@@ -1776,6 +1794,14 @@ try:
         app.logger.info("Database initialized successfully")
 except Exception as e:
     app.logger.error(f"Database initialization failed: {e}")
+finally:
+    if _init_lock is not None:
+        try:
+            from sqlalchemy import text as _lt
+            _init_lock.execute(_lt("SELECT pg_advisory_unlock(727274)"))
+            _init_lock.close()
+        except Exception:
+            pass
 
 def ensure_db_initialized():
     # Database is already initialized at startup
