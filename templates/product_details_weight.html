@@ -552,9 +552,11 @@
                         const p = data.product;
                         const rate = p.price_per_kg || p.price;
                         document.getElementById('product-name').textContent = p.name;
-                        document.getElementById('purchase-price').textContent = `₹${p.cost_price || 0}/kg`;
-                        document.getElementById('selling-price').textContent = `₹${rate}/kg`;
-                        document.getElementById('available-stock').textContent = `${p.stock_quantity} kg`;
+                        const U = p.measure === 'ltr' ? 'Ltr' : 'Kg';   // oil / milk are sold by the litre
+                        document.getElementById('purchase-price').textContent = `₹${p.cost_price || 0}/${U}`;
+                        document.getElementById('selling-price').textContent = `₹${rate}/${U}`;
+                        document.getElementById('available-stock').textContent = `${p.stock_quantity} ${U}`;
+                        document.querySelectorAll('#unit-type-label, .kk-unit').forEach(el => { el.textContent = U; });
                         updateStockStatus({ stock: p.stock_quantity });
                         unitPrice = rate;
                     })

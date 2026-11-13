@@ -801,6 +801,7 @@
                     total_price: item.price,
                     weight: isWeight ? qtyInKg : null,
                     price_per_kg: isWeight ? parseFloat(unitPrice.toFixed(2)) : null,
+                    unit: item.unit || null,
                     gst_rate: taxEnabled ? itemTax(item).rate : null,
                     hsn_code: itemTax(item).hsn
                 };

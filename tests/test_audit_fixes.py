@@ -360,3 +360,22 @@ def test_many_shops_are_separate(flask_app):  # round 9: multi-shop
     assert r.status_code == 200
     assert a.get(f'/api/products/{pa["id"]}').status_code == 200
     assert a.get(f'/api/bills/{na}').status_code == 200
+
+
+def test_litre_products_and_gram_stock(auth):  # round 10
+    oil = auth.post('/api/products', json={'name': 'Loose Mustard Oil', 'price': 160, 'stock_quantity': 15,
+                                           'is_weight_based': True, 'measure': 'ltr'}).get_json()['product']
+    rice = auth.post('/api/products', json={'name': 'Loose Rice', 'price': 50, 'stock_quantity': 0.5,
+                                            'is_weight_based': True, 'measure': 'kg'}).get_json()['product']
+    soap = auth.post('/api/products', json={'name': 'Bath Soap', 'price': 30, 'stock_quantity': 10}).get_json()['product']
+    assert oil['unit'] == 'Ltr' and oil['measure'] == 'ltr'
+    assert rice['unit'] == 'kg' and soap['unit'] == 'Piece' and soap['measure'] is None
+    r = _bill(auth, subtotal=80, total_amount=80, items=[{'product_id': oil['id'], 'name': 'Loose Mustard Oil', 'quantity': 0.5,
+              'unit': 'Ltr', 'unit_price': 160, 'total_price': 80, 'weight': 0.5, 'price_per_kg': 160}])
+    num = r.get_json()['bill_number']
+    item = auth.get(f'/api/bills/{num}').get_json()['items'][0]
+    assert item['unit'] == 'ltr'
+    assert auth.get(f'/api/products/{oil["id"]}').get_json()['product']['stock_quantity'] == 14.5
+    from pypdf import PdfReader
+    import io
+    assert '0.5 L' in PdfReader(io.BytesIO(auth.get(f'/api/bills/{num}/pdf').data)).pages[0].extract_text()

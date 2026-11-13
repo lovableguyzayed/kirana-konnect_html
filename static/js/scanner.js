@@ -140,7 +140,7 @@
         try { cart = JSON.parse(localStorage.getItem('kiranakonnect_cart') || '[]'); } catch (e) {}
         var price = p.is_weight_based ? (p.price_per_kg || p.price) : p.price;
         cart.push({ product_id: p.id, id: p.id, name: p.name, quantity: qty,
-                    unit: p.is_weight_based ? 'Kg' : 'Piece', price: Math.round(price * qty * 100) / 100,
+                    unit: p.is_weight_based ? (p.measure === 'ltr' ? 'Ltr' : 'Kg') : 'Piece', price: Math.round(price * qty * 100) / 100,
                     isWeightBased: !!p.is_weight_based, unit_price: price });
         localStorage.setItem('kiranakonnect_cart', JSON.stringify(cart));
         if (window.KKNav) KKNav.refreshBadge();
@@ -160,15 +160,16 @@
                     n.querySelector('.kk-again').onclick = function () { n.remove(); open(); };
                     return;
                 }
-                var kg = !!p.is_weight_based, unitPrice = kg ? (p.price_per_kg || p.price) : p.price;
+                var kg = !!p.is_weight_based, ltr = p.measure === 'ltr', U = ltr ? 'L' : 'kg', unitPrice = kg ? (p.price_per_kg || p.price) : p.price;
                 var s = sheet('<h3>' + esc(p.name) + '</h3>' +
-                    '<p class="muted">' + inr(unitPrice) + (kg ? ' / kg' : '') + ' · ' + esc(t('Stock')) + ': ' + esc(p.stock_quantity) + (kg ? ' kg' : '') +
+                    '<p class="muted">' + inr(unitPrice) + (kg ? ' / ' + U : '') + ' · ' + esc(t('Stock')) + ': ' + esc(p.stock_quantity) + (kg ? ' ' + U : '') +
                     (p.is_low_stock ? ' · <b style="color:#B71C1C">' + esc(t('Low Stock')) + '</b>' : '') +
                     (p.is_expired ? ' · <b style="color:#B71C1C">' + esc(t('Expired')) + '</b>' : '') + '</p>' +
-                    (p.offer_percent ? '<p style="margin:6px 0 0;font-weight:700;color:#E65100">' + esc(t('Expiry offer')) + ' ' + p.offer_percent + '% OFF → ' + inr(unitPrice * (100 - p.offer_percent) / 100) + (kg ? ' / kg' : '') + '</p>' : '') +
+                    (p.offer_percent ? '<p style="margin:6px 0 0;font-weight:700;color:#E65100">' + esc(t('Expiry offer')) + ' ' + p.offer_percent + '% OFF → ' + inr(unitPrice * (100 - p.offer_percent) / 100) + (kg ? ' / ' + U : '') + '</p>' : '') +
                     '<div class="kk-qty"><button class="kk-minus" aria-label="Less">−</button>' +
                     '<input class="kk-q" inputmode="decimal" value="1" aria-label="Quantity"><button class="kk-plus" aria-label="More">+</button></div>' +
-                    (kg ? '<div class="kk-chips"><button data-q="0.25">250 g</button><button data-q="0.5">500 g</button><button data-q="1">1 kg</button><button data-q="2">2 kg</button><button data-q="5">5 kg</button></div>' : '') +
+                    (kg ? (ltr ? '<div class="kk-chips"><button data-q="0.25">250 ml</button><button data-q="0.5">500 ml</button><button data-q="1">1 L</button><button data-q="2">2 L</button><button data-q="5">5 L</button></div>'
+                          : '<div class="kk-chips"><button data-q="0.25">250 g</button><button data-q="0.5">500 g</button><button data-q="1">1 kg</button><button data-q="2">2 kg</button><button data-q="5">5 kg</button></div>') : '') +
                     '<p class="muted kk-total" style="margin-top:10px"></p>' +
                     '<div class="kk-row"><button class="kk-b s kk-open">' + esc(t('Open')) + '</button><button class="kk-b s kk-refill">' + esc(t('Refill')) + '</button></div>' +
                     '<div class="kk-row"><button class="kk-b s kk-next">' + esc(t('Add & scan next')) + '</button><button class="kk-b p kk-add">' + esc(t('Add to bill')) + '</button></div>');
