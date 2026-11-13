@@ -521,7 +521,9 @@
                     cost_price: parseFloat(itemData.purchasePrice) || 0,
                     is_weight_based: isWeightBased,
                     price_per_kg: isWeightBased ? sellingPrice : null,
-                    stock_quantity: parseFloat(itemData.quantity) || 0,
+                    // 500 gram / 500 ml must be stored as 0.5 kg / 0.5 litre (was saved as 500 kg)
+                    stock_quantity: (parseFloat(itemData.quantity) || 0) / ((isWeightBased && ['gram', 'ml'].includes(itemData.unit)) ? 1000 : 1),
+                    measure: isWeightBased ? (quantityType.value === 'ltr_ml' ? 'ltr' : 'kg') : null,
                     reorder_level: parseFloat(itemData.threshold) || 10,
                     expiry_date: itemData.expDate || null
                 })

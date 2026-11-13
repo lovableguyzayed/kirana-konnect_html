@@ -368,7 +368,7 @@
                     Object.assign(productData, {
                         id: p.id, name: p.name, category: p.category,
                         isWeightBased: !!p.is_weight_based,
-                        unit: p.is_weight_based ? 'Kg' : (productData.unit && productData.unit !== 'Loading…' ? productData.unit : 'Piece'),
+                        unit: p.is_weight_based ? (p.measure === 'ltr' ? 'Ltr' : 'Kg') : (productData.unit && productData.unit !== 'Loading…' ? productData.unit : 'Piece'),
                         currentStock: p.stock_quantity ?? 0,
                         reorderLevel: p.reorder_level ?? 0,
                         sellingPrice: (p.is_weight_based ? (p.price_per_kg || p.price) : p.price) || 0,

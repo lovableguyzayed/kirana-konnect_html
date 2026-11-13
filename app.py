@@ -313,7 +313,7 @@ def _enforce_staff_mode():
         return redirect(url_for('dashboard', locked=1))
     return None
 
-APP_VERSION = "2026-11-14-db-driver-fix"
+APP_VERSION = "2026-11-14-litre-units"
 
 NAV_TABS = {
     'dashboard': 'home', 'notifications': 'home', 'sales_report': 'home', 'profile': 'home', 'staff': 'home',
@@ -957,6 +957,7 @@ class BillItem(ShopScoped, db.Model):
     price_per_kg = db.Column(db.Float)
     gst_rate = db.Column(db.Float)       # % charged on this line (None = no GST)
     hsn_code = db.Column(db.String(12))
+    unit = db.Column(db.String(8))       # 'kg', 'ltr' or 'pcs' (how this line was sold)
 
 class Payment(ShopScoped, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -990,6 +991,7 @@ class Product(ShopScoped, db.Model):
     gst_rate = db.Column(db.Float)       # % (0, 5, 12, 18, 28); None = use the bill's rate
     hsn_code = db.Column(db.String(12))
     offer_percent = db.Column(db.Float)  # % off for near-expiry stock; None = no offer
+    measure = db.Column(db.String(5))    # loose items: 'kg' (default) or 'ltr' (oil, milk...)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -1984,6 +1986,17 @@ def _parse_date(value):
             continue
     return None
 
+def _measure(value):
+    """'ltr' for liquids sold loose, else 'kg'. Accepts ltr/litre/l/ml and kg/g."""
+    v = str(value or '').strip().lower()
+    return 'ltr' if v in ('ltr', 'litre', 'liter', 'l', 'ml', 'ltr_ml') else 'kg'
+
+def product_unit(p):
+    """Display unit: 'Ltr' / 'kg' for loose items, 'Piece' otherwise."""
+    if not p.is_weight_based:
+        return 'Piece'
+    return 'Ltr' if p.measure == 'ltr' else 'kg'
+
 def _gst_rate(value):
     """GST % for a product: one of the legal slabs, or None when not set."""
     try:
@@ -2012,7 +2025,8 @@ def _product_to_dict(product):
         'gst_rate': product.gst_rate,
         'hsn_code': product.hsn_code,
         'offer_percent': None if is_expired else product.offer_percent,
-        'unit': 'kg' if product.is_weight_based else 'Piece'
+        'measure': (product.measure or 'kg') if product.is_weight_based else None,
+        'unit': product_unit(product)
     }
 
 @app.route('/api/products', methods=['POST'])
@@ -2044,6 +2058,7 @@ def create_product():
             stock_quantity=stock_quantity,
             reorder_level=float(data.get('reorder_level') or 10),
             expiry_date=_parse_date(data.get('expiry_date')),
+            measure=_measure(data.get('measure') or data.get('unit')) if is_weight_based else None,
             gst_rate=_gst_rate(data.get('gst_rate')),
             hsn_code=(str(data.get('hsn_code') or '').strip()[:12] or None)
         )
@@ -2082,6 +2097,8 @@ def update_product(product_id):
                 setattr(product, field, float(data[field]))
         if 'expiry_date' in data:
             product.expiry_date = _parse_date(data['expiry_date'])
+        if 'measure' in data:
+            product.measure = _measure(data.get('measure'))
         if 'offer_percent' in data:
             product.offer_percent = _offer_pct(data.get('offer_percent'))
         if 'gst_rate' in data:
@@ -2494,6 +2511,7 @@ def create_bill():
                 total_price=item_data['total_price'],
                 weight=item_data.get('weight'),
                 price_per_kg=item_data.get('price_per_kg'),
+                unit=(lambda u: 'ltr' if u in ('ltr', 'litre', 'liter', 'l', 'ml') else ('kg' if u in ('kg', 'gm', 'g', 'gram') or item_data.get('weight') else 'pcs'))(str(item_data.get('unit') or '').strip().lower()),
                 gst_rate=_gst_rate(item_data.get('gst_rate')) if tax_amount else None,
                 hsn_code=(str(item_data.get('hsn_code') or '').strip()[:12] or None)
             )
@@ -2628,6 +2646,7 @@ def api_get_bill(bill_number):
                 'total_price': item.total_price,
                 'weight': item.weight,
                 'price_per_kg': item.price_per_kg,
+                'unit': item.unit,
                 'id': item.id,
                 'gst_rate': item.gst_rate,
                 'hsn_code': item.hsn_code
@@ -3031,7 +3050,10 @@ def bill_pdf(bill_number):
     cell_r = ParagraphStyle('TDR', parent=cell, alignment=2)
     rows = [[Paragraph(h, head) for h in ('#', 'ITEM', 'QTY', 'RATE', 'AMOUNT')]]
     for i, item in enumerate(bill.items, 1):
-        qty = f"{item.quantity:g} kg" if item.weight else f"{item.quantity:g}"
+        if item.weight:
+            qty = f"{item.weight:g} {'L' if item.unit == 'ltr' else 'kg'}"
+        else:
+            qty = f"{item.quantity:g}"
         extra = []
         if item.hsn_code:
             extra.append(f"HSN {pdf_text(item.hsn_code)}")
@@ -4066,8 +4088,8 @@ def api_low_stock_products():
                 'level_text': level_text,
                 'level_color': level_color,
                 'progress': progress,
-                'unit': 'Kg' if product.is_weight_based else 'Pcs',
-                'price_display': f"₹{product.price_per_kg}/Kg" if product.is_weight_based else f"₹{product.price}/Pc",
+                'unit': ('Ltr' if product.measure == 'ltr' else 'Kg') if product.is_weight_based else 'Pcs',
+                'price_display': (f"₹{product.price_per_kg}/{'Ltr' if product.measure == 'ltr' else 'Kg'}") if product.is_weight_based else f"₹{product.price}/Pc",
                 'suggested_reorder': product.reorder_level * 3,
                 'category': product.category or 'General'
             })
