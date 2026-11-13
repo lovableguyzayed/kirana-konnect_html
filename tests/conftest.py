@@ -1,7 +1,8 @@
 import os, sys, tempfile, pytest
 
 _db = tempfile.NamedTemporaryFile(suffix='.db', delete=False).name
-os.environ['DATABASE_URL'] = 'sqlite:///' + _db
+# Set TEST_DATABASE_URL to run the suite on PostgreSQL (like production).
+os.environ['DATABASE_URL'] = os.environ.get('TEST_DATABASE_URL') or ('sqlite:///' + _db)
 os.environ['SESSION_SECRET'] = 'test-secret'
 os.environ['OWNER_RESET_CODE'] = 'RESET-123456'
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
