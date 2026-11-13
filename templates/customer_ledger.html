@@ -231,13 +231,16 @@
             const loadingIndicator = document.getElementById('loading-indicator');
             const noCustomersMessage = document.getElementById('no-customers-message');
             
-            loadingIndicator.style.display = 'none';
+            // The loading spinner lives inside the list and is gone after the
+            // first render - every element here may already be missing.
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
             
             if (customersToShow.length === 0) {
-                container.innerHTML = '';
-                noCustomersMessage.classList.remove('hidden');
+                container.innerHTML = '<div class="bg-white rounded-lg p-6 text-center text-gray-500">' + KK.t('No customers found') + '</div>';
+                if (noCustomersMessage) noCustomersMessage.classList.remove('hidden');
                 return;
             }
+            if (noCustomersMessage) noCustomersMessage.classList.add('hidden');
             
             noCustomersMessage.classList.add('hidden');
             
@@ -395,7 +398,7 @@
         }
 
         function refreshCustomers() {
-            document.getElementById('loading-indicator').style.display = 'block';
+            const li = document.getElementById('loading-indicator'); if (li) li.style.display = 'block';
             loadCustomers();
         }
 
@@ -558,52 +561,7 @@
         }
 
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const filterBtns = document.querySelectorAll('.filter-btn');
-            const transactions = document.querySelectorAll('.transaction-entry');
-            const clearFiltersBtn = document.getElementById('clear-filters');
-
-            if (filterBtns && filterBtns.length > 0) {
-                filterBtns.forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const filter = this.getAttribute('data-filter');
-                        
-                        filterBtns.forEach(b => {
-                            b.classList.remove('active', 'bg-primary', 'text-white');
-                            b.classList.add('bg-gray-200', 'text-gray-600');
-                        });
-                        this.classList.add('active', 'bg-primary', 'text-white');
-                        this.classList.remove('bg-gray-200', 'text-gray-600');
-
-                        transactions.forEach(transaction => {
-                            const type = transaction.getAttribute('data-type');
-                            if (filter === 'all' || type === filter) {
-                                transaction.style.display = 'block';
-                            } else {
-                                transaction.style.display = 'none';
-                            }
-                        });
-                    });
-                });
-            }
-
-            if (clearFiltersBtn) {
-                clearFiltersBtn.addEventListener('click', function() {
-                    if (filterBtns && filterBtns.length > 0) {
-                        filterBtns.forEach(b => {
-                            b.classList.remove('active', 'bg-primary', 'text-white');
-                            b.classList.add('bg-gray-200', 'text-gray-600');
-                        });
-                        filterBtns[0].classList.add('active', 'bg-primary', 'text-white');
-                        filterBtns[0].classList.remove('bg-gray-200', 'text-gray-600');
-                    }
-
-                    transactions.forEach(transaction => {
-                        transaction.style.display = 'block';
-                    });
-                });
-            }
-        });
+        // (old filter code for the static demo list removed - the live list above handles filters)
     </script>
     {% include '_nav.html' %}
 </body>

@@ -91,6 +91,12 @@
         'Expiry offer': 'एक्सपायरी ऑफ़र', 'Set offer': 'ऑफ़र लगाएँ', 'Change offer': 'ऑफ़र बदलें', 'Remove offer': 'ऑफ़र हटाएँ',
         'Offer on all': 'सब पर ऑफ़र', 'Send offers to customers': 'ग्राहकों को ऑफ़र भेजें', 'Offer + discount': 'ऑफ़र + छूट',
         'Expiry Report': 'एक्सपायरी रिपोर्ट',
+        'Top Selling Today': 'आज सबसे ज़्यादा बिका', 'sold': 'बिका', 'No products yet': 'अभी कोई सामान नहीं',
+        'No products match': 'कोई सामान नहीं मिला', 'Add your first product, or scan its barcode.': 'अपना पहला सामान जोड़ें, या उसका बारकोड स्कैन करें।',
+        'Try another category or search.': 'दूसरी कैटेगरी या खोज आज़माएँ।', 'Create my shop account': 'मेरी दुकान का खाता बनाएँ',
+        'I already have an account': 'मेरा खाता पहले से है',
+        'Product not found': 'सामान नहीं मिला', 'It may have been deleted.': 'शायद यह हटा दिया गया है।',
+        'Go to Stock': 'स्टॉक पर जाएँ', 'Go to Home': 'होम पर जाएँ',
         'Khata': 'खाता', 'Galla': 'गल्ला', 'Expenses': 'ख़र्चे', 'Suppliers': 'सप्लायर',
         'Cash in the galla': 'गल्ले में नकद', 'Opening cash': 'शुरुआती नकद', 'Cash sales': 'नकद बिक्री',
         'Udhar received (cash)': 'उधार वापस मिला (नकद)', 'Expenses (cash)': 'ख़र्चे (नकद)',
@@ -300,7 +306,21 @@
         return 'Namaste ' + name + ' ji 🙏\n' + (shop || 'Hamari dukaan') + ' par aapka ' + inrText(amount) + ' baaki hai.\n' +
                'Kripya jaldi bhugtan karein.' + (upiId ? '\nUPI: ' + upiId : '') + '\nDhanyavaad!';
     }
-    window.KK = { toast: toast, setLang: setLang, lang: getLang, t: t, whatsapp: whatsapp, upiLink: upiLink, qr: qr, inr: inrText, udharReminder: udharReminder };
+    // Friendly full-screen message when the thing a screen is about no longer
+    // exists (deleted product, old link) instead of a broken page.
+    function notFound(title, text, href, label) {
+        var w = document.createElement('div');
+        w.id = 'kk-notfound';
+        w.setAttribute('role', 'alert');
+        w.style.cssText = 'position:fixed;inset:0;z-index:2147482990;background:#F5F7F5;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font:16px/1.5 Inter,system-ui,sans-serif;color:#1F2933';
+        w.innerHTML = '<div style="max-width:340px"><div style="font-size:44px">📦</div><h2 style="font-size:20px;margin:8px 0 4px"></h2><p style="color:#52606D;margin:0 0 18px"></p>' +
+            '<a style="display:block;min-height:52px;line-height:52px;border-radius:12px;background:#2E7D32;color:#fff;font-weight:700;text-decoration:none"></a></div>';
+        w.querySelector('h2').textContent = t(title);
+        w.querySelector('p').textContent = t(text);
+        var a = w.querySelector('a'); a.href = href || '/dashboard'; a.textContent = t(label || 'Go to Home');
+        (document.body || document.documentElement).appendChild(w);
+    }
+    window.KK = { notFound: notFound, toast: toast, setLang: setLang, lang: getLang, t: t, whatsapp: whatsapp, upiLink: upiLink, qr: qr, inr: inrText, udharReminder: udharReminder };
 
 
     // ---------------------------------------------------------------- staff mode

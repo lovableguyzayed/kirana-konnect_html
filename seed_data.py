@@ -191,7 +191,7 @@ STAFF = [
 ]
 
 
-def seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=None, with_history=True):
+def seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=None, with_history=True, bill_prefix=None):
     """Idempotently seed products, customers and (optionally) billing history.
 
     Returns a dict of counts describing what was added.
@@ -255,7 +255,7 @@ def seed_demo(db, Product, Customer, Bill, BillItem, Payment, Staff=None, with_h
                 mode = rng.choices(["cash", "online", "credit"], weights=[60, 25, 15])[0]
                 customer = rng.choice(customers) if (mode == "credit" or rng.random() < 0.4) else None
                 bill = Bill(
-                    bill_number=f"KK-{day.year}-{5000 + bill_no}",
+                    bill_number=f"{bill_prefix}{5000 + bill_no}" if bill_prefix else f"KK-{day.year}-{5000 + bill_no}",
                     customer_id=customer.id if customer else None,
                     customer_name=customer.name if customer else "Walk-in Customer",
                     subtotal=round(subtotal, 2),

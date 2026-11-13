@@ -44,7 +44,7 @@
     <script src="/static/js/app-ui.js"></script>
     <script src="/static/js/scanner.js" defer></script>
 </head>
-<body class="font-poppins bg-gradient-to-br from-primary to-green-600 h-[100vh] flex items-center justify-center">
+<body class="font-poppins bg-gradient-to-br from-primary to-green-600 flex items-center justify-center" style="min-height:100vh;padding:24px 0">
     
     <!-- Logo Container -->
     <div id="logo-container" class="text-center px-8">
@@ -87,10 +87,14 @@
 
         <!-- Action Buttons -->
         <div id="action-buttons" class="space-y-4">
-            <button id="get-started-btn" class="w-full bg-white text-primary font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-3">
-                <i class="fa-solid fa-rocket text-xl"></i>
-                <span class="text-lg">Get Started</span>
-            </button>
+            <a id="get-started-btn" href="/signup" class="w-full bg-white text-primary font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center space-x-3" style="text-decoration:none">
+                <i class="fa-solid fa-store text-xl"></i>
+                <span class="text-lg">Create my shop account</span>
+            </a>
+            <a id="signin-link" href="/signin" class="w-full text-white font-semibold py-4 px-6 rounded-xl flex items-center justify-center space-x-3" style="text-decoration:none;border:2px solid rgba(255,255,255,.7)">
+                <i class="fa-solid fa-right-to-bracket text-lg"></i>
+                <span class="text-lg">I already have an account</span>
+            </a>
             
             <button id="view-pricing-btn" hidden class="hidden w-full bg-white/20 text-white font-semibold py-3 px-6 rounded-xl backdrop-blur-lg border border-white/30 hover:bg-white/30 transition-all duration-300 flex items-center justify-center space-x-3">
                 <i class="fa-solid fa-tags text-lg"></i>
@@ -116,35 +120,13 @@
     </div>
 
     <script>
-        document.getElementById('get-started-btn').addEventListener('click', function() {
-            const loadingAnimation = document.getElementById('loading-animation');
-            const actionButtons = document.getElementById('action-buttons');
-            
-            actionButtons.style.display = 'none';
-            loadingAnimation.classList.remove('hidden');
-            
-            setTimeout(() => {
-                // Navigate to signup for new users
-                console.log('Navigating to signup...');
-                window.location.href = '/signup';
-            }, 2000);
-        });
-
+        // Buttons are plain links now (no artificial 2-second wait).
         document.getElementById('view-pricing-btn').addEventListener('click', function() {
             window.location.href = '/pricing';
         });
 
-        const logoContainer = document.getElementById('logo-container');
-        logoContainer.style.animation = 'float 3s ease-in-out infinite';
-        
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes float {
-                0%, 100% { transform: translateY(0px); }
-                50% { transform: translateY(-10px); }
-            }
-        `;
-        document.head.appendChild(style);
+        // (The whole screen - buttons included - used to bob up and down forever,
+        // which made the buttons hard to tap. Removed.)
     </script>
 
 </body>

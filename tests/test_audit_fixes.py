@@ -24,7 +24,9 @@ def test_reset_needs_recovery_code(client, owner):  # KK-001
 
 def test_bill_numbers_sequential_and_unique(auth):  # KK-004
     nums = {_bill(auth).get_json()['bill_number'] for _ in range(30)}
-    assert len(nums) == 30 and all(n.startswith('KK-') for n in nums)
+    assert len(nums) == 30 and all(n.startswith('KK') for n in nums)
+    seq = sorted(int(n.rsplit('-', 1)[1]) for n in nums)
+    assert seq == list(range(seq[0], seq[0] + 30))      # per-shop running number, no gaps
 
 
 def test_bill_validation(auth):  # KK-005
@@ -97,6 +99,7 @@ def test_account_deletion_wipes_everything(tmp_path):  # D1 - run on its own DB
         import app as A
         c = A.app.test_client()
         c.post('/signup', data={'owner_name': 'Del', 'phone': '9000000001', 'password': 'secret123', 'shop_name': 'S'})
+        c.post('/api/products', json={'name': 'Delete Test Item', 'price': 10, 'stock_quantity': 1})
         with A.app.app_context():
             assert A.Product.query.count() > 0
         assert c.post('/account-deletion', data={'identifier': '9000000001', 'password': 'bad', 'confirm': 'DELETE'}).status_code == 401
@@ -307,3 +310,53 @@ def test_expiry_offers_and_gst_summary(auth):  # round 8
     auth.post(f'/api/products/{p["id"]}/refill', json={'quantity': 5, 'expiry_date': far})
     assert auth.get(f'/api/products/{p["id"]}').get_json()['product']['offer_percent'] is None
     assert auth.delete('/api/offers/expiring').get_json()['success']
+
+
+def test_many_shops_are_separate(flask_app):  # round 9: multi-shop
+    def shop(phone, name):
+        c = flask_app.test_client()
+        r = c.post('/signup', data={'owner_name': name, 'phone': phone, 'password': 'secret123', 'shop_name': name + ' Store'})
+        assert r.status_code == 302 and r.location.endswith('/dashboard'), r.location
+        return c
+    a, b = shop('9700000001', 'Asha'), shop('9700000002', 'Bilal')
+    # same number again -> sent to sign in, no second account
+    again = flask_app.test_client().post('/signup', data={'owner_name': 'X', 'phone': '9700000001', 'password': 'secret123', 'shop_name': 'X'})
+    assert 'error=exists' in again.location
+    pa = a.post('/api/products', json={'name': 'Tata Salt', 'price': 25, 'stock_quantity': 10, 'barcode': '890100'}).get_json()['product']
+    pb = b.post('/api/products', json={'name': 'Tata Salt', 'price': 28, 'stock_quantity': 5, 'barcode': '890100'}).get_json()['product']
+    ca = a.post('/api/customers', json={'name': 'Asha Customer', 'phone': '9811100001'}).get_json()['id']
+    # B cannot see or change A's things
+    assert [p['name'] for p in b.get('/api/products').get_json()['products']] == ['Tata Salt']
+    assert b.get('/api/products').get_json()['products'][0]['price'] == 28
+    assert b.get(f'/api/products/{pa["id"]}').status_code == 404
+    assert b.put(f'/api/products/{pa["id"]}', json={'price': 1}).status_code == 404
+    assert b.delete(f'/api/products/{pa["id"]}').status_code == 404
+    assert b.get(f'/api/customer/{ca}').status_code == 404
+    assert b.get('/api/products?barcode=890100').get_json()['products'][0]['id'] == pb['id']
+    assert b.post('/api/payments', json={'customer_id': ca, 'amount': 10}).status_code == 404
+    # bills: own running numbers, invisible to the other shop
+    na = a.post('/api/bills', json={'subtotal': 25, 'total_amount': 25, 'payment_mode': 'cash',
+                                     'items': [{'product_id': pa['id'], 'name': 'Tata Salt', 'quantity': 1, 'unit_price': 25, 'total_price': 25}]}).get_json()['bill_number']
+    nb = b.post('/api/bills', json={'subtotal': 28, 'total_amount': 28, 'payment_mode': 'cash',
+                                     'items': [{'product_id': pb['id'], 'name': 'Tata Salt', 'quantity': 1, 'unit_price': 28, 'total_price': 28}]}).get_json()['bill_number']
+    assert na.endswith('-00001') and nb.endswith('-00001') and na != nb
+    assert b.get(f'/api/bills/{na}').status_code == 404 and b.get(f'/api/bills/{na}/pdf').status_code == 404
+    assert b.post(f'/api/bills/{na}/cancel').status_code == 404
+    assert all(x['bill_number'] != na for x in b.get('/api/bills?page=1&per_page=100').get_json()['bills'])
+    # selling in B must not touch A's stock (same product name!)
+    assert a.get(f'/api/products/{pa["id"]}').get_json()['product']['stock_quantity'] == 9
+    assert b.get(f'/api/products/{pb["id"]}').get_json()['product']['stock_quantity'] == 4
+    assert b.get('/api/dashboard/stats').get_json()['total_sales'] == 28
+    # khata, galla, backup are per shop
+    a.post('/api/expenses', json={'amount': 500, 'category': 'Rent'})
+    assert b.get('/api/expenses').get_json()['total'] == 0
+    a.post('/api/daybook/close', json={'counted_cash': 100})
+    assert b.post('/api/daybook/close', json={'counted_cash': 50}).get_json()['success']   # same day, other shop
+    backup = b.get('/export/backup.json').get_json()
+    assert len(backup['shop']) == 1 and backup['shop'][0]['shop_name'] == 'Bilal Store'
+    assert all(p['shop_id'] == backup['shop'][0]['id'] for p in backup['products'])
+    # deleting shop B leaves shop A intact
+    r = b.post('/account-deletion', data={'identifier': '9700000002', 'password': 'secret123', 'confirm': 'DELETE'})
+    assert r.status_code == 200
+    assert a.get(f'/api/products/{pa["id"]}').status_code == 200
+    assert a.get(f'/api/bills/{na}').status_code == 200
